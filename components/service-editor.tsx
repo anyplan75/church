@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { copyServiceNextWeek, deleteService, saveService } from "@/lib/actions";
+import { addRosterPerson, copyServiceNextWeek, deleteService, saveService } from "@/lib/actions";
 import { missingRequired, type CheckContext } from "@/lib/checklist";
 import { ITEM_KINDS, SERVICE_TYPES, type ItemKind, type Person, type Reminder, type Service, type Settings, type Song } from "@/lib/types";
 import { assignmentProgress, createItem, kindLabel, reorder, songOptionLabel, templateItems } from "@/lib/worship";
@@ -27,6 +27,8 @@ export function ServiceEditor({
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState(service);
+  const [addedPeople, setAddedPeople] = useState<Person[]>([]);
+  const [addingId, setAddingId] = useState("");
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [saveMessage, setSaveMessage] = useState("");
   const [startError, setStartError] = useState("");
@@ -153,6 +155,35 @@ export function ServiceEditor({
     }));
   }
 
+  const roster = people.concat(addedPeople.filter((person) => !people.some((entry) => entry.id === person.id)));
+
+  async function linkPendingPerson(itemId: string, pendingName: string) {
+    setAddingId(itemId);
+    const result = await addRosterPerson(pendingName);
+    if (!result.ok) {
+      setAddingId("");
+      setSaveState("error");
+      setSaveMessage(result.message);
+      return;
+    }
+    setAddedPeople((current) =>
+      current.some((person) => person.id === result.id)
+        ? current
+        : [...current, { id: result.id, name: result.name, roles: [], phone: "", active: true }],
+    );
+    const current = draftRef.current;
+    const items = current.items.map((item) => (item.id === itemId ? { ...item, personId: result.id, pendingName: "" } : item));
+    const linked = items.find((item) => item.id === itemId);
+    const next: Service = {
+      ...current,
+      preacherId: linked?.kind === "sermon" && !current.preacherId ? result.id : current.preacherId,
+      items,
+    };
+    await flush(next);
+    setAddingId("");
+    router.refresh();
+  }
+
   return (
     <div className="page">
       <Link href="/services" className="text-sm text-muted">
@@ -238,7 +269,7 @@ export function ServiceEditor({
             onChange={(event) => update((current) => ({ ...current, preacherId: event.target.value || null }))}
           >
             <option value="">없음</option>
-            {selectablePeople(people, draft.preacherId).map((person) => (
+            {selectablePeople(roster, draft.preacherId).map((person) => (
               <option key={person.id} value={person.id}>
                 {personLabel(person)}
               </option>
@@ -308,9 +339,16 @@ export function ServiceEditor({
                   </label>
                   <label className="field">
                     <span>담당</span>
-                    <select className="select" value={item.personId ?? ""} onChange={(event) => patchItem(item.id, { personId: event.target.value || null })}>
+                    <select
+                      className="select"
+                      value={item.personId ?? ""}
+                      onChange={(event) => {
+                        const personId = event.target.value || null;
+                        patchItem(item.id, { personId, pendingName: personId ? "" : item.pendingName });
+                      }}
+                    >
                       <option value="">없음</option>
-                      {selectablePeople(people, item.personId).map((person) => (
+                      {selectablePeople(roster, item.personId).map((person) => (
                         <option key={person.id} value={person.id}>
                           {personLabel(person)}
                         </option>
@@ -349,6 +387,14 @@ export function ServiceEditor({
                     </button>
                   </div>
                 </div>
+                {item.pendingName && !item.personId ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <p className="text-sm text-wine">{item.pendingName} 님은 명단에 없습니다.</p>
+                    <button type="button" className="btn btn-quiet btn-small" disabled={addingId === item.id} onClick={() => void linkPendingPerson(item.id, item.pendingName)}>
+                      {addingId === item.id ? "추가 중" : "명단에 추가"}
+                    </button>
+                  </div>
+                ) : null}
                 <div className="mt-2 grid gap-2 md:grid-cols-2">
                   {item.kind === "scripture" || item.kind === "sermon" || item.scripture ? (
                     <label className="field">

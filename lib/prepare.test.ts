@@ -109,6 +109,98 @@ ${LYRIC}
     assert.equal(created?.permittedLine, "");
     assert.equal(created?.title, "찬송 405장");
   });
+
+  it("links the same roster person when a title or surrounding spaces differ", () => {
+    const roster: Person[] = [
+      { id: "person-senior", name: "김은혜", roles: ["담임목사"], phone: "", active: true },
+      { id: "person-elder", name: "  이성실  ", roles: ["장로"], phone: "", active: true },
+      { id: "person-reader", name: "오은총", roles: ["집사"], phone: "", active: true },
+      { id: "person-associate", name: "박요한 목사", roles: ["부목사"], phone: "", active: true },
+    ];
+    const titled = `2026년 10월 18일 주일
+1부 예배 오전 9:00
+대표기도   이성실
+성경봉독 히브리서 10:23-25 오은총 집사
+설교 다시 모인 자리에서 김은혜 목사
+봉헌 전도사 김은혜
+축도 목사김은혜
+기도 김은혜 강도사
+통성기도 권사 김은혜
+대표기도 성도 김은혜
+성경봉독 김은혜 사모
+축도 박요한`;
+    const db = { settings, people: roster.map((person) => ({ ...person })), songs: [] as Song[], services: [], reminders: [] };
+    const before = db.people.map((person) => person.name);
+    applyBulletin(db, titled, "2026-10-12");
+    assert.deepEqual(db.people.map((person) => person.name), before);
+    const sunday = db.services[0];
+    assert.equal(sunday.place, "본당");
+    assert.equal(sunday.preacherId, "person-senior");
+    assert.equal(sunday.items.find((item) => item.title === "대표기도")?.personId, "person-elder");
+    assert.equal(sunday.items.find((item) => item.title === "대표기도")?.pendingName, "");
+    const scripture = sunday.items.find((item) => item.kind === "scripture");
+    assert.equal(scripture?.personId, "person-reader");
+    assert.equal(scripture?.scripture, "히브리서 10:23-25");
+    const sermon = sunday.items.find((item) => item.kind === "sermon");
+    assert.equal(sermon?.personId, "person-senior");
+    assert.equal(sermon?.note, "다시 모인 자리에서");
+    assert.equal(sermon?.pendingName, "");
+    for (const title of ["봉헌", "축도", "기도", "통성기도"]) {
+      const item = sunday.items.find((entry) => entry.title === title);
+      assert.equal(item?.personId, "person-senior", title);
+      assert.equal(item?.pendingName, "");
+    }
+    const closing = sunday.items.filter((item) => item.kind === "benediction");
+    assert.equal(closing[0]?.personId, "person-senior");
+    assert.equal(closing[1]?.personId, "person-associate");
+    const secondReading = sunday.items.filter((item) => item.kind === "scripture")[1];
+    assert.equal(secondReading?.personId, "person-senior");
+  });
+
+  it("keeps an unknown bulletin name without creating a person", () => {
+    const roster: Person[] = [
+      { id: "person-senior", name: "김은혜", roles: ["담임목사"], phone: "", active: true },
+      { id: "person-elder", name: "이성실", roles: ["장로"], phone: "", active: true },
+    ];
+    const bulletin = `2026년 10월 18일 주일
+1부 예배 오전 9:00
+대표기도 이성실
+성경봉독 오은총 집사
+봉헌 홍길동 권사
+설교 다시 모인 자리에서 정다운
+축도`;
+    const db = { settings, people: roster.map((person) => ({ ...person })), songs: [] as Song[], services: [], reminders: [] };
+    applyBulletin(db, bulletin, "2026-10-12");
+    assert.deepEqual(
+      db.people.map((person) => person.name),
+      ["김은혜", "이성실"],
+    );
+    const sunday = db.services[0];
+    assert.equal(sunday.place, "본당");
+    const prayer = sunday.items.find((item) => item.title === "대표기도");
+    assert.equal(prayer?.personId, "person-elder");
+    assert.equal(prayer?.pendingName, "");
+    const reading = sunday.items.find((item) => item.kind === "scripture");
+    assert.equal(reading?.personId, null);
+    assert.equal(reading?.pendingName, "오은총");
+    const offering = sunday.items.find((item) => item.kind === "offering");
+    assert.equal(offering?.personId, null);
+    assert.equal(offering?.pendingName, "홍길동");
+    const sermon = sunday.items.find((item) => item.kind === "sermon");
+    assert.equal(sermon?.personId, null);
+    assert.equal(sermon?.pendingName, "정다운");
+    assert.equal(sermon?.note, "다시 모인 자리에서");
+    assert.equal(sunday.preacherId, null);
+    const untitled = `2026년 10월 18일 주일
+2부 예배 오전 11:00
+설교 다시 모인 자리에서
+축도`;
+    applyBulletin(db, untitled, "2026-10-12");
+    const second = db.services[1];
+    assert.equal(second.items.find((item) => item.kind === "sermon")?.note, "다시 모인 자리에서");
+    assert.equal(second.items.find((item) => item.kind === "sermon")?.pendingName, "");
+    assert.equal(db.people.length, 2);
+  });
 });
 
 describe("slides", () => {

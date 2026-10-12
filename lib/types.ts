@@ -65,6 +65,7 @@ export type WorshipItem = {
   scriptureLicensed: boolean;
   screenCue: string;
   personId: string | null;
+  pendingName: string;
   songId: string | null;
 };
 
