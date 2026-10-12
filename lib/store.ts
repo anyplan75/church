@@ -25,7 +25,8 @@ export function readDb(): Db {
 export function updateDb(mutator: (db: Db) => void): Db {
   const db = readDb();
   mutator(db);
-  write(db);
+  const next = JSON.stringify(db, null, 2);
+  if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== next) write(db);
   return db;
 }
 
