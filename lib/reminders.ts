@@ -7,6 +7,13 @@ const HOURS: Record<ReminderKind, number> = {
   "hour-before": 1,
 };
 
+export function reminderRecipient(people: Person[], personId: string): string {
+  const person = people.find((entry) => entry.id === personId);
+  if (!person) return "";
+  const phone = person.phone.trim();
+  return phone ? `${person.name} · 전화 ${phone}` : person.name;
+}
+
 export function involvedPeople(service: Service): string[] {
   const ids: string[] = [];
   if (service.preacherId) ids.push(service.preacherId);
