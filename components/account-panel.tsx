@@ -3,6 +3,13 @@ import { RoleFields } from "@/components/role-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { createAccount, removeAccount, saveAccount } from "@/lib/account-actions";
 import type { Account } from "@/lib/accounts";
+import { ROLES, type Role } from "@/lib/roles";
+
+function roleLabels(roles: readonly Role[]) {
+  return ROLES.filter((role) => roles.includes(role.id))
+    .map((role) => role.label)
+    .join(" · ");
+}
 
 const ERRORS: Record<string, string> = {
   email: "이메일 형식을 확인해 주세요.",
@@ -59,7 +66,10 @@ export function AccountPanel({
           <form key={account.id} action={saveAccount} autoComplete="off" className="card space-y-4 p-5">
             <input type="hidden" name="id" value={account.id} />
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="font-serif text-2xl">{account.email}</h3>
+              <div>
+                <h3 className="font-serif text-2xl">{account.email}</h3>
+                <p className="text-sm text-muted">{roleLabels(account.roles)}</p>
+              </div>
               {account.id === currentId ? <span className="text-sm text-muted">내 계정</span> : null}
             </div>
             {error && errorAccount === account.id ? <p className="text-sm text-wine">{ERRORS[error] ?? "계정을 저장하지 못했습니다."}</p> : null}
