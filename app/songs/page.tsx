@@ -15,7 +15,7 @@ export default async function SongsPage({ searchParams }: { searchParams: Promis
       <p className="mt-2 text-muted">찬송가 번호가 있는 찬송과, 번호 없는 찬양을 함께 둡니다.</p>
       {query.error === "title" ? <p className="mt-4 text-sm text-wine">곡명을 입력해 주세요.</p> : null}
 
-      <form action={createSong} className="card mt-6 grid gap-3 p-5 md:grid-cols-[6rem_1fr_6rem_auto] md:items-end">
+      <form action={createSong} autoComplete="off" className="card mt-6 grid gap-3 p-5 md:grid-cols-[6rem_1fr_6rem_auto] md:items-end">
         <label className="field">
           <span>번호</span>
           <input className="input" name="hymnNumber" maxLength={10} placeholder="405" />

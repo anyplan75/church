@@ -74,16 +74,21 @@ export default function HomePage() {
             const services = week.filter((service) => service.date === day);
             return (
               <div key={day} className={day === todayText ? "day day-today" : "day"}>
-                <div className="w-14 shrink-0">
-                  <p className="text-sm text-muted">{formatWeekday(day)}</p>
-                  <p className="font-serif text-3xl leading-none">{Number(day.slice(8))}</p>
+                <div className="day-meta">
+                  <div>
+                    <p className="text-sm text-muted">{formatWeekday(day)}</p>
+                    <p className="font-serif text-3xl leading-none">{Number(day.slice(8))}</p>
+                  </div>
+                  <Link href={`/services/new?date=${day}`} className="btn btn-quiet btn-small day-add-mobile">
+                    추가
+                  </Link>
                 </div>
                 <div className="min-w-0 flex-1">
-                  {services.length === 0 ? <p className="pt-2 text-muted">예배 없음</p> : null}
+                  {services.length === 0 ? <p className="text-muted">예배 없음</p> : null}
                   <div className="space-y-2">
                     {services.map((service) => (
                       <Link key={service.id} href={`/services/${service.id}`} className="block rounded-xl px-3 py-2 hover:bg-white">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="service-line">
                           <div>
                             <p className="font-medium">
                               {formatTime(service.time)} {service.title}
@@ -99,7 +104,7 @@ export default function HomePage() {
                     ))}
                   </div>
                 </div>
-                <Link href={`/services/new?date=${day}`} className="btn btn-quiet btn-small shrink-0">
+                <Link href={`/services/new?date=${day}`} className="btn btn-quiet btn-small day-add-desktop">
                   추가
                 </Link>
               </div>

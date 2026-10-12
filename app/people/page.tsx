@@ -15,7 +15,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       <p className="mt-2 text-muted">예배 순서를 맡을 교역자와 봉사자입니다. 쉼으로 두면 새 순서에는 나오지 않습니다.</p>
       {query.error === "name" ? <p className="mt-4 text-sm text-wine">이름을 입력해 주세요.</p> : null}
 
-      <form action={createPerson} className="card mt-6 grid gap-3 p-5 md:grid-cols-[1fr_1fr_10rem_auto] md:items-end">
+      <form action={createPerson} autoComplete="off" className="card mt-6 grid gap-3 p-5 md:grid-cols-[1fr_1fr_10rem_auto] md:items-end">
         <label className="field">
           <span>이름</span>
           <input className="input" name="name" maxLength={40} required placeholder="이름" />
@@ -26,7 +26,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
         </label>
         <label className="field">
           <span>전화</span>
-          <input className="input" name="phone" maxLength={30} placeholder="010-0000-0000" />
+          <input className="input" name="phone" maxLength={30} autoComplete="off" placeholder="전화번호" />
         </label>
         <SubmitButton>추가</SubmitButton>
       </form>

@@ -33,6 +33,7 @@ export function LiveConsole({
   const elapsed = useElapsed(startedAt, status === "live");
   const item = service.items[index];
   const upcoming = service.items[index + 1];
+  const songsById = new Map(songs.map((song) => [song.id, song]));
 
   function go(next: number) {
     const clamped = clampLiveIndex(next, service.items.length);
@@ -152,10 +153,12 @@ export function LiveConsole({
           {error ? <p className="mt-6 text-[#ffd0d4]">{error}</p> : null}
         </section>
 
-        <aside className="border-t border-white/10 px-4 py-5 lg:border-t-0 lg:border-l">
+        <aside className="border-t border-white/10 px-4 pb-28 pt-5 lg:h-[calc(100vh-8.5rem)] lg:overflow-y-auto lg:border-t-0 lg:border-l lg:pb-4">
           <h2 className="px-2 text-sm text-[#d9d0c2]">전체 순서</h2>
           <ol className="mt-3 space-y-1">
-            {service.items.map((entry, entryIndex) => (
+            {service.items.map((entry, entryIndex) => {
+              const detail = orderDetail(entry, people, songsById);
+              return (
               <li key={entry.id}>
                 <button
                   type="button"
@@ -166,11 +169,12 @@ export function LiveConsole({
                   <span className="w-5 text-sm text-[#d9d0c2]">{entryIndex + 1}</span>
                   <span>
                     <span className="block">{entry.title}</span>
-                    <span className="block text-sm text-[#d9d0c2]">{personName(people, entry.personId) || kindLabel(entry.kind)}</span>
+                    {detail ? <span className="block text-sm text-[#d9d0c2]">{detail}</span> : null}
                   </span>
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ol>
         </aside>
       </div>
@@ -188,6 +192,15 @@ export function LiveConsole({
       ) : null}
     </div>
   );
+}
+
+function orderDetail(entry: Service["items"][number], people: Person[], songsById: Map<string, Song>) {
+  const person = personName(people, entry.personId);
+  const song = describeSong(entry.songId ? songsById.get(entry.songId) : undefined);
+  const extra = [person, song].filter(Boolean).join(" · ");
+  if (extra) return extra;
+  const kind = kindLabel(entry.kind);
+  return kind !== entry.title ? kind : "";
 }
 
 function useElapsed(startedAt: string | null, active: boolean) {
