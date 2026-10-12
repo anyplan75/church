@@ -3,16 +3,20 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/print-button";
 import { formatKoreanDate, formatTime } from "@/lib/format";
+import { requireScreen } from "@/lib/guard";
+import { can } from "@/lib/roles";
 import { readDb } from "@/lib/store";
 import { itemAside, preacherName } from "@/lib/worship";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  await requireScreen("screen.bulletin");
   const { id } = await params;
   const service = readDb().services.find((item) => item.id === id);
   return { title: service ? `${service.title} 주보 · 예배 운영` : "주보" };
 }
 
 export default async function BulletinPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireScreen("screen.bulletin");
   const { id } = await params;
   const db = readDb();
   const service = db.services.find((item) => item.id === id);
@@ -24,9 +28,15 @@ export default async function BulletinPage({ params }: { params: Promise<{ id: s
   return (
     <div className="page">
       <div className="no-print mb-4 flex flex-wrap gap-2">
-        <Link href={`/services/${service.id}`} className="btn btn-quiet">
-          순서 편집
-        </Link>
+        {can(user.roles, "screen.editor") ? (
+          <Link href={`/services/${service.id}`} className="btn btn-quiet">
+            순서 편집
+          </Link>
+        ) : (
+          <Link href="/services" className="btn btn-quiet">
+            예배 목록
+          </Link>
+        )}
         <PrintButton />
       </div>
       <article className="bulletin card mx-auto max-w-3xl px-6 py-10 md:px-12">

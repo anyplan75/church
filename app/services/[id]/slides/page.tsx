@@ -3,12 +3,15 @@ import { notFound } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { updateSlideFields } from "@/lib/actions";
 import { COPYRIGHT_NOTE } from "@/lib/checklist";
+import { requireScreen } from "@/lib/guard";
+import { can } from "@/lib/roles";
 import { slidesFor } from "@/lib/slides";
 import { readDb } from "@/lib/store";
 
 export const metadata = { title: "슬라이드 · 예배 운영" };
 
 export default async function SlidesPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireScreen("screen.slides");
   const { id } = await params;
   const db = readDb();
   const service = db.services.find((item) => item.id === id);
@@ -17,8 +20,8 @@ export default async function SlidesPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="page">
-      <Link href={`/services/${service.id}`} className="text-sm text-muted">
-        예배 순서로
+      <Link href={can(user.roles, "screen.editor") ? `/services/${service.id}` : "/services"} className="text-sm text-muted">
+        {can(user.roles, "screen.editor") ? "예배 순서로" : "예배 목록"}
       </Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>

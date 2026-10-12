@@ -4,10 +4,14 @@ import fs from "fs";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { serviceSaveBlock } from "./access";
+import { hasAnyAccount } from "./accounts";
 import { applyBulletin } from "./bulletin-apply";
 import { missingRequired } from "./checklist";
 import { extractUploadedText } from "./extract-text";
+import { mutationUser, requireMutation } from "./guard";
 import { syncReminders } from "./reminders";
+import { getCurrentUser } from "./session";
 import { isOverlayPosition, updateDb } from "./store";
 import type { Db, Service, ServiceStatus, SongLicense } from "./types";
 import {
@@ -53,6 +57,9 @@ function cleanText(value: FormDataEntryValue | null, max: number): string {
 
 export async function saveService(input: Service): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
+    if (!hasAnyAccount()) return { ok: false, message: "로그인이 필요합니다." };
+    const user = await getCurrentUser();
+    if (!user) return { ok: false, message: "로그인이 필요합니다." };
     const service = normalizeService(input);
     let found = false;
     updateDb((db) => {
@@ -67,6 +74,8 @@ export async function saveService(input: Service): Promise<{ ok: true } | { ok: 
       const index = db.services.findIndex((item) => item.id === service.id);
       if (index < 0) return;
       const previous = db.services[index];
+      const blockedRole = serviceSaveBlock(user.roles, previous, service);
+      if (blockedRole) throw new Error(blockedRole);
       const goingLive = service.status === "live" && previous.status !== "live";
       db.services[index] = service;
       syncReminders(db);
@@ -90,6 +99,8 @@ export async function saveLiveProgress(
   status?: ServiceStatus,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
+    const auth = await mutationUser("mutate.run");
+    if (!auth.ok) return auth;
     updateDb((db) => {
       const service = db.services.find((item) => item.id === id);
       if (!service) throw new Error("예배를 찾을 수 없습니다.");
@@ -114,6 +125,7 @@ export async function saveLiveProgress(
 }
 
 export async function createService(formData: FormData) {
+  await requireMutation("mutate.prepare");
   const typeValue = cleanText(formData.get("type"), 20);
   const type = isServiceType(typeValue) ? typeValue : "sunday-2";
   const title = cleanText(formData.get("title"), 80) || "예배";
@@ -178,6 +190,7 @@ export async function createService(formData: FormData) {
 }
 
 export async function copyServiceNextWeek(id: string) {
+  await requireMutation("mutate.prepare");
   let created = "";
   updateDb((db) => {
     const source = db.services.find((service) => service.id === id);
@@ -202,6 +215,7 @@ export async function copyServiceNextWeek(id: string) {
 }
 
 export async function deleteService(id: string) {
+  await requireMutation("mutate.prepare");
   updateDb((db) => {
     const service = db.services.find((item) => item.id === id);
     if (service?.status === "live") throw new Error("진행 중인 예배는 삭제할 수 없습니다.");
@@ -213,6 +227,7 @@ export async function deleteService(id: string) {
 }
 
 export async function createPerson(formData: FormData) {
+  await requireMutation("mutate.directory");
   const name = cleanText(formData.get("name"), 40);
   if (!name) redirect("/people?error=name");
   const roles = cleanText(formData.get("roles"), 80)
@@ -234,6 +249,7 @@ export async function createPerson(formData: FormData) {
 }
 
 export async function updatePerson(formData: FormData) {
+  await requireMutation("mutate.directory");
   const id = cleanText(formData.get("id"), 80);
   const name = cleanText(formData.get("name"), 40);
   if (!name) redirect("/people?error=name");
@@ -255,6 +271,7 @@ export async function updatePerson(formData: FormData) {
 }
 
 export async function deletePerson(formData: FormData) {
+  await requireMutation("mutate.directory");
   const id = cleanText(formData.get("id"), 80);
   updateDb((db) => {
     db.people = db.people.filter((person) => person.id !== id);
@@ -271,6 +288,7 @@ export async function deletePerson(formData: FormData) {
 }
 
 export async function createSong(formData: FormData) {
+  await requireMutation("mutate.directory");
   const title = cleanText(formData.get("title"), 80);
   if (!title) redirect("/songs?error=title");
   updateDb((db) => {
@@ -289,6 +307,7 @@ export async function createSong(formData: FormData) {
 }
 
 export async function updateSong(formData: FormData) {
+  await requireMutation("mutate.directory");
   const id = cleanText(formData.get("id"), 80);
   const title = cleanText(formData.get("title"), 80);
   if (!title) redirect("/songs?error=title");
@@ -307,6 +326,7 @@ export async function updateSong(formData: FormData) {
 }
 
 export async function deleteSong(formData: FormData) {
+  await requireMutation("mutate.directory");
   const id = cleanText(formData.get("id"), 80);
   updateDb((db) => {
     db.songs = db.songs.filter((song) => song.id !== id);
@@ -321,6 +341,7 @@ export async function deleteSong(formData: FormData) {
 }
 
 export async function updateSettings(formData: FormData) {
+  await requireMutation("mutate.admin");
   const churchName = cleanText(formData.get("churchName"), 40);
   if (!churchName) redirect("/settings?error=empty");
   const overlayValue = cleanText(formData.get("overlay"), 12);
@@ -344,6 +365,7 @@ export async function updateSettings(formData: FormData) {
 }
 
 export async function importBulletin(formData: FormData) {
+  await requireMutation("mutate.prepare");
   const pasted = String(formData.get("text") ?? "");
   const file = formData.get("file");
   let text = pasted;
@@ -374,6 +396,7 @@ export async function importBulletin(formData: FormData) {
 }
 
 export async function updateSlideFields(formData: FormData) {
+  await requireMutation("mutate.output");
   const serviceId = cleanText(formData.get("serviceId"), 80);
   const itemId = cleanText(formData.get("itemId"), 80);
   updateDb((db) => {

@@ -18,12 +18,14 @@ export function ServiceEditor({
   songs,
   settings,
   reminders,
+  access,
 }: {
   service: Service;
   people: Person[];
   songs: Song[];
   settings: Settings;
   reminders: Reminder[];
+  access: { live: boolean; output: boolean; bulletin: boolean };
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState(service);
@@ -173,33 +175,41 @@ export function ServiceEditor({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href={`/services/${draft.id}/bulletin`} className="btn btn-quiet">
-            주보
-          </Link>
-          <Link href={`/services/${draft.id}/slides`} className="btn btn-quiet">
-            슬라이드
-          </Link>
-          <Link href={`/services/${draft.id}/output`} target="_blank" className="btn btn-quiet">
-            송출 화면
-          </Link>
+          {access.bulletin ? (
+            <Link href={`/services/${draft.id}/bulletin`} className="btn btn-quiet">
+              주보
+            </Link>
+          ) : null}
+          {access.output ? (
+            <Link href={`/services/${draft.id}/slides`} className="btn btn-quiet">
+              슬라이드
+            </Link>
+          ) : null}
+          {access.output ? (
+            <Link href={`/services/${draft.id}/output`} target="_blank" className="btn btn-quiet">
+              송출 화면
+            </Link>
+          ) : null}
           {draft.status === "planning" ? (
             <button type="button" className="btn btn-quiet" onClick={() => void markReady()}>
               준비 완료
             </button>
           ) : null}
-          {draft.status === "live" ? (
+          {access.live && draft.status === "live" ? (
             <button type="button" className="btn btn-primary" onClick={() => void openLive()}>
               진행 화면
             </button>
-          ) : draft.status !== "done" ? (
+          ) : null}
+          {access.live && draft.status !== "live" && draft.status !== "done" ? (
             <button type="button" className="btn btn-primary" onClick={() => void beginLive()} disabled={draft.items.length === 0}>
               예배 시작
             </button>
-          ) : (
+          ) : null}
+          {access.live && draft.status === "done" ? (
             <button type="button" className="btn btn-quiet" onClick={() => void openLive()}>
               진행 기록
             </button>
-          )}
+          ) : null}
           <button type="button" className="btn btn-quiet" onClick={() => void copyNext()}>
             다음 주로 복사
           </button>

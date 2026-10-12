@@ -3,6 +3,8 @@ import { NotifyButton } from "@/components/notify-button";
 import { SubmitButton } from "@/components/submit-button";
 import { importBulletin } from "@/lib/actions";
 import { CHECKS, checklistProgress, COPYRIGHT_NOTE } from "@/lib/checklist";
+import { requireScreen } from "@/lib/guard";
+import { can } from "@/lib/roles";
 import { formatKoreanDate, formatTime } from "@/lib/format";
 import { syncReminders } from "@/lib/reminders";
 import { updateDb } from "@/lib/store";
@@ -29,6 +31,8 @@ export default async function PreparePage({
 }: {
   searchParams: Promise<{ imported?: string; skipped?: string; lyrics?: string; error?: string; detail?: string }>;
 }) {
+  const user = await requireScreen("screen.prepare");
+  const output = can(user.roles, "screen.output");
   const query = await searchParams;
   const db = updateDb((current) => {
     syncReminders(current);
@@ -118,12 +122,16 @@ export default async function PreparePage({
                   <Link href={`/services/${service.id}`} className="btn btn-quiet btn-small">
                     점검
                   </Link>
-                  <Link href={`/services/${service.id}/slides`} className="btn btn-quiet btn-small">
-                    슬라이드
-                  </Link>
-                  <Link href={`/services/${service.id}/output`} target="_blank" className="btn btn-quiet btn-small">
-                    송출
-                  </Link>
+                  {output ? (
+                    <Link href={`/services/${service.id}/slides`} className="btn btn-quiet btn-small">
+                      슬라이드
+                    </Link>
+                  ) : null}
+                  {output ? (
+                    <Link href={`/services/${service.id}/output`} target="_blank" className="btn btn-quiet btn-small">
+                      송출
+                    </Link>
+                  ) : null}
                 </div>
               </article>
             );

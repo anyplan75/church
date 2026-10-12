@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Nav } from "@/components/nav";
 import { ReminderWatcher } from "@/components/reminder-watcher";
+import { hasAnyAccount } from "@/lib/accounts";
+import { can, canOpenPath, homeFor } from "@/lib/roles";
+import { getCurrentUser } from "@/lib/session";
 import { readDb } from "@/lib/store";
 import "./globals.css";
 
@@ -14,7 +19,21 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   await connection();
-  const churchName = readDb().settings.churchName;
+  const pathname = (await headers()).get("x-pathname") ?? "/";
+  const setupOpen = !hasAnyAccount();
+  const user = setupOpen ? null : await getCurrentUser();
+
+  if (setupOpen) {
+    if (pathname !== "/setup") redirect("/setup");
+  } else if (!user) {
+    if (pathname !== "/login") redirect("/login");
+  } else if (pathname === "/login" || pathname === "/setup") {
+    redirect(homeFor(user.roles));
+  } else if (!canOpenPath(user.roles, pathname)) {
+    redirect("/denied");
+  }
+
+  const churchName = user ? readDb().settings.churchName : "";
 
   return (
     <html lang="ko">
@@ -27,8 +46,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body>
-        <Nav churchName={churchName} />
-        <ReminderWatcher />
+        {user ? <Nav churchName={churchName} email={user.email} roles={user.roles} /> : null}
+        {user && can(user.roles, "screen.prepare") ? <ReminderWatcher /> : null}
         {children}
       </body>
     </html>
