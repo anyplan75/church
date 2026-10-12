@@ -44,7 +44,7 @@ function draftToService(db: Db, draft: BulletinDraft): Service {
     date: draft.date,
     time: draft.time,
     type: draft.type,
-    place: "본당",
+    place: draft.place || "본당",
     preacherId: preacher,
     status: "planning",
     items: draft.items.map((item) => {

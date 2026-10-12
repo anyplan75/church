@@ -18,6 +18,7 @@ export type BulletinDraft = {
   time: string;
   type: ServiceType;
   preacherName: string;
+  place: string;
   items: BulletinItem[];
   announcements: string[];
 };
@@ -56,9 +57,16 @@ export function parseBulletin(text: string, people: Person[], today = todayISO()
         time: header.time,
         type: header.type,
         preacherName: "",
+        place: header.place,
         items: [],
         announcements: [],
       };
+      continue;
+    }
+
+    const place = readPlaceLine(raw);
+    if (place && current) {
+      current.place = place;
       continue;
     }
 
@@ -175,7 +183,39 @@ function isDateLine(line: string): boolean {
   return rest.length === 0;
 }
 
-function parseHeader(line: string): { type: ServiceType; time: string; title: string } | null {
+const SERVICE_TOKENS = new Set(["주일", "예배", "새벽", "수요", "금요", "특별", "기도회"]);
+
+function readPlaceLine(line: string): string {
+  const match = line.match(/^(?:예배\s*)?장\s*소\s*[:：]?\s*(.*)$/);
+  if (!match) return "";
+  return cleanPlace(match[1]);
+}
+
+function placeFromHeader(line: string): string {
+  const paren = line.match(/[（(]\s*([^()（）]{1,40})\s*[)）]/);
+  if (paren) {
+    const place = cleanPlace(paren[1]);
+    if (place && !SERVICE_TOKENS.has(place)) return place;
+  }
+  const stripped = line
+    .replace(/[（(][^()（）]*[)）]/g, " ")
+    .replace(/(오전|오후)\s*\d{1,2}\s*(?:[:시]\s*\d{1,2}\s*분?)?/g, " ")
+    .replace(/\d{1,2}:\d{2}/g, " ")
+    .replace(/[1-3]\s*부/g, " ");
+  const tokens = stripped
+    .split(/\s+/)
+    .map((token) => token.replace(/^[·•,，|/~\-–]+|[·•,，|/~\-–]+$/g, ""))
+    .filter((token) => token && !SERVICE_TOKENS.has(token));
+  return cleanPlace(tokens.join(" "));
+}
+
+function cleanPlace(value: string): string {
+  const place = value.replace(/\s+/g, " ").trim();
+  if (!place || place.length > 40) return "";
+  return place;
+}
+
+function parseHeader(line: string): { type: ServiceType; time: string; title: string; place: string } | null {
   if (line.length > 40) return null;
   let type: ServiceType | null = null;
   const part = line.match(/([1-3])\s*부/);
@@ -187,7 +227,7 @@ function parseHeader(line: string): { type: ServiceType; time: string; title: st
   else if (/(주일\s*예배|주일예배)/.test(line)) type = "sunday-2";
   else return null;
   const defaults = serviceTypeDefaults(type);
-  return { type, time: parseClock(line) ?? defaults.time, title: defaults.title };
+  return { type, time: parseClock(line) ?? defaults.time, title: defaults.title, place: placeFromHeader(line) };
 }
 
 function parseClock(line: string): string | null {

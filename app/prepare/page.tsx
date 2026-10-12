@@ -12,6 +12,7 @@ export const metadata = { title: "예배 준비 · 예배 운영" };
 
 const SAMPLE = `2026년 10월 18일 주일
 1부 예배 오전 9:00
+장소 교육관
 묵도
 찬송 28장
 사도신경
@@ -72,7 +73,7 @@ export default async function PreparePage({
 
       <section className="card mt-8 p-5">
         <h2 className="font-serif text-2xl">주보 가져오기</h2>
-        <p className="mt-2 text-sm text-muted">붙여 넣은 글, 텍스트, 워드(DOCX), 한글(HWPX)을 받습니다. 예전 한글(HWP)은 HWPX로 저장한 뒤 올려 주세요. 한 주에 들어 있는 예배를 모두 준비합니다.</p>
+        <p className="mt-2 text-sm text-muted">붙여 넣은 글, 텍스트, 워드(DOCX), 한글(HWPX)을 받습니다. 예전 한글(HWP)은 HWPX로 저장한 뒤 올려 주세요. 한 주에 들어 있는 예배를 모두 준비합니다. 예배 줄 아래에 장소 교육관처럼 적으면 그 장소를 쓰고, 적지 않으면 본당으로 둡니다.</p>
         {query.imported ? (
           <p className="mt-4 text-sm text-pine">
             예배 {query.imported}개를 준비했습니다.

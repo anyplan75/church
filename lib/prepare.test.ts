@@ -201,6 +201,58 @@ ${LYRIC}
     assert.equal(second.items.find((item) => item.kind === "sermon")?.pendingName, "");
     assert.equal(db.people.length, 2);
   });
+
+  it("uses the place written for that service and keeps the sanctuary otherwise", () => {
+    const roster: Person[] = [
+      { id: "person-senior", name: "김은혜", roles: ["담임목사"], phone: "", active: true },
+      { id: "person-elder", name: "이성실", roles: ["장로"], phone: "", active: true },
+    ];
+    const bulletin = `2026년 10월 18일 주일
+3부 예배 오후 2:00
+장소   교육관
+대표기도   이성실
+설교 다시 모인 자리에서 김은혜 목사
+봉헌 홍길동 권사
+축도
+
+2026년 10월 14일 수요일
+수요 예배 오후 7:30
+말씀 기도의 자리 김은혜
+축도
+
+2026년 10월 16일 금요일
+금요 기도회 (비전홀) 오후 9:00
+통성기도 이성실 장로
+축도
+
+2026년 10월 13일 화요일
+새벽 기도회 오전 5:30 소예배실
+기도 김은혜
+축도`;
+    const db = { settings, people: roster.map((person) => ({ ...person })), songs: [] as Song[], services: [], reminders: [] };
+    applyBulletin(db, bulletin, "2026-10-12");
+    assert.deepEqual(
+      db.people.map((person) => person.name),
+      ["김은혜", "이성실"],
+    );
+    const sunday = db.services.find((service) => service.type === "sunday-3");
+    assert.equal(sunday?.place, "교육관");
+    assert.equal(sunday?.preacherId, "person-senior");
+    assert.equal(sunday?.items.find((item) => item.title === "대표기도")?.personId, "person-elder");
+    assert.equal(sunday?.items.find((item) => item.kind === "sermon")?.personId, "person-senior");
+    assert.equal(sunday?.items.find((item) => item.kind === "sermon")?.note, "다시 모인 자리에서");
+    assert.equal(sunday?.items.find((item) => item.kind === "offering")?.personId, null);
+    assert.equal(sunday?.items.find((item) => item.kind === "offering")?.pendingName, "홍길동");
+    assert.equal(db.services.find((service) => service.type === "wednesday")?.place, "본당");
+    const friday = db.services.find((service) => service.type === "friday");
+    assert.equal(friday?.place, "비전홀");
+    assert.equal(friday?.time, "21:00");
+    assert.equal(friday?.items.find((item) => item.title === "통성기도")?.personId, "person-elder");
+    const dawn = db.services.find((service) => service.type === "dawn");
+    assert.equal(dawn?.place, "소예배실");
+    assert.equal(dawn?.time, "05:30");
+    assert.equal(dawn?.items.find((item) => item.title === "기도")?.personId, "person-senior");
+  });
 });
 
 describe("slides", () => {
