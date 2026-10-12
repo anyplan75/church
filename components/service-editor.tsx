@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { copyServiceNextWeek, deleteService, saveService } from "@/lib/actions";
-import { ITEM_KINDS, SERVICE_TYPES, type ItemKind, type Person, type Service, type Song } from "@/lib/types";
+import { missingRequired, type CheckContext } from "@/lib/checklist";
+import { ITEM_KINDS, SERVICE_TYPES, type ItemKind, type Person, type Reminder, type Service, type Settings, type Song } from "@/lib/types";
 import { assignmentProgress, createItem, kindLabel, reorder, songOptionLabel, templateItems } from "@/lib/worship";
+import { ChecklistPanel } from "./checklist-panel";
 import { StatusBadge } from "./status-badge";
 
 type SaveResult = { ok: true } | { ok: false; message: string };
@@ -14,15 +16,20 @@ export function ServiceEditor({
   service,
   people,
   songs,
+  settings,
+  reminders,
 }: {
   service: Service;
   people: Person[];
   songs: Song[];
+  settings: Settings;
+  reminders: Reminder[];
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState(service);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [saveMessage, setSaveMessage] = useState("");
+  const [startError, setStartError] = useState("");
   const draftRef = useRef(draft);
   const dirty = useRef(false);
   const version = useRef(0);
@@ -96,16 +103,26 @@ export function ServiceEditor({
   const missing = progress.total - progress.assigned;
   const saveLabel = saveState === "saving" ? "저장 중" : saveState === "error" ? saveMessage || "저장하지 못했습니다" : "저장됨";
 
+  const checkContext: CheckContext = { people, songs, settings, reminders };
+
   async function beginLive() {
-    if (draftRef.current.items.length === 0) return;
+    const current = draftRef.current;
+    if (current.items.length === 0) return;
+    const missing = missingRequired(current, checkContext);
+    if (missing.length > 0) {
+      setStartError(`점검을 마쳐 주세요: ${missing.join(", ")}`);
+      return;
+    }
+    setStartError("");
     const next: Service = {
-      ...draftRef.current,
+      ...current,
       status: "live",
       liveIndex: 0,
       startedAt: new Date().toISOString(),
     };
     const result = await flush(next);
     if (result.ok) router.push(`/services/${next.id}/live`);
+    else setStartError(result.message);
   }
 
   async function openLive() {
@@ -159,6 +176,12 @@ export function ServiceEditor({
           <Link href={`/services/${draft.id}/bulletin`} className="btn btn-quiet">
             주보
           </Link>
+          <Link href={`/services/${draft.id}/slides`} className="btn btn-quiet">
+            슬라이드
+          </Link>
+          <Link href={`/services/${draft.id}/output`} target="_blank" className="btn btn-quiet">
+            송출 화면
+          </Link>
           {draft.status === "planning" ? (
             <button type="button" className="btn btn-quiet" onClick={() => void markReady()}>
               준비 완료
@@ -182,6 +205,7 @@ export function ServiceEditor({
           </button>
         </div>
       </div>
+      {startError ? <p className="mt-4 text-sm text-wine">{startError}</p> : null}
 
       <div className="mt-6 grid gap-3 md:grid-cols-5">
         <label className="field">
@@ -226,6 +250,8 @@ export function ServiceEditor({
       {missing > 0 ? (
         <p className="mt-4 rounded-2xl bg-[#f8e4e6] px-4 py-3 text-sm text-wine">담당자가 비어 있는 순서가 {missing}개 있습니다.</p>
       ) : null}
+
+      <ChecklistPanel service={draft} context={checkContext} onChange={(checks) => update((current) => ({ ...current, checks }))} />
 
       <section className="mt-8">
         <div className="flex items-center justify-between gap-3">

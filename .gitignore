@@ -2,4 +2,5 @@ node_modules
 .next
 data/*.json
 data/*.tmp
+data/backgrounds
 tsconfig.tsbuildinfo

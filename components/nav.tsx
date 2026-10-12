@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "이번 주" },
+  { href: "/prepare", label: "준비" },
   { href: "/services", label: "예배" },
   { href: "/people", label: "사람" },
   { href: "/songs", label: "찬양" },
@@ -18,7 +19,7 @@ function isActive(pathname: string, href: string) {
 
 export function Nav({ churchName }: { churchName: string }) {
   const pathname = usePathname();
-  if (pathname.endsWith("/live")) return null;
+  if (pathname.endsWith("/live") || pathname.endsWith("/output")) return null;
 
   return (
     <header className="no-print sticky top-0 z-20 border-b border-line bg-card/90 backdrop-blur">

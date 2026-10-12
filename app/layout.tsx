@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Nav } from "@/components/nav";
+import { ReminderWatcher } from "@/components/reminder-watcher";
 import { readDb } from "@/lib/store";
 import "./globals.css";
 
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "예배 운영",
-  description: "교회 예배 순서를 준비하고, 주보를 만들고, 예배 중에 진행합니다.",
+  description: "예배 전에 순서를 점검하고, 주보로 한 주를 준비한 뒤 예배 화면에 송출합니다.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <Nav churchName={churchName} />
+        <ReminderWatcher />
         {children}
       </body>
     </html>

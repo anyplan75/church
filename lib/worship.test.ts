@@ -32,6 +32,8 @@ function service(partial: Partial<Service> & Pick<Service, "id" | "date">): Serv
     liveIndex: partial.liveIndex ?? 0,
     startedAt: partial.startedAt ?? null,
     notes: partial.notes ?? "",
+    checks: partial.checks ?? {},
+    source: partial.source ?? "manual",
     ...partial,
   };
 }
@@ -100,7 +102,7 @@ describe("order", () => {
 
 describe("services", () => {
   const people: Person[] = [{ id: "p1", name: "김은혜", roles: ["담임목사"], phone: "", active: true }];
-  const songs: Song[] = [{ id: "s1", title: "만복의 근원 하나님", hymnNumber: "1", key: "G" }];
+  const songs: Song[] = [{ id: "s1", title: "만복의 근원 하나님", hymnNumber: "1", key: "G", license: "title-only", permittedLine: "" }];
 
   it("splits live and finished services around today", () => {
     const services = [

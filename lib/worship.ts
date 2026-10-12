@@ -199,6 +199,9 @@ function bare(rows: Array<Pick<WorshipItem, "kind" | "title">>): Array<Omit<Wors
     title: row.title,
     note: "",
     scripture: "",
+    scriptureText: "",
+    scriptureLicensed: false,
+    screenCue: "",
     personId: null,
     songId: null,
   }));
@@ -217,6 +220,9 @@ export function createItem(kind: ItemKind = "other"): WorshipItem {
     title: kindLabel(kind),
     note: "",
     scripture: "",
+    scriptureText: "",
+    scriptureLicensed: false,
+    screenCue: "",
     personId: null,
     songId: null,
   };
@@ -274,6 +280,8 @@ export function normalizeService(input: Service): Service {
     liveIndex: clampLiveIndex(Number(input.liveIndex) || 0, items.length),
     startedAt: typeof input.startedAt === "string" && input.startedAt ? input.startedAt : null,
     notes: String(input.notes ?? "").slice(0, 2000),
+    checks: normalizeChecks(input.checks),
+    source: input.source === "bulletin" ? "bulletin" : "manual",
   };
 }
 
@@ -285,7 +293,19 @@ function normalizeItem(item: WorshipItem): WorshipItem {
     title: String(item?.title ?? "").trim().slice(0, 80) || kindLabel(kind),
     note: String(item?.note ?? "").slice(0, 300),
     scripture: String(item?.scripture ?? "").slice(0, 120),
+    scriptureLicensed: item?.scriptureLicensed === true,
+    scriptureText: item?.scriptureLicensed === true ? String(item?.scriptureText ?? "").slice(0, 400) : "",
+    screenCue: String(item?.screenCue ?? "").slice(0, 80),
     personId: item?.personId || null,
     songId: item?.songId || null,
   };
+}
+
+function normalizeChecks(checks: Service["checks"] | undefined): Record<string, boolean> {
+  if (!checks || typeof checks !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(checks)
+      .filter(([key, value]) => key.length < 40 && typeof value === "boolean")
+      .slice(0, 40),
+  );
 }

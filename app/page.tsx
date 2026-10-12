@@ -24,9 +24,14 @@ export default function HomePage() {
             {formatMonthDay(start)} – {formatMonthDay(days[6])} · 예배 {week.length}번
           </p>
         </div>
-        <Link href="/services/new" className="btn btn-primary">
-          예배 만들기
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/prepare" className="btn btn-quiet">
+            예배 준비
+          </Link>
+          <Link href="/services/new" className="btn btn-primary">
+            예배 만들기
+          </Link>
+        </div>
       </div>
 
       {next ? (

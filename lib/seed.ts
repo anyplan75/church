@@ -85,7 +85,7 @@ export function buildSeed(today = todayISO()): Db {
     { personId: "person-senior", scripture: "히브리서 10:23-25", note: "다시 모인 자리에서" },
   );
 
-  const services: Service[] = [
+  const services: Array<Omit<Service, "checks" | "source">> = [
     {
       id: "service-last-sunday",
       title: "주일 2부 예배",
@@ -203,7 +203,13 @@ export function buildSeed(today = todayISO()): Db {
   ];
 
   return {
-    settings: { churchName: "은혜교회" },
+    settings: {
+      churchName: "은혜교회",
+      backgroundColor: "#1b3a32",
+      backgroundFile: null,
+      overlay: "bottom",
+    },
+    reminders: [],
     people: [
       { id: "person-senior", name: "김은혜", roles: ["담임목사"], phone: "", active: true },
       { id: "person-associate", name: "박요한", roles: ["부목사"], phone: "", active: true },
@@ -221,7 +227,7 @@ export function buildSeed(today = todayISO()): Db {
       { id: "song-405", title: "나 같은 죄인 살리신", hymnNumber: "405", key: "G" },
       { id: "song-501", title: "날 구원하신 주 감사", hymnNumber: "501", key: "Eb" },
       { id: "song-grace", title: "은혜", hymnNumber: "", key: "A" },
-    ],
-    services,
+    ].map((song) => ({ ...song, license: "title-only" as const, permittedLine: "" })),
+    services: services.map((service) => ({ ...service, checks: {}, source: "manual" as const })),
   };
 }

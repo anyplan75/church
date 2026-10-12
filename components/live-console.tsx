@@ -41,7 +41,9 @@ export function LiveConsole({
     setConfirming(false);
     if (statusRef.current !== "live") return;
     startTransition(() => {
-      void saveLiveProgress(service.id, clamped).catch(() => setError("순서를 저장하지 못했습니다."));
+      void saveLiveProgress(service.id, clamped).then((result) => {
+        if (!result.ok) setError(result.message);
+      });
     });
   }
 
@@ -64,24 +66,24 @@ export function LiveConsole({
 
   async function start() {
     setError("");
-    try {
-      await saveLiveProgress(service.id, 0, "live");
-      setStatus("live");
-      setIndex(0);
-      setStartedAt(new Date().toISOString());
-    } catch {
-      setError("예배를 시작하지 못했습니다.");
+    const result = await saveLiveProgress(service.id, 0, "live");
+    if (!result.ok) {
+      setError(result.message);
+      return;
     }
+    setStatus("live");
+    setIndex(0);
+    setStartedAt(new Date().toISOString());
   }
 
   async function finish() {
     setError("");
-    try {
-      await saveLiveProgress(service.id, index, "done");
-      router.push(`/services/${service.id}`);
-    } catch {
-      setError("예배를 마치지 못했습니다.");
+    const result = await saveLiveProgress(service.id, index, "done");
+    if (!result.ok) {
+      setError(result.message);
+      return;
     }
+    router.push(`/services/${service.id}`);
   }
 
   return (
@@ -94,6 +96,9 @@ export function LiveConsole({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href={`/services/${service.id}/output`} target="_blank" className="btn btn-on-dark btn-small">
+            송출 화면
+          </Link>
           <Link href={`/services/${service.id}/bulletin`} className="btn btn-on-dark btn-small">
             주보
           </Link>

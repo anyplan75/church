@@ -44,11 +44,15 @@ export type Person = {
   active: boolean;
 };
 
+export type SongLicense = "title-only" | "permitted";
+
 export type Song = {
   id: string;
   title: string;
   hymnNumber: string;
   key: string;
+  license: SongLicense;
+  permittedLine: string;
 };
 
 export type WorshipItem = {
@@ -57,6 +61,9 @@ export type WorshipItem = {
   title: string;
   note: string;
   scripture: string;
+  scriptureText: string;
+  scriptureLicensed: boolean;
+  screenCue: string;
   personId: string | null;
   songId: string | null;
 };
@@ -64,6 +71,18 @@ export type WorshipItem = {
 export type Announcement = {
   id: string;
   text: string;
+};
+
+export type ReminderKind = "day-before" | "hour-before";
+
+export type Reminder = {
+  id: string;
+  serviceId: string;
+  personId: string;
+  kind: ReminderKind;
+  dueAt: string;
+  message: string;
+  status: "scheduled" | "due" | "sent";
 };
 
 export type Service = {
@@ -80,10 +99,17 @@ export type Service = {
   liveIndex: number;
   startedAt: string | null;
   notes: string;
+  checks: Record<string, boolean>;
+  source: "manual" | "bulletin";
 };
+
+export type OverlayPosition = "bottom" | "top" | "left" | "right";
 
 export type Settings = {
   churchName: string;
+  backgroundColor: string;
+  backgroundFile: string | null;
+  overlay: OverlayPosition;
 };
 
 export type Db = {
@@ -91,4 +117,5 @@ export type Db = {
   people: Person[];
   songs: Song[];
   services: Service[];
+  reminders: Reminder[];
 };

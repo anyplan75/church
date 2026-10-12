@@ -1,9 +1,15 @@
 "use server";
 
+import fs from "fs";
+import path from "path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { Service, ServiceStatus } from "./types";
-import { updateDb } from "./store";
+import { applyBulletin } from "./bulletin-apply";
+import { missingRequired } from "./checklist";
+import { extractUploadedText } from "./extract-text";
+import { syncReminders } from "./reminders";
+import { isOverlayPosition, updateDb } from "./store";
+import type { Db, Service, ServiceStatus, SongLicense } from "./types";
 import {
   addDays,
   clampLiveIndex,
@@ -18,6 +24,7 @@ import {
 
 function refreshService(id?: string) {
   revalidatePath("/");
+  revalidatePath("/prepare");
   revalidatePath("/services");
   revalidatePath("/people");
   revalidatePath("/songs");
@@ -26,7 +33,18 @@ function refreshService(id?: string) {
     revalidatePath(`/services/${id}`);
     revalidatePath(`/services/${id}/live`);
     revalidatePath(`/services/${id}/bulletin`);
+    revalidatePath(`/services/${id}/output`);
+    revalidatePath(`/services/${id}/slides`);
   }
+}
+
+function readyContext(db: Db, service: Service) {
+  return { people: db.people, songs: db.songs, settings: db.settings, reminders: db.reminders };
+}
+
+function liveBlock(db: Db, service: Service): string | null {
+  const missing = missingRequired(service, readyContext(db, service));
+  return missing.length > 0 ? `점검을 마쳐 주세요: ${missing.join(", ")}` : null;
 }
 
 function cleanText(value: FormDataEntryValue | null, max: number): string {
@@ -48,7 +66,14 @@ export async function saveService(input: Service): Promise<{ ok: true } | { ok: 
       }));
       const index = db.services.findIndex((item) => item.id === service.id);
       if (index < 0) return;
+      const previous = db.services[index];
+      const goingLive = service.status === "live" && previous.status !== "live";
       db.services[index] = service;
+      syncReminders(db);
+      if (goingLive) {
+        const blocked = liveBlock(db, service);
+        if (blocked) throw new Error(blocked);
+      }
       found = true;
     });
     if (!found) return { ok: false, message: "예배를 찾을 수 없습니다." };
@@ -59,18 +84,33 @@ export async function saveService(input: Service): Promise<{ ok: true } | { ok: 
   }
 }
 
-export async function saveLiveProgress(id: string, liveIndex: number, status?: ServiceStatus) {
-  updateDb((db) => {
-    const service = db.services.find((item) => item.id === id);
-    if (!service) throw new Error("예배를 찾을 수 없습니다.");
-    service.liveIndex = clampLiveIndex(liveIndex, service.items.length);
-    if (status && isServiceStatus(status)) {
-      service.status = status;
-      if (status === "live" && !service.startedAt) service.startedAt = new Date().toISOString();
-      if (status === "planning" || status === "ready") service.startedAt = null;
-    }
-  });
-  refreshService(id);
+export async function saveLiveProgress(
+  id: string,
+  liveIndex: number,
+  status?: ServiceStatus,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    updateDb((db) => {
+      const service = db.services.find((item) => item.id === id);
+      if (!service) throw new Error("예배를 찾을 수 없습니다.");
+      const goingLive = status === "live" && service.status !== "live";
+      service.liveIndex = clampLiveIndex(liveIndex, service.items.length);
+      if (status && isServiceStatus(status)) {
+        service.status = status;
+        if (status === "live" && !service.startedAt) service.startedAt = new Date().toISOString();
+        if (status === "planning" || status === "ready") service.startedAt = null;
+      }
+      syncReminders(db);
+      if (goingLive) {
+        const blocked = liveBlock(db, service);
+        if (blocked) throw new Error(blocked);
+      }
+    });
+    refreshService(id);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "저장하지 못했습니다." };
+  }
 }
 
 export async function createService(formData: FormData) {
@@ -125,8 +165,11 @@ export async function createService(formData: FormData) {
       liveIndex: 0,
       startedAt: null,
       notes,
+      checks: {},
+      source: "manual",
     };
     db.services.push(service);
+    syncReminders(db);
     created = service.id;
   });
 
@@ -146,10 +189,12 @@ export async function copyServiceNextWeek(id: string) {
       status: "planning",
       liveIndex: 0,
       startedAt: null,
+      checks: {},
       items: source.items.map((item) => ({ ...item, id: crypto.randomUUID() })),
       announcements: source.announcements.map((announcement) => ({ ...announcement, id: crypto.randomUUID() })),
     };
     db.services.push(copy);
+    syncReminders(db);
     created = copy.id;
   });
   refreshService(created);
@@ -161,6 +206,7 @@ export async function deleteService(id: string) {
     const service = db.services.find((item) => item.id === id);
     if (service?.status === "live") throw new Error("진행 중인 예배는 삭제할 수 없습니다.");
     db.services = db.services.filter((item) => item.id !== id);
+    syncReminders(db);
   });
   refreshService(id);
   redirect("/services");
@@ -218,6 +264,7 @@ export async function deletePerson(formData: FormData) {
         if (item.personId === id) item.personId = null;
       }
     }
+    syncReminders(db);
   });
   refreshService();
   redirect("/people");
@@ -227,11 +274,14 @@ export async function createSong(formData: FormData) {
   const title = cleanText(formData.get("title"), 80);
   if (!title) redirect("/songs?error=title");
   updateDb((db) => {
+    const license = songLicense(formData);
     db.songs.push({
       id: crypto.randomUUID(),
       title,
       hymnNumber: cleanText(formData.get("hymnNumber"), 10),
       key: cleanText(formData.get("key"), 8),
+      license,
+      permittedLine: license === "permitted" ? cleanText(formData.get("permittedLine"), 80) : "",
     });
   });
   refreshService();
@@ -245,9 +295,12 @@ export async function updateSong(formData: FormData) {
   updateDb((db) => {
     const song = db.songs.find((item) => item.id === id);
     if (!song) return;
+    const license = songLicense(formData);
     song.title = title;
     song.hymnNumber = cleanText(formData.get("hymnNumber"), 10);
     song.key = cleanText(formData.get("key"), 8);
+    song.license = license;
+    song.permittedLine = license === "permitted" ? cleanText(formData.get("permittedLine"), 80) : "";
   });
   refreshService();
   redirect("/songs");
@@ -270,9 +323,90 @@ export async function deleteSong(formData: FormData) {
 export async function updateSettings(formData: FormData) {
   const churchName = cleanText(formData.get("churchName"), 40);
   if (!churchName) redirect("/settings?error=empty");
+  const overlayValue = cleanText(formData.get("overlay"), 12);
+  const color = cleanText(formData.get("backgroundColor"), 7);
+  let savedName: string | null = null;
+  try {
+    savedName = await storeBackground(formData.get("background"));
+  } catch {
+    redirect("/settings?error=image");
+  }
   updateDb((db) => {
     db.settings.churchName = churchName;
+    if (isOverlayPosition(overlayValue)) db.settings.overlay = overlayValue;
+    if (/^#[0-9a-fA-F]{6}$/.test(color)) db.settings.backgroundColor = color;
+    if (formData.get("clearBackground") === "on") db.settings.backgroundFile = null;
+    if (savedName) db.settings.backgroundFile = savedName;
+    syncReminders(db);
   });
   refreshService();
   redirect("/settings?saved=1");
+}
+
+export async function importBulletin(formData: FormData) {
+  const pasted = String(formData.get("text") ?? "");
+  const file = formData.get("file");
+  let text = pasted;
+  if (file instanceof File && file.size > 0) {
+    if (file.size > 8 * 1024 * 1024) redirect("/prepare?error=size");
+    try {
+      const extracted = await extractUploadedText(file.name, Buffer.from(await file.arrayBuffer()));
+      text = [pasted.trim(), extracted].filter(Boolean).join("\n");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "파일을 읽지 못했습니다.";
+      redirect(`/prepare?error=file&detail=${encodeURIComponent(message)}`);
+    }
+  }
+  if (!text.trim()) redirect("/prepare?error=empty");
+  let imported = 0;
+  let skipped = 0;
+  let lyrics = 0;
+  updateDb((db) => {
+    const result = applyBulletin(db, text);
+    syncReminders(db);
+    imported = result.imported;
+    skipped = result.skipped;
+    lyrics = result.skippedLyrics;
+  });
+  refreshService();
+  if (imported === 0 && skipped === 0) redirect("/prepare?error=none");
+  redirect(`/prepare?imported=${imported}&skipped=${skipped}&lyrics=${lyrics}`);
+}
+
+export async function updateSlideFields(formData: FormData) {
+  const serviceId = cleanText(formData.get("serviceId"), 80);
+  const itemId = cleanText(formData.get("itemId"), 80);
+  updateDb((db) => {
+    const service = db.services.find((item) => item.id === serviceId);
+    const item = service?.items.find((entry) => entry.id === itemId);
+    if (!item) return;
+    item.screenCue = cleanText(formData.get("screenCue"), 80);
+    const licensed = formData.get("scriptureLicensed") === "on";
+    item.scriptureLicensed = licensed && (item.kind === "scripture" || item.kind === "sermon");
+    item.scriptureText = item.scriptureLicensed ? cleanText(formData.get("scriptureText"), 400) : "";
+  });
+  refreshService(serviceId);
+  redirect(`/services/${serviceId}/slides`);
+}
+
+function songLicense(formData: FormData): SongLicense {
+  return formData.get("license") === "permitted" ? "permitted" : "title-only";
+}
+
+async function storeBackground(value: FormDataEntryValue | null): Promise<string | null> {
+  if (!(value instanceof File) || value.size === 0) return null;
+  if (value.size > 5 * 1024 * 1024) throw new Error("배경 그림은 5MB 이하로 올려 주세요.");
+  const ext = backgroundExt(value.name);
+  if (!ext) throw new Error("배경 그림은 JPG, PNG, WEBP만 올릴 수 있습니다.");
+  const directory = path.join(process.cwd(), "data", "backgrounds");
+  await fs.promises.mkdir(directory, { recursive: true });
+  const filename = `background${ext}`;
+  await fs.promises.writeFile(path.join(directory, filename), Buffer.from(await value.arrayBuffer()));
+  return filename;
+}
+
+function backgroundExt(name: string): string | null {
+  const ext = path.extname(name).toLowerCase();
+  if (ext === ".jpg" || ext === ".jpeg" || ext === ".png" || ext === ".webp") return ext === ".jpeg" ? ".jpg" : ext;
+  return null;
 }
