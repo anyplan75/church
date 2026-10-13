@@ -203,6 +203,7 @@ function bare(rows: Array<Pick<WorshipItem, "kind" | "title">>): Array<Omit<Wors
     scriptureLicensed: false,
     screenCue: "",
     personId: null,
+    pendingName: "",
     songId: null,
   }));
 }
@@ -224,6 +225,7 @@ export function createItem(kind: ItemKind = "other"): WorshipItem {
     scriptureLicensed: false,
     screenCue: "",
     personId: null,
+    pendingName: "",
     songId: null,
   };
 }
@@ -244,7 +246,7 @@ export function songOptionLabel(song: Song): string {
 }
 
 export function itemAside(item: WorshipItem, people: Person[], songs: Song[]): string {
-  const person = personName(people, item.personId);
+  const person = personName(people, item.personId) || item.pendingName.trim();
   const song = describeSong(songs.find((entry) => entry.id === item.songId));
   if (!person && !song && (item.kind === "meditation" || item.kind === "creed")) return "다함께";
   return [person, song].filter(Boolean).join(" · ");
@@ -297,6 +299,7 @@ function normalizeItem(item: WorshipItem): WorshipItem {
     scriptureText: item?.scriptureLicensed === true ? String(item?.scriptureText ?? "").slice(0, 400) : "",
     screenCue: String(item?.screenCue ?? "").slice(0, 80),
     personId: item?.personId || null,
+    pendingName: item?.personId ? "" : String(item?.pendingName ?? "").trim().slice(0, 40),
     songId: item?.songId || null,
   };
 }

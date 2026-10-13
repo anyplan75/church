@@ -1,5 +1,6 @@
 import { parseBulletin } from "./bulletin-parse";
 import type { BulletinDraft } from "./bulletin-parse";
+import { findRosterPerson } from "./person-name";
 import type { Db, Service, Song } from "./types";
 import { todayISO } from "./worship";
 
@@ -43,7 +44,7 @@ function draftToService(db: Db, draft: BulletinDraft): Service {
     date: draft.date,
     time: draft.time,
     type: draft.type,
-    place: "본당",
+    place: draft.place || "본당",
     preacherId: preacher,
     status: "planning",
     items: draft.items.map((item) => {
@@ -59,6 +60,7 @@ function draftToService(db: Db, draft: BulletinDraft): Service {
         scriptureLicensed: false,
         screenCue: "",
         personId,
+        pendingName: personId ? "" : item.personName.trim().slice(0, 40),
         songId,
       };
     }),
@@ -87,6 +89,6 @@ function ensureSong(db: Db, hymnNumber: string, songTitle: string): string {
 }
 
 function findPersonId(db: Db, name: string): string | null {
-  if (!name) return null;
-  return db.people.find((person) => person.name === name)?.id ?? null;
+  if (!name.trim()) return null;
+  return findRosterPerson(name, db.people)?.id ?? null;
 }

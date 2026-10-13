@@ -1,3 +1,4 @@
+import { bulletinPersonName, stripPersonMention } from "./person-name";
 import type { ItemKind, Person, ServiceType } from "./types";
 import { isISODate, serviceTypeDefaults, todayISO } from "./worship";
 
@@ -17,6 +18,7 @@ export type BulletinDraft = {
   time: string;
   type: ServiceType;
   preacherName: string;
+  place: string;
   items: BulletinItem[];
   announcements: string[];
 };
@@ -55,9 +57,16 @@ export function parseBulletin(text: string, people: Person[], today = todayISO()
         time: header.time,
         type: header.type,
         preacherName: "",
+        place: header.place,
         items: [],
         announcements: [],
       };
+      continue;
+    }
+
+    const place = readPlaceLine(raw);
+    if (place && current) {
+      current.place = place;
       continue;
     }
 
@@ -86,13 +95,13 @@ export function parseBulletin(text: string, people: Person[], today = todayISO()
 
 function parseItem(raw: string, people: Person[]): { item: BulletinItem | null; lyric: boolean } {
   const line = raw.replace(/^\d+\s*[.)]\s*/, "").trim();
-  const person = findPerson(line, people);
+  const name = bulletinPersonName(line, people);
   const hymn = line.match(/^찬송\s*(\d+)\s*장\s*(.*)$/);
   if (hymn) {
-    const title = shortenTitle(person ? stripPerson(hymn[2], person.name) : hymn[2].trim());
+    const title = shortenTitle(name ? stripPersonMention(hymn[2], name) : hymn[2].trim());
     return {
       lyric: title.dropped,
-      item: blank("hymn", "찬송", { personName: person?.name ?? "", hymnNumber: hymn[1], songTitle: title.value }),
+      item: blank("hymn", "찬송", { personName: name, hymnNumber: hymn[1], songTitle: title.value }),
     };
   }
   if (/^묵도/.test(line)) return { item: blank("meditation", "묵도"), lyric: false };
@@ -100,32 +109,32 @@ function parseItem(raw: string, people: Person[]): { item: BulletinItem | null; 
   if (/^신앙고백/.test(line)) return { item: blank("creed", "신앙고백"), lyric: false };
   const praise = line.match(/^찬양\s*(.*)$/);
   if (praise) {
-    const title = shortenTitle(person ? stripPerson(praise[1], person.name) : praise[1].trim());
-    return { lyric: title.dropped, item: blank("praise", "찬양", { personName: person?.name ?? "", songTitle: title.value }) };
+    const title = shortenTitle(name ? stripPersonMention(praise[1], name) : praise[1].trim());
+    return { lyric: title.dropped, item: blank("praise", "찬양", { personName: name, songTitle: title.value }) };
   }
-  if (/^통성기도/.test(line)) return { item: blank("prayer", "통성기도", { personName: person?.name ?? "" }), lyric: false };
+  if (/^통성기도/.test(line)) return { item: blank("prayer", "통성기도", { personName: name }), lyric: false };
   if (/^(대표기도|기도)/.test(line)) {
     const title = line.startsWith("대표기도") ? "대표기도" : "기도";
-    return { item: blank("prayer", title, { personName: person?.name ?? "" }), lyric: false };
+    return { item: blank("prayer", title, { personName: name }), lyric: false };
   }
   const scripture = line.match(/^성경봉독\s*(.*)$/);
   if (scripture) {
-    const passage = (person ? stripPerson(scripture[1], person.name) : scripture[1].trim()).slice(0, 120);
-    return { item: blank("scripture", "성경봉독", { personName: person?.name ?? "", scripture: passage }), lyric: false };
+    const passage = (name ? stripPersonMention(scripture[1], name) : scripture[1].trim()).slice(0, 120);
+    return { item: blank("scripture", "성경봉독", { personName: name, scripture: passage }), lyric: false };
   }
   const choir = line.match(/^성가(?:대)?\s*(.*)$/);
   if (choir) {
-    const title = shortenTitle(person ? stripPerson(choir[1], person.name) : choir[1].trim());
-    return { lyric: title.dropped, item: blank("choir", "성가", { personName: person?.name ?? "", songTitle: title.value, note: title.value }) };
+    const title = shortenTitle(name ? stripPersonMention(choir[1], name) : choir[1].trim());
+    return { lyric: title.dropped, item: blank("choir", "성가", { personName: name, songTitle: title.value, note: title.value }) };
   }
   const sermon = line.match(/^(설교|말씀)\s*(.*)$/);
   if (sermon) {
-    const note = (person ? stripPerson(sermon[2], person.name) : sermon[2].trim()).slice(0, 80);
-    return { item: blank("sermon", sermon[1] === "말씀" ? "말씀" : "설교", { personName: person?.name ?? "", note }), lyric: false };
+    const note = (name ? stripPersonMention(sermon[2], name) : sermon[2].trim()).slice(0, 80);
+    return { item: blank("sermon", sermon[1] === "말씀" ? "말씀" : "설교", { personName: name, note }), lyric: false };
   }
-  if (/^봉헌/.test(line)) return { item: blank("offering", "봉헌", { personName: person?.name ?? "" }), lyric: false };
+  if (/^봉헌/.test(line)) return { item: blank("offering", "봉헌", { personName: name }), lyric: false };
   if (/^광고/.test(line)) return { item: blank("announcement", "광고"), lyric: false };
-  if (/^축도/.test(line)) return { item: blank("benediction", "축도", { personName: person?.name ?? "" }), lyric: false };
+  if (/^축도/.test(line)) return { item: blank("benediction", "축도", { personName: name }), lyric: false };
   return { item: null, lyric: isLooseLyric(line) };
 }
 
@@ -161,15 +170,6 @@ function stripBullet(line: string): string {
   return line.replace(/^[-•·*–]\s*/, "").trim();
 }
 
-function findPerson(line: string, people: Person[]): Person | null {
-  const sorted = people.filter((person) => person.name.trim()).slice().sort((a, b) => b.name.length - a.name.length);
-  return sorted.find((person) => line.includes(person.name)) ?? null;
-}
-
-function stripPerson(text: string, name: string): string {
-  return text.replace(name, " ").replace(/\s+/g, " ").trim();
-}
-
 function readDate(line: string): string {
   const match = line.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
   if (!match) return "";
@@ -183,7 +183,39 @@ function isDateLine(line: string): boolean {
   return rest.length === 0;
 }
 
-function parseHeader(line: string): { type: ServiceType; time: string; title: string } | null {
+const SERVICE_TOKENS = new Set(["주일", "예배", "새벽", "수요", "금요", "특별", "기도회"]);
+
+function readPlaceLine(line: string): string {
+  const match = line.match(/^(?:예배\s*)?장\s*소\s*[:：]?\s*(.*)$/);
+  if (!match) return "";
+  return cleanPlace(match[1]);
+}
+
+function placeFromHeader(line: string): string {
+  const paren = line.match(/[（(]\s*([^()（）]{1,40})\s*[)）]/);
+  if (paren) {
+    const place = cleanPlace(paren[1]);
+    if (place && !SERVICE_TOKENS.has(place)) return place;
+  }
+  const stripped = line
+    .replace(/[（(][^()（）]*[)）]/g, " ")
+    .replace(/(오전|오후)\s*\d{1,2}\s*(?:[:시]\s*\d{1,2}\s*분?)?/g, " ")
+    .replace(/\d{1,2}:\d{2}/g, " ")
+    .replace(/[1-3]\s*부/g, " ");
+  const tokens = stripped
+    .split(/\s+/)
+    .map((token) => token.replace(/^[·•,，|/~\-–]+|[·•,，|/~\-–]+$/g, ""))
+    .filter((token) => token && !SERVICE_TOKENS.has(token));
+  return cleanPlace(tokens.join(" "));
+}
+
+function cleanPlace(value: string): string {
+  const place = value.replace(/\s+/g, " ").trim();
+  if (!place || place.length > 40) return "";
+  return place;
+}
+
+function parseHeader(line: string): { type: ServiceType; time: string; title: string; place: string } | null {
   if (line.length > 40) return null;
   let type: ServiceType | null = null;
   const part = line.match(/([1-3])\s*부/);
@@ -195,7 +227,7 @@ function parseHeader(line: string): { type: ServiceType; time: string; title: st
   else if (/(주일\s*예배|주일예배)/.test(line)) type = "sunday-2";
   else return null;
   const defaults = serviceTypeDefaults(type);
-  return { type, time: parseClock(line) ?? defaults.time, title: defaults.title };
+  return { type, time: parseClock(line) ?? defaults.time, title: defaults.title, place: placeFromHeader(line) };
 }
 
 function parseClock(line: string): string | null {

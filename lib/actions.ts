@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { serviceSaveBlock } from "./access";
 import { hasAnyAccount } from "./accounts";
 import { applyBulletin } from "./bulletin-apply";
+import { cleanRosterName, findRosterPerson } from "./person-name";
 import { missingRequired } from "./checklist";
 import { extractUploadedText } from "./extract-text";
 import { mutationUser, requireMutation } from "./guard";
@@ -224,6 +225,26 @@ export async function deleteService(id: string) {
   });
   refreshService(id);
   redirect("/services");
+}
+
+export async function addRosterPerson(name: string): Promise<{ ok: true; id: string; name: string } | { ok: false; message: string }> {
+  const clean = cleanRosterName(name);
+  if (!clean) return { ok: false, message: "이름을 입력해 주세요." };
+  let id = "";
+  let storedName = clean;
+  updateDb((db) => {
+    const existing = findRosterPerson(clean, db.people);
+    if (existing) {
+      id = existing.id;
+      storedName = existing.name.trim();
+      return;
+    }
+    id = crypto.randomUUID();
+    storedName = clean;
+    db.people.push({ id, name: clean, roles: [], phone: "", active: true });
+  });
+  refreshService();
+  return { ok: true, id, name: storedName };
 }
 
 export async function createPerson(formData: FormData) {
