@@ -1,0 +1,18 @@
+name: Publish GitHub Pages
+on:
+  push:
+    branches: [gh-pages]
+permissions:
+  pages: write
+  id-token: write
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Turn on GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method POST "repos/${{ github.repository }}/pages" -f build_type=legacy -f source[branch]=gh-pages -f source[path]=/ \
+            || gh api --method PUT "repos/${{ github.repository }}/pages" -f build_type=legacy -f source[branch]=gh-pages -f source[path]=/
