@@ -6,9 +6,9 @@ import { CHECKS, checklistProgress, COPYRIGHT_NOTE } from "@/lib/checklist";
 import { requireScreen } from "@/lib/guard";
 import { can } from "@/lib/roles";
 import { formatKoreanDate, formatTime } from "@/lib/format";
-import { syncReminders } from "@/lib/reminders";
+import { reminderRecipient, syncReminders } from "@/lib/reminders";
 import { updateDb } from "@/lib/store";
-import { personName, todayISO, weekServices } from "@/lib/worship";
+import { todayISO, weekServices } from "@/lib/worship";
 
 export const metadata = { title: "예배 준비 · 예배 운영" };
 
@@ -143,7 +143,7 @@ export default async function PreparePage({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-serif text-2xl">알림</h2>
-            <p className="mt-1 text-sm text-muted">예배에 연결된 사람에게 하루 전과 한 시간 전에 일정을 알립니다. 문자 대신 이 화면과 브라우저 알림을 사용합니다.</p>
+            <p className="mt-1 text-sm text-muted">설교자와 순서 담당에게 하루 전과 한 시간 전에 일정을 알립니다. 명단에 전화번호가 있으면 알림 옆에 보여 줍니다. 문자 대신 이 화면과 브라우저 알림을 사용합니다.</p>
           </div>
           <NotifyButton />
         </div>
@@ -152,7 +152,7 @@ export default async function PreparePage({
           {reminders.map((reminder) => (
             <li key={reminder.id} className="card px-4 py-3 text-sm">
               <span className="text-muted">{reminder.status === "sent" ? "보냄" : reminder.status === "due" ? "지금" : "예정"} · </span>
-              {personName(db.people, reminder.personId)} · {reminder.message}
+              {reminderRecipient(db.people, reminder.personId)} · {reminder.message}
             </li>
           ))}
         </ul>

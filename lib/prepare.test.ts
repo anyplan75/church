@@ -5,7 +5,7 @@ import { applyBulletin } from "./bulletin-apply.ts";
 import { parseBulletin } from "./bulletin-parse.ts";
 import { acceptReadyChecks, checkItems, missingRequired, type CheckContext } from "./checklist.ts";
 import { extractUploadedText, textFromHwpxXml } from "./extract-text.ts";
-import { dueAt, planReminders } from "./reminders.ts";
+import { dueAt, planReminders, reminderRecipient } from "./reminders.ts";
 import { slidesFor } from "./slides.ts";
 import type { Person, Service, Settings, Song } from "./types.ts";
 import { normalizeService, templateItems } from "./worship.ts";
@@ -215,6 +215,39 @@ describe("reminders", () => {
     const due = planReminders(service, people, "은혜교회", new Date("2026-10-17T00:00:00Z"));
     assert.equal(due.find((reminder) => reminder.kind === "day-before")?.status, "due");
     assert.equal(due.find((reminder) => reminder.kind === "hour-before")?.status, "scheduled");
+  });
+
+  it("shows a roster phone beside the recipient and leaves a blank number out", () => {
+    const roster: Person[] = [
+      { id: "person-senior", name: "김은혜", roles: ["담임목사"], phone: "010-1234-5678", active: true },
+      { id: "person-elder", name: "이성실", roles: ["장로"], phone: "   ", active: true },
+    ];
+    assert.equal(reminderRecipient(roster, "person-senior"), "김은혜 · 전화 010-1234-5678");
+    assert.equal(reminderRecipient(roster, "person-elder"), "이성실");
+    assert.equal(reminderRecipient(roster, "missing"), "");
+    const service = baseService({
+      preacherId: "person-senior",
+      items: [
+        {
+          id: "prayer",
+          kind: "prayer",
+          title: "대표기도",
+          note: "",
+          scripture: "",
+          scriptureText: "",
+          scriptureLicensed: false,
+          screenCue: "",
+          personId: "person-elder",
+          songId: null,
+        },
+      ],
+    });
+    const planned = planReminders(service, roster, "은혜교회", new Date("2026-10-12T00:00:00Z"));
+    assert.deepEqual(
+      planned.map((reminder) => `${reminder.personId}:${reminder.kind}`).sort(),
+      ["person-elder:day-before", "person-elder:hour-before", "person-senior:day-before", "person-senior:hour-before"],
+    );
+    assert.equal(planned.every((reminder) => reminder.message.includes("010-1234-5678")), false);
   });
 });
 
