@@ -7,12 +7,20 @@ permissions:
   id-token: write
   contents: read
 jobs:
-  publish:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Turn on GitHub Pages
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+      - name: Stage site
         run: |
-          gh api --method POST "repos/${{ github.repository }}/pages" -f build_type=legacy -f source[branch]=gh-pages -f source[path]=/ \
-            || gh api --method PUT "repos/${{ github.repository }}/pages" -f build_type=legacy -f source[branch]=gh-pages -f source[path]=/
+          mkdir site
+          rsync -a --exclude .git --exclude .github --exclude site ./ site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
