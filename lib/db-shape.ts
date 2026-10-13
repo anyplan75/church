@@ -1,16 +1,22 @@
-import type { Db, OverlayPosition, Person, Service, Settings, Song } from "./types";
+import { canStoreAttendance } from "./attendance";
+import type { AttendanceMark, Db, Department, Membership, OverlayPosition, Person, Service, Settings, Song, Supply, SupplyStatus } from "./types";
 import { buildSeed } from "./seed";
+import { isItemPhoto, oneLine } from "./supplies";
 import { normalizeService } from "./worship";
 
 export function normalizeDb(raw: Partial<Db> | null | undefined): Db {
   const seed = buildSeed();
   const data = raw && typeof raw === "object" ? raw : {};
+  const people = Array.isArray(data.people) ? data.people.map(normalizePerson) : seed.people;
   return {
     settings: normalizeSettings(data.settings, seed.settings),
-    people: Array.isArray(data.people) ? data.people.map(normalizePerson) : seed.people,
+    people,
     songs: Array.isArray(data.songs) ? data.songs.map(normalizeSong) : seed.songs,
     services: Array.isArray(data.services) ? data.services.map((service) => normalizeService(service as Service)) : seed.services,
     reminders: Array.isArray(data.reminders) ? data.reminders.filter(isReminder) : [],
+    departments: normalizeDepartments(data.departments, seed.departments),
+    attendance: normalizeAttendance(data.attendance).filter((mark) => canStoreAttendance(people.find((person) => person.id === mark.personId))),
+    supplies: normalizeSupplies(data.supplies),
   };
 }
 
@@ -28,13 +34,21 @@ function normalizeSettings(settings: Partial<Settings> | undefined, fallback: Se
 }
 
 function normalizePerson(person: Person): Person {
+  const membership = membershipOf(person?.membership);
   return {
     id: String(person?.id || crypto.randomUUID()),
     name: String(person?.name ?? "").trim().slice(0, 40) || "이름",
     roles: Array.isArray(person?.roles) ? person.roles.map((role) => String(role).slice(0, 40)).slice(0, 8) : [],
     phone: String(person?.phone ?? "").slice(0, 30),
     active: person?.active !== false,
+    membership,
+    attendanceConsent: membership === "member" && person?.attendanceConsent === true,
   };
+}
+
+function membershipOf(value: unknown): Membership {
+  if (value === "visitor" || value === "newcomer" || value === "member") return value;
+  return "member";
 }
 
 function normalizeSong(song: Song): Song {
@@ -47,6 +61,63 @@ function normalizeSong(song: Song): Song {
     license,
     permittedLine: license === "permitted" ? String(song?.permittedLine ?? "").slice(0, 80) : "",
   };
+}
+
+function normalizeDepartments(value: unknown, fallback: Department[]): Department[] {
+  if (!Array.isArray(value)) return fallback;
+  const seen = new Set<string>();
+  const departments: Department[] = [];
+  for (const item of value) {
+    const record = item as Partial<Department> | null;
+    const name = oneLine(record?.name, 40);
+    if (!name) continue;
+    const key = name.toLocaleLowerCase("ko");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    departments.push({ id: String(record?.id || crypto.randomUUID()), name });
+  }
+  return departments;
+}
+
+function normalizeAttendance(value: unknown): AttendanceMark[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const marks: AttendanceMark[] = [];
+  for (const item of value) {
+    const record = item as Partial<AttendanceMark> | null;
+    const personId = String(record?.personId ?? "");
+    const week = String(record?.week ?? "");
+    if (!personId || !/^\d{4}-\d{2}-\d{2}$/.test(week) || record?.present !== true) continue;
+    const key = `${personId}:${week}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    marks.push({ personId, week, present: true });
+  }
+  return marks;
+}
+
+function normalizeSupplies(value: unknown): Supply[] {
+  if (!Array.isArray(value)) return [];
+  const supplies: Supply[] = [];
+  for (const item of value) {
+    const record = item as Partial<Supply> | null;
+    const name = oneLine(record?.name, 40);
+    const photo = String(record?.photo ?? "");
+    const status = record?.status;
+    if (!name || !isItemPhoto(photo) || !isSupplyStatus(status)) continue;
+    supplies.push({
+      id: String(record?.id || crypto.randomUUID()),
+      departmentId: String(record?.departmentId ?? ""),
+      name,
+      photo,
+      status,
+    });
+  }
+  return supplies;
+}
+
+function isSupplyStatus(value: unknown): value is SupplyStatus {
+  return value === "have" || value === "need" || value === "requested";
 }
 
 function isReminder(value: Db["reminders"][number]): value is Db["reminders"][number] {

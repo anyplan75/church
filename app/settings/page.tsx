@@ -62,7 +62,7 @@ export default function SettingsPage() {
         </label>
         <SubmitButton>저장</SubmitButton>
       </form>
-      <AccountPanel accounts={accounts} currentId={user.id} error={query.accountError} saved={query.accountSaved} errorAccount={query.account} />
+      <AccountPanel accounts={accounts} people={db.people} currentId={user.id} error={query.accountError} saved={query.accountSaved} errorAccount={query.account} />
     </div>
   );
 }

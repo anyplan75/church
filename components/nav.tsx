@@ -9,6 +9,8 @@ const LINKS: { href: string; label: string; capability: Capability }[] = [
   { href: "/", label: "이번 주", capability: "screen.week" },
   { href: "/prepare", label: "준비", capability: "screen.prepare" },
   { href: "/services", label: "예배", capability: "screen.services" },
+  { href: "/attendance", label: "출결", capability: "screen.attendance" },
+  { href: "/inventory", label: "물품", capability: "screen.inventory" },
   { href: "/people", label: "사람", capability: "screen.people" },
   { href: "/songs", label: "찬양", capability: "screen.songs" },
   { href: "/settings", label: "설정", capability: "screen.settings" },

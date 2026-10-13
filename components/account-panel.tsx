@@ -23,12 +23,14 @@ const ERRORS: Record<string, string> = {
 
 export function AccountPanel({
   accounts,
+  people,
   currentId,
   error,
   saved,
   errorAccount,
 }: {
-  accounts: Account[];
+  accounts: Array<Account & { personId?: string | null }>;
+  people: { id: string; name: string; active: boolean }[];
   currentId: string;
   error?: string;
   saved?: string;
@@ -37,7 +39,7 @@ export function AccountPanel({
   return (
     <section className="mt-10">
       <h2 className="font-serif text-3xl">이메일 계정</h2>
-      <p className="mt-2 text-muted">로그인에 쓰는 이메일입니다. 사람 명단의 이름·전화와는 연결되어 있지 않습니다.</p>
+      <p className="mt-2 text-muted">로그인에 쓰는 이메일입니다. 교인을 연결하면 그 사람 본인이 자기 출석만 표시할 수 있습니다.</p>
       {saved ? <p className="mt-4 text-sm text-pine">계정을 저장했습니다.</p> : null}
       {error && !errorAccount ? <p className="mt-4 text-sm text-wine">{ERRORS[error] ?? "계정을 저장하지 못했습니다."}</p> : null}
 
@@ -57,6 +59,7 @@ export function AccountPanel({
             <input className="input" name="confirm" type="password" autoComplete="new-password" minLength={8} maxLength={200} required />
           </label>
         </div>
+        <PersonLink people={people} />
         <RoleFields selected={[]} />
         <SubmitButton>계정 추가</SubmitButton>
       </form>
@@ -87,6 +90,7 @@ export function AccountPanel({
                 <input className="input" name="confirm" type="password" autoComplete="new-password" minLength={8} maxLength={200} />
               </label>
             </div>
+            <PersonLink people={people} value={account.personId ?? ""} />
             <RoleFields selected={account.roles} />
             <div className="flex flex-wrap gap-2">
               <SubmitButton className="btn btn-quiet">저장</SubmitButton>
@@ -98,5 +102,22 @@ export function AccountPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+function PersonLink({ people, value = "" }: { people: { id: string; name: string; active: boolean }[]; value?: string }) {
+  const choices = people.filter((person) => person.active || person.id === value);
+  return (
+    <label className="field">
+      <span>연결된 교인</span>
+      <select className="select" name="personId" defaultValue={value}>
+        <option value="">없음</option>
+        {choices.map((person) => (
+          <option key={person.id} value={person.id}>
+            {person.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

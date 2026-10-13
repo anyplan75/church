@@ -2,32 +2,32 @@ export const ROLES = [
   {
     id: "view",
     label: "보기",
-    detail: "이번 주, 예배 목록, 주보를 읽습니다.",
+    detail: "이번 주, 예배 목록, 주보, 출결, 물품을 읽습니다. 연결된 교인은 본인 출석을 표시합니다.",
   },
   {
     id: "prepare",
     label: "준비",
-    detail: "예배를 만들고, 순서·담당·점검을 고치고, 주보를 가져오고, 알림 목록을 봅니다.",
+    detail: "예배를 만들고 순서를 고칩니다. 출석을 표시하고 부서 물품을 등록합니다.",
   },
   {
     id: "run",
     label: "진행",
-    detail: "예배를 시작하고, 순서를 넘기고, 마칩니다.",
+    detail: "예배를 시작하고 순서를 넘깁니다. 출석도 표시합니다.",
   },
   {
     id: "output",
     label: "송출",
-    detail: "송출 화면과 슬라이드를 다룹니다.",
+    detail: "송출 화면과 슬라이드를 다룹니다. 출결 명단을 봅니다.",
   },
   {
     id: "directory",
     label: "사람·찬양",
-    detail: "사람과 찬양 명단을 다룹니다.",
+    detail: "사람과 찬양 명단, 출석, 부서 물품을 다룹니다.",
   },
   {
     id: "admin",
     label: "설정·계정",
-    detail: "교회 설정과 이메일 계정의 역할을 관리합니다.",
+    detail: "교회 설정, 이메일 계정, 출석, 부서 물품을 관리합니다.",
   },
 ] as const;
 
@@ -52,15 +52,39 @@ export type Capability =
   | "mutate.run"
   | "mutate.output"
   | "mutate.directory"
-  | "mutate.admin";
+  | "mutate.admin"
+  | "screen.attendance"
+  | "screen.inventory"
+  | "mutate.attendance.leader"
+  | "mutate.inventory";
 
 const GRANTS: Record<Role, readonly Capability[]> = {
-  view: ["screen.week", "screen.services", "screen.bulletin"],
-  prepare: ["screen.week", "screen.services", "screen.bulletin", "screen.prepare", "screen.new", "screen.editor", "mutate.prepare"],
-  run: ["screen.week", "screen.services", "screen.live", "mutate.run"],
-  output: ["screen.week", "screen.services", "screen.output", "screen.slides", "mutate.output"],
-  directory: ["screen.people", "screen.songs", "mutate.directory"],
-  admin: ["screen.settings", "mutate.admin"],
+  view: ["screen.week", "screen.services", "screen.bulletin", "screen.attendance", "screen.inventory"],
+  prepare: [
+    "screen.week",
+    "screen.services",
+    "screen.bulletin",
+    "screen.prepare",
+    "screen.new",
+    "screen.editor",
+    "mutate.prepare",
+    "screen.attendance",
+    "mutate.attendance.leader",
+    "screen.inventory",
+    "mutate.inventory",
+  ],
+  run: ["screen.week", "screen.services", "screen.live", "mutate.run", "screen.attendance", "mutate.attendance.leader"],
+  output: ["screen.week", "screen.services", "screen.output", "screen.slides", "mutate.output", "screen.attendance"],
+  directory: [
+    "screen.people",
+    "screen.songs",
+    "mutate.directory",
+    "screen.attendance",
+    "mutate.attendance.leader",
+    "screen.inventory",
+    "mutate.inventory",
+  ],
+  admin: ["screen.settings", "mutate.admin", "screen.attendance", "mutate.attendance.leader", "screen.inventory", "mutate.inventory"],
 };
 
 const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] = [
@@ -71,6 +95,8 @@ const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] 
   { test: (pathname) => pathname === "/people", caps: ["screen.people"] },
   { test: (pathname) => pathname === "/songs", caps: ["screen.songs"] },
   { test: (pathname) => pathname === "/settings", caps: ["screen.settings"] },
+  { test: (pathname) => pathname === "/attendance", caps: ["screen.attendance"] },
+  { test: (pathname) => pathname === "/inventory", caps: ["screen.inventory"] },
   { test: (pathname) => /^\/services\/[^/]+\/bulletin$/.test(pathname), caps: ["screen.bulletin"] },
   { test: (pathname) => /^\/services\/[^/]+\/live$/.test(pathname), caps: ["screen.live"] },
   { test: (pathname) => /^\/services\/[^/]+\/output$/.test(pathname), caps: ["screen.output"] },
@@ -109,6 +135,8 @@ export function homeFor(roles: readonly Role[]): string {
   if (can(roles, "screen.people")) return "/people";
   if (can(roles, "screen.songs")) return "/songs";
   if (can(roles, "screen.settings")) return "/settings";
+  if (can(roles, "screen.attendance")) return "/attendance";
+  if (can(roles, "screen.inventory")) return "/inventory";
   return "/denied";
 }
 

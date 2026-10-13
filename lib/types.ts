@@ -36,12 +36,22 @@ export const STATUSES = [
 
 export type ServiceStatus = (typeof STATUSES)[number]["id"];
 
+export const MEMBERSHIPS = [
+  { id: "member", label: "교인" },
+  { id: "visitor", label: "방문자" },
+  { id: "newcomer", label: "새신자" },
+] as const;
+
+export type Membership = (typeof MEMBERSHIPS)[number]["id"];
+
 export type Person = {
   id: string;
   name: string;
   roles: string[];
   phone: string;
   active: boolean;
+  membership: Membership;
+  attendanceConsent: boolean;
 };
 
 export type SongLicense = "title-only" | "permitted";
@@ -113,10 +123,40 @@ export type Settings = {
   overlay: OverlayPosition;
 };
 
+export type AttendanceMark = {
+  personId: string;
+  week: string;
+  present: true;
+};
+
+export const SUPPLY_STATUSES = [
+  { id: "have", label: "지금 있는 것" },
+  { id: "need", label: "앞으로 필요한 것" },
+  { id: "requested", label: "요청이 들어온 것" },
+] as const;
+
+export type SupplyStatus = (typeof SUPPLY_STATUSES)[number]["id"];
+
+export type Department = {
+  id: string;
+  name: string;
+};
+
+export type Supply = {
+  id: string;
+  departmentId: string;
+  name: string;
+  photo: string;
+  status: SupplyStatus;
+};
+
 export type Db = {
   settings: Settings;
   people: Person[];
   songs: Song[];
   services: Service[];
   reminders: Reminder[];
+  departments: Department[];
+  attendance: AttendanceMark[];
+  supplies: Supply[];
 };

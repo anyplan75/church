@@ -4,6 +4,7 @@ import {
   endLocalSession,
   listAccounts,
   loginWithPassword,
+  readDb,
   removeLocalAccount,
   requireMutation,
   saveLocalAccount,
@@ -16,6 +17,13 @@ import { normalizeEmail, normalizePassword } from "./account-rules";
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "");
+}
+
+function linkedPersonId(value: string): string | null {
+  const id = value.trim();
+  if (!id) return null;
+  const person = readDb().people.find((item) => item.id === id && item.active);
+  return person ? person.id : null;
 }
 
 function asAccount(account: LocalAccount): Account {
@@ -38,6 +46,7 @@ export async function setupAccount(formData: FormData) {
     email: normalized,
     passwordHash: "firebase",
     roles: ALL_ROLES,
+    personId: null,
   };
   await saveLocalAccount(account, password.trim());
   const user = await loginWithPassword(normalized, password.trim());
@@ -79,6 +88,7 @@ export async function createAccount(formData: FormData) {
       email: normalized!,
       passwordHash: "firebase",
       roles,
+      personId: linkedPersonId(text(formData, "personId")),
     },
     password.trim(),
   );
@@ -109,7 +119,10 @@ export async function saveAccount(formData: FormData) {
   }
   const current = listAccounts().find((account) => account.id === id);
   if (!current) go(`/settings?accountError=email&account=${encodeURIComponent(id)}`);
-  await saveLocalAccount({ ...current!, email: normalized!, roles }, password.trim() || undefined);
+  await saveLocalAccount(
+    { ...current!, email: normalized!, roles, personId: linkedPersonId(text(formData, "personId")) },
+    password.trim() || undefined,
+  );
   go("/settings?accountSaved=1");
 }
 

@@ -14,6 +14,7 @@ export type LocalAccount = {
   email: string;
   passwordHash: string;
   roles: Role[];
+  personId: string | null;
 };
 
 export type CurrentUser = { id: string; email: string; roles: Role[] };
@@ -67,7 +68,7 @@ async function load() {
   const savedFiles = await idbGet<Record<string, string>>("files");
   db = savedDb ? normalizeDb(savedDb) : buildSeed();
   syncReminders(db);
-  accounts = Array.isArray(savedAccounts) ? savedAccounts : [];
+  accounts = Array.isArray(savedAccounts) ? savedAccounts.map(withPersonLink) : [];
   files = new Map(Object.entries(savedFiles ?? {}));
   session = savedSession && savedSession.email ? savedSession : null;
   if (session?.refreshToken) {
@@ -137,6 +138,7 @@ export async function loginWithPassword(email: string, password: string): Promis
     email,
     passwordHash: local?.passwordHash.startsWith("pbkdf2$") ? local.passwordHash : "firebase",
     roles,
+    personId: local?.personId ?? null,
   };
   upsertAccount(account);
   rememberSession({ accountId: account.id, email, roles, refreshToken: remote.refreshToken });
@@ -199,6 +201,13 @@ export function markRemindersSent(ids: string[]) {
       if (picked.has(reminder.id) && reminder.status === "due") reminder.status = "sent";
     }
   });
+}
+
+function withPersonLink(account: LocalAccount): LocalAccount {
+  return {
+    ...account,
+    personId: typeof account.personId === "string" && account.personId ? account.personId : null,
+  };
 }
 
 function upsertAccount(account: LocalAccount) {

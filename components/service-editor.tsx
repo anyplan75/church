@@ -171,7 +171,7 @@ export function ServiceEditor({
     setAddedPeople((current) =>
       current.some((person) => person.id === result.id)
         ? current
-        : [...current, { id: result.id, name: result.name, roles: [], phone: "", active: true }],
+        : [...current, { id: result.id, name: result.name, roles: [], phone: "", active: true, membership: "member", attendanceConsent: false }],
     );
     const current = draftRef.current;
     const items = current.items.map((item) => (item.id === itemId ? { ...item, personId: result.id, pendingName: "" } : item));

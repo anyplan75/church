@@ -7,7 +7,7 @@ import { extractUploadedText } from "./extract-text";
 import { go } from "./page-path";
 import { syncReminders } from "./reminders";
 import { isOverlayPosition } from "./db-shape";
-import type { Db, Service, ServiceStatus, SongLicense } from "./types";
+import type { Db, Membership, Service, ServiceStatus, SongLicense } from "./types";
 import {
   addDays,
   clampLiveIndex,
@@ -35,6 +35,11 @@ function liveBlock(db: Db, service: Service): string | null {
 
 function cleanText(value: FormDataEntryValue | null, max: number): string {
   return String(value ?? "").trim().slice(0, max);
+}
+
+function membershipOf(value: string): Membership {
+  if (value === "visitor" || value === "newcomer") return value;
+  return "member";
 }
 
 export async function saveService(input: Service): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -221,7 +226,7 @@ export async function addRosterPerson(name: string): Promise<{ ok: true; id: str
     }
     id = crypto.randomUUID();
     storedName = clean;
-    db.people.push({ id, name: clean, roles: [], phone: "", active: true });
+    db.people.push({ id, name: clean, roles: [], phone: "", active: true, membership: "member", attendanceConsent: false });
   });
   refreshService();
   return { ok: true, id, name: storedName };
@@ -236,6 +241,7 @@ export async function createPerson(formData: FormData) {
     .map((role) => role.trim())
     .filter(Boolean)
     .slice(0, 8);
+  const membership = membershipOf(cleanText(formData.get("membership"), 20));
   updateDb((db) => {
     db.people.push({
       id: crypto.randomUUID(),
@@ -243,6 +249,8 @@ export async function createPerson(formData: FormData) {
       roles,
       phone: cleanText(formData.get("phone"), 30),
       active: true,
+      membership,
+      attendanceConsent: false,
     });
   });
   refreshService();
@@ -259,6 +267,7 @@ export async function updatePerson(formData: FormData) {
     .map((role) => role.trim())
     .filter(Boolean)
     .slice(0, 8);
+  const membership = membershipOf(cleanText(formData.get("membership"), 20));
   updateDb((db) => {
     const person = db.people.find((item) => item.id === id);
     if (!person) return;
@@ -266,6 +275,11 @@ export async function updatePerson(formData: FormData) {
     person.roles = roles;
     person.phone = cleanText(formData.get("phone"), 30);
     person.active = formData.get("active") === "on";
+    person.membership = membership;
+    if (membership !== "member" || !person.active) {
+      person.attendanceConsent = false;
+      db.attendance = db.attendance.filter((mark) => mark.personId !== id);
+    }
   });
   refreshService();
   go("/people");
@@ -276,6 +290,7 @@ export async function deletePerson(formData: FormData) {
   const id = cleanText(formData.get("id"), 80);
   updateDb((db) => {
     db.people = db.people.filter((person) => person.id !== id);
+    db.attendance = db.attendance.filter((mark) => mark.personId !== id);
     for (const service of db.services) {
       if (service.preacherId === id) service.preacherId = null;
       for (const item of service.items) {
