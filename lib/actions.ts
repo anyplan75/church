@@ -1,19 +1,12 @@
-"use server";
-
-import fs from "fs";
-import path from "path";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { serviceSaveBlock } from "./access";
-import { hasAnyAccount } from "./accounts";
+import { clearBackgroundFile, currentUser, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
 import { missingRequired } from "./checklist";
 import { extractUploadedText } from "./extract-text";
-import { mutationUser, requireMutation } from "./guard";
+import { go } from "./page-path";
 import { syncReminders } from "./reminders";
-import { getCurrentUser } from "./session";
-import { isOverlayPosition, updateDb } from "./store";
+import { isOverlayPosition } from "./db-shape";
 import type { Db, Service, ServiceStatus, SongLicense } from "./types";
 import {
   addDays,
@@ -27,20 +20,8 @@ import {
   todayISO,
 } from "./worship";
 
-function refreshService(id?: string) {
-  revalidatePath("/");
-  revalidatePath("/prepare");
-  revalidatePath("/services");
-  revalidatePath("/people");
-  revalidatePath("/songs");
-  revalidatePath("/settings");
-  if (id) {
-    revalidatePath(`/services/${id}`);
-    revalidatePath(`/services/${id}/live`);
-    revalidatePath(`/services/${id}/bulletin`);
-    revalidatePath(`/services/${id}/output`);
-    revalidatePath(`/services/${id}/slides`);
-  }
+function refreshService(_id?: string) {
+  notifyChurch();
 }
 
 function readyContext(db: Db, service: Service) {
@@ -58,8 +39,7 @@ function cleanText(value: FormDataEntryValue | null, max: number): string {
 
 export async function saveService(input: Service): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
-    if (!hasAnyAccount()) return { ok: false, message: "로그인이 필요합니다." };
-    const user = await getCurrentUser();
+    const user = currentUser();
     if (!user) return { ok: false, message: "로그인이 필요합니다." };
     const service = normalizeService(input);
     let found = false;
@@ -187,7 +167,7 @@ export async function createService(formData: FormData) {
   });
 
   refreshService(created);
-  redirect(`/services/${created}`);
+  go(`/services/${created}`);
 }
 
 export async function copyServiceNextWeek(id: string) {
@@ -212,7 +192,7 @@ export async function copyServiceNextWeek(id: string) {
     created = copy.id;
   });
   refreshService(created);
-  redirect(`/services/${created}`);
+  go(`/services/${created}`);
 }
 
 export async function deleteService(id: string) {
@@ -224,7 +204,7 @@ export async function deleteService(id: string) {
     syncReminders(db);
   });
   refreshService(id);
-  redirect("/services");
+  go("/services");
 }
 
 export async function addRosterPerson(name: string): Promise<{ ok: true; id: string; name: string } | { ok: false; message: string }> {
@@ -250,7 +230,7 @@ export async function addRosterPerson(name: string): Promise<{ ok: true; id: str
 export async function createPerson(formData: FormData) {
   await requireMutation("mutate.directory");
   const name = cleanText(formData.get("name"), 40);
-  if (!name) redirect("/people?error=name");
+  if (!name) go("/people?error=name");
   const roles = cleanText(formData.get("roles"), 80)
     .split(",")
     .map((role) => role.trim())
@@ -266,14 +246,14 @@ export async function createPerson(formData: FormData) {
     });
   });
   refreshService();
-  redirect("/people");
+  go("/people");
 }
 
 export async function updatePerson(formData: FormData) {
   await requireMutation("mutate.directory");
   const id = cleanText(formData.get("id"), 80);
   const name = cleanText(formData.get("name"), 40);
-  if (!name) redirect("/people?error=name");
+  if (!name) go("/people?error=name");
   const roles = cleanText(formData.get("roles"), 80)
     .split(",")
     .map((role) => role.trim())
@@ -288,7 +268,7 @@ export async function updatePerson(formData: FormData) {
     person.active = formData.get("active") === "on";
   });
   refreshService();
-  redirect("/people");
+  go("/people");
 }
 
 export async function deletePerson(formData: FormData) {
@@ -305,13 +285,13 @@ export async function deletePerson(formData: FormData) {
     syncReminders(db);
   });
   refreshService();
-  redirect("/people");
+  go("/people");
 }
 
 export async function createSong(formData: FormData) {
   await requireMutation("mutate.directory");
   const title = cleanText(formData.get("title"), 80);
-  if (!title) redirect("/songs?error=title");
+  if (!title) go("/songs?error=title");
   updateDb((db) => {
     const license = songLicense(formData);
     db.songs.push({
@@ -324,14 +304,14 @@ export async function createSong(formData: FormData) {
     });
   });
   refreshService();
-  redirect("/songs");
+  go("/songs");
 }
 
 export async function updateSong(formData: FormData) {
   await requireMutation("mutate.directory");
   const id = cleanText(formData.get("id"), 80);
   const title = cleanText(formData.get("title"), 80);
-  if (!title) redirect("/songs?error=title");
+  if (!title) go("/songs?error=title");
   updateDb((db) => {
     const song = db.songs.find((item) => item.id === id);
     if (!song) return;
@@ -343,7 +323,7 @@ export async function updateSong(formData: FormData) {
     song.permittedLine = license === "permitted" ? cleanText(formData.get("permittedLine"), 80) : "";
   });
   refreshService();
-  redirect("/songs");
+  go("/songs");
 }
 
 export async function deleteSong(formData: FormData) {
@@ -358,31 +338,34 @@ export async function deleteSong(formData: FormData) {
     }
   });
   refreshService();
-  redirect("/songs");
+  go("/songs");
 }
 
 export async function updateSettings(formData: FormData) {
   await requireMutation("mutate.admin");
   const churchName = cleanText(formData.get("churchName"), 40);
-  if (!churchName) redirect("/settings?error=empty");
+  if (!churchName) go("/settings?error=empty");
   const overlayValue = cleanText(formData.get("overlay"), 12);
   const color = cleanText(formData.get("backgroundColor"), 7);
   let savedName: string | null = null;
   try {
     savedName = await storeBackground(formData.get("background"));
   } catch {
-    redirect("/settings?error=image");
+    go("/settings?error=image");
   }
   updateDb((db) => {
     db.settings.churchName = churchName;
     if (isOverlayPosition(overlayValue)) db.settings.overlay = overlayValue;
     if (/^#[0-9a-fA-F]{6}$/.test(color)) db.settings.backgroundColor = color;
-    if (formData.get("clearBackground") === "on") db.settings.backgroundFile = null;
+    if (formData.get("clearBackground") === "on") {
+      clearBackgroundFile(db.settings.backgroundFile);
+      db.settings.backgroundFile = null;
+    }
     if (savedName) db.settings.backgroundFile = savedName;
     syncReminders(db);
   });
   refreshService();
-  redirect("/settings?saved=1");
+  go("/settings?saved=1");
 }
 
 export async function importBulletin(formData: FormData) {
@@ -391,16 +374,16 @@ export async function importBulletin(formData: FormData) {
   const file = formData.get("file");
   let text = pasted;
   if (file instanceof File && file.size > 0) {
-    if (file.size > 8 * 1024 * 1024) redirect("/prepare?error=size");
+    if (file.size > 8 * 1024 * 1024) go("/prepare?error=size");
     try {
       const extracted = await extractUploadedText(file.name, Buffer.from(await file.arrayBuffer()));
       text = [pasted.trim(), extracted].filter(Boolean).join("\n");
     } catch (error) {
       const message = error instanceof Error ? error.message : "파일을 읽지 못했습니다.";
-      redirect(`/prepare?error=file&detail=${encodeURIComponent(message)}`);
+      go(`/prepare?error=file&detail=${encodeURIComponent(message)}`);
     }
   }
-  if (!text.trim()) redirect("/prepare?error=empty");
+  if (!text.trim()) go("/prepare?error=empty");
   let imported = 0;
   let skipped = 0;
   let lyrics = 0;
@@ -412,8 +395,8 @@ export async function importBulletin(formData: FormData) {
     lyrics = result.skippedLyrics;
   });
   refreshService();
-  if (imported === 0 && skipped === 0) redirect("/prepare?error=none");
-  redirect(`/prepare?imported=${imported}&skipped=${skipped}&lyrics=${lyrics}`);
+  if (imported === 0 && skipped === 0) go("/prepare?error=none");
+  go(`/prepare?imported=${imported}&skipped=${skipped}&lyrics=${lyrics}`);
 }
 
 export async function updateSlideFields(formData: FormData) {
@@ -430,7 +413,7 @@ export async function updateSlideFields(formData: FormData) {
     item.scriptureText = item.scriptureLicensed ? cleanText(formData.get("scriptureText"), 400) : "";
   });
   refreshService(serviceId);
-  redirect(`/services/${serviceId}/slides`);
+  go(`/services/${serviceId}/slides`);
 }
 
 function songLicense(formData: FormData): SongLicense {
@@ -442,15 +425,17 @@ async function storeBackground(value: FormDataEntryValue | null): Promise<string
   if (value.size > 5 * 1024 * 1024) throw new Error("배경 그림은 5MB 이하로 올려 주세요.");
   const ext = backgroundExt(value.name);
   if (!ext) throw new Error("배경 그림은 JPG, PNG, WEBP만 올릴 수 있습니다.");
-  const directory = path.join(process.cwd(), "data", "backgrounds");
-  await fs.promises.mkdir(directory, { recursive: true });
   const filename = `background${ext}`;
-  await fs.promises.writeFile(path.join(directory, filename), Buffer.from(await value.arrayBuffer()));
+  const bytes = new Uint8Array(await value.arrayBuffer());
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  const type = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+  await saveBackgroundFile(filename, `data:${type};base64,${btoa(binary)}`);
   return filename;
 }
 
 function backgroundExt(name: string): string | null {
-  const ext = path.extname(name).toLowerCase();
+  const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")).toLowerCase() : "";
   if (ext === ".jpg" || ext === ".jpeg" || ext === ".png" || ext === ".webp") return ext === ".jpeg" ? ".jpg" : ext;
   return null;
 }

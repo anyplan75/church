@@ -1,7 +1,8 @@
+"use client";
+
 import { setupAccount } from "@/lib/account-actions";
 import { SubmitButton } from "@/components/submit-button";
-
-export const metadata = { title: "처음 계정 · 예배 운영" };
+import { useClientQuery } from "@/components/church-state";
 
 const ERRORS: Record<string, string> = {
   email: "이메일 형식을 확인해 주세요.",
@@ -9,8 +10,8 @@ const ERRORS: Record<string, string> = {
   confirm: "비밀번호가 서로 다릅니다.",
 };
 
-export default async function SetupPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const query = await searchParams;
+export default function SetupPage() {
+  const query = useClientQuery();
 
   return (
     <div className="page max-w-md">

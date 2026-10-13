@@ -1,16 +1,16 @@
+"use client";
+
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SubmitButton } from "@/components/submit-button";
+import { useChurch, useClientQuery } from "@/components/church-state";
 import { createSong, deleteSong, updateSong } from "@/lib/actions";
 import { COPYRIGHT_NOTE } from "@/lib/checklist";
-import { requireScreen } from "@/lib/guard";
-import { readDb } from "@/lib/store";
 
-export const metadata = { title: "찬양 · 예배 운영" };
-
-export default async function SongsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  await requireScreen("screen.songs");
-  const query = await searchParams;
-  const songs = readDb().songs;
+export default function SongsPage() {
+  const { ready, db } = useChurch();
+  const query = useClientQuery();
+  if (!ready || !db) return null;
+  const songs = db.songs;
 
   return (
     <div className="page">

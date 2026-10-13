@@ -1,15 +1,15 @@
+"use client";
+
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SubmitButton } from "@/components/submit-button";
+import { useChurch, useClientQuery } from "@/components/church-state";
 import { createPerson, deletePerson, updatePerson } from "@/lib/actions";
-import { requireScreen } from "@/lib/guard";
-import { readDb } from "@/lib/store";
 
-export const metadata = { title: "사람 · 예배 운영" };
-
-export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  await requireScreen("screen.people");
-  const query = await searchParams;
-  const people = readDb().people;
+export default function PeoplePage() {
+  const { ready, db } = useChurch();
+  const query = useClientQuery();
+  if (!ready || !db) return null;
+  const people = db.people;
 
   return (
     <div className="page">

@@ -1,11 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import { requireUser } from "@/lib/guard";
+import { useChurch } from "@/components/church-state";
 import { homeFor } from "@/lib/roles";
 
-export const metadata = { title: "권한 없음 · 예배 운영" };
-
-export default async function DeniedPage() {
-  const user = await requireUser();
+export default function DeniedPage() {
+  const { ready, user } = useChurch();
+  if (!ready || !user) return null;
   const home = homeFor(user.roles);
 
   return (

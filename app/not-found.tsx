@@ -1,11 +1,30 @@
+"use client";
+
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/session";
+import { useEffect, useState } from "react";
+import { BulletinScreen, LiveScreen, OutputScreen, ServiceEditorScreen, SlidesScreen } from "@/components/service-screens";
+import { useChurch } from "@/components/church-state";
+import { cleanPath } from "@/lib/page-path";
 import { homeFor } from "@/lib/roles";
 
-export default async function NotFound() {
-  const user = await getCurrentUser();
+export default function NotFound() {
+  const { user } = useChurch();
+  const [path, setPath] = useState("");
+  useEffect(() => {
+    setPath(cleanPath(window.location.pathname));
+  }, []);
+  if (!path) return null;
+  const nested = path.match(/^\/services\/([^/]+)\/(live|output|bulletin|slides)$/);
+  if (nested) {
+    const id = decodeURIComponent(nested[1]);
+    if (nested[2] === "live") return <LiveScreen id={id} />;
+    if (nested[2] === "output") return <OutputScreen id={id} />;
+    if (nested[2] === "bulletin") return <BulletinScreen id={id} />;
+    return <SlidesScreen id={id} />;
+  }
+  const service = path.match(/^\/services\/([^/]+)$/);
+  if (service && service[1] !== "new") return <ServiceEditorScreen id={decodeURIComponent(service[1])} />;
   const home = user ? homeFor(user.roles) : "/login";
-
   return (
     <div className="page text-center">
       <p className="text-sm text-gold">404</p>

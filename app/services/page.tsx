@@ -1,17 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { useChurch } from "@/components/church-state";
 import { StatusBadge } from "@/components/status-badge";
 import { formatKoreanDate, formatTime } from "@/lib/format";
-import { requireScreen } from "@/lib/guard";
 import { can, serviceDestinations, type Role } from "@/lib/roles";
-import { readDb } from "@/lib/store";
 import { assignmentProgress, preacherName, splitServices, todayISO } from "@/lib/worship";
 import type { Person, Service } from "@/lib/types";
 
-export const metadata = { title: "예배 목록 · 예배 운영" };
-
-export default async function ServicesPage() {
-  const user = await requireScreen("screen.services");
-  const db = readDb();
+export default function ServicesPage() {
+  const { ready, user, db } = useChurch();
+  if (!ready || !user || !db) return null;
   const today = todayISO();
   const { upcoming, past } = splitServices(db.services, today);
 

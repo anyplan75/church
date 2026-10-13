@@ -1,14 +1,13 @@
+"use client";
+
 import { NewServiceForm } from "@/components/new-service-form";
-import { requireScreen } from "@/lib/guard";
-import { readDb } from "@/lib/store";
+import { useChurch, useClientQuery } from "@/components/church-state";
 import { comingSunday, compareService, isISODate, todayISO } from "@/lib/worship";
 
-export const metadata = { title: "예배 만들기 · 예배 운영" };
-
-export default async function NewServicePage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
-  await requireScreen("screen.new");
-  const query = await searchParams;
-  const db = readDb();
+export default function NewServicePage() {
+  const { ready, db } = useChurch();
+  const query = useClientQuery();
+  if (!ready || !db) return null;
   const today = todayISO();
   const initialDate = query.date && isISODate(query.date) ? query.date : comingSunday(today);
   const services = db.services.slice().sort((a, b) => compareService(b, a));

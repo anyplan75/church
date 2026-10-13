@@ -1,20 +1,21 @@
+"use client";
+
 import Link from "next/link";
+import { useChurch } from "@/components/church-state";
 import { StatusBadge } from "@/components/status-badge";
 import { formatKoreanDate, formatMonthDay, formatTime, formatWeekday, relativeDay } from "@/lib/format";
-import { requireScreen } from "@/lib/guard";
 import { can, primaryServiceHref, serviceDestinations } from "@/lib/roles";
-import { readDb } from "@/lib/store";
 import { addDays, clampLiveIndex, mondayOf, nextService, preacherName, todayISO, weekServices } from "@/lib/worship";
 
-export default async function HomePage() {
-  const user = await requireScreen("screen.week");
+export default function HomePage() {
+  const { ready, user, db } = useChurch();
+  if (!ready || !user || !db) return null;
   const prepare = can(user.roles, "screen.prepare");
   const create = can(user.roles, "screen.new");
   const editor = can(user.roles, "screen.editor");
   const liveScreen = can(user.roles, "screen.live");
   const bulletin = can(user.roles, "screen.bulletin");
   const output = can(user.roles, "screen.output");
-  const db = readDb();
   const todayText = todayISO();
   const start = mondayOf(todayText);
   const days = Array.from({ length: 7 }, (_, index) => addDays(start, index));

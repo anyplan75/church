@@ -2,7 +2,7 @@ import { ConfirmSubmit } from "@/components/confirm-submit";
 import { RoleFields } from "@/components/role-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { createAccount, removeAccount, saveAccount } from "@/lib/account-actions";
-import type { Account } from "@/lib/accounts";
+import type { Account } from "@/lib/account-rules";
 import { ROLES, type Role } from "@/lib/roles";
 
 function roleLabels(roles: readonly Role[]) {

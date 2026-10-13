@@ -1,3 +1,4 @@
+import { storedBackgroundUrl } from "./app-db";
 import type { Db } from "./types";
 import { clampLiveIndex } from "./worship";
 import { slidesFor, type Slide } from "./slides";
@@ -28,6 +29,6 @@ export function liveView(db: Db, serviceId: string): LiveView | null {
     slide: slides[index] ?? null,
     overlay: db.settings.overlay,
     backgroundColor: db.settings.backgroundColor || "#1b3a32",
-    backgroundUrl: db.settings.backgroundFile ? "/api/media/background" : null,
+    backgroundUrl: storedBackgroundUrl(db.settings.backgroundFile),
   };
 }

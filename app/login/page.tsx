@@ -1,10 +1,11 @@
+"use client";
+
 import { login } from "@/lib/account-actions";
 import { SubmitButton } from "@/components/submit-button";
+import { useClientQuery } from "@/components/church-state";
 
-export const metadata = { title: "로그인 · 예배 운영" };
-
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const query = await searchParams;
+export default function LoginPage() {
+  const query = useClientQuery();
 
   return (
     <div className="page max-w-md">

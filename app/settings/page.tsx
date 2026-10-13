@@ -1,11 +1,10 @@
+"use client";
+
 import { AccountPanel } from "@/components/account-panel";
 import { SubmitButton } from "@/components/submit-button";
+import { useChurch, useClientQuery } from "@/components/church-state";
 import { updateSettings } from "@/lib/actions";
-import { readAccounts } from "@/lib/accounts";
-import { requireScreen } from "@/lib/guard";
-import { readDb } from "@/lib/store";
-
-export const metadata = { title: "설정 · 예배 운영" };
+import { listAccounts, storedBackgroundUrl } from "@/lib/app-db";
 
 const OVERLAYS = [
   { id: "bottom", label: "아래" },
@@ -14,15 +13,12 @@ const OVERLAYS = [
   { id: "right", label: "오른쪽" },
 ] as const;
 
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ saved?: string; error?: string; accountSaved?: string; accountError?: string; account?: string }>;
-}) {
-  const user = await requireScreen("screen.settings");
-  const query = await searchParams;
-  const settings = readDb().settings;
-  const accounts = readAccounts();
+export default function SettingsPage() {
+  const { ready, user, db } = useChurch();
+  const query = useClientQuery();
+  if (!ready || !user || !db) return null;
+  const settings = db.settings;
+  const accounts = listAccounts();
 
   return (
     <div className="page max-w-3xl">
@@ -52,7 +48,7 @@ export default async function SettingsPage({
         ) : null}
         {settings.backgroundFile ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src="/api/media/background" alt="현재 배경" className="h-32 w-full rounded-xl object-cover" />
+          <img src={storedBackgroundUrl(settings.backgroundFile) || ""} alt="현재 배경" className="h-32 w-full rounded-xl object-cover" />
         ) : null}
         <label className="field">
           <span>자막 위치</span>

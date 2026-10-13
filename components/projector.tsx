@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { LiveView } from "@/lib/live-view";
+import { readDb } from "@/lib/app-db";
+import { liveView, type LiveView } from "@/lib/live-view";
 
 export function Projector({ initial }: { initial: LiveView }) {
   const [view, setView] = useState(initial);
@@ -9,13 +10,9 @@ export function Projector({ initial }: { initial: LiveView }) {
   useEffect(() => {
     let stop = false;
     async function tick() {
-      try {
-        const response = await fetch(`/api/services/${initial.serviceId}/live`, { cache: "no-store" });
-        if (!response.ok || stop) return;
-        setView((await response.json()) as LiveView);
-      } catch {
-        // 다음 주기에 다시 읽습니다.
-      }
+      if (stop) return;
+      const next = liveView(readDb(), initial.serviceId);
+      if (next) setView(next);
     }
     const timer = window.setInterval(() => void tick(), 1000);
     return () => {

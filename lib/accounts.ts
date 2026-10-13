@@ -1,16 +1,13 @@
 import fs from "fs";
 import path from "path";
+import { deleteAccountError, normalizeEmail, normalizePassword, roleChangeError, type Account } from "./account-rules";
 import { dataDir } from "./data-dir";
 import { hashPassword } from "./passwords";
-import { ALL_ROLES, normalizeRoles, type Role } from "./roles";
+import { ALL_ROLES, normalizeRoles } from "./roles";
 import { dropSessionsForAccount } from "./sessions";
 
-export type Account = {
-  id: string;
-  email: string;
-  passwordHash: string;
-  roles: Role[];
-};
+export type { Account };
+export { deleteAccountError, normalizeEmail, normalizePassword, roleChangeError };
 
 type AccountFile = { accounts: Account[] };
 
@@ -47,19 +44,6 @@ export function findAccountByEmail(email: string): Account | null {
 
 export function findAccountById(id: string): Account | null {
   return readAccounts().find((account) => account.id === id) ?? null;
-}
-
-export function normalizeEmail(value: string): string | null {
-  const email = value.trim().toLowerCase();
-  if (email.length < 3 || email.length > 120) return null;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
-  return email;
-}
-
-export function normalizePassword(value: string): string | null {
-  const password = value.trim();
-  if (password.length < 8 || password.length > 200) return null;
-  return password;
 }
 
 export function createFirstAccount(email: string, password: string): Account {
@@ -112,23 +96,7 @@ export function deleteAccount(id: string) {
   dropSessionsForAccount(id);
 }
 
-export function roleChangeError(accounts: readonly Account[], id: string, roles: readonly Role[]): string | null {
-  if (!accounts.some((account) => account.id === id)) return "계정을 찾을 수 없습니다.";
-  if (roles.length === 0) return "역할을 하나 이상 선택해 주세요.";
-  const others = accounts.filter((account) => account.id !== id && account.roles.includes("admin")).length;
-  if (others + (roles.includes("admin") ? 1 : 0) === 0) return "마지막 설정·계정 역할은 뺄 수 없습니다.";
-  return null;
-}
-
-export function deleteAccountError(accounts: readonly Account[], id: string): string | null {
-  const account = accounts.find((item) => item.id === id);
-  if (!account) return "계정을 찾을 수 없습니다.";
-  const others = accounts.filter((item) => item.id !== id && item.roles.includes("admin")).length;
-  if (account.roles.includes("admin") && others === 0) return "마지막 설정·계정 계정은 삭제할 수 없습니다.";
-  return null;
-}
-
-function buildAccount(email: string, password: string, roles: readonly Role[]): Account {
+function buildAccount(email: string, password: string, roles: readonly import("./roles").Role[]): Account {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) throw new Error("이메일 형식을 확인해 주세요.");
   const normalizedPassword = normalizePassword(password);

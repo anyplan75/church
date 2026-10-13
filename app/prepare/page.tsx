@@ -1,17 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import { NotifyButton } from "@/components/notify-button";
 import { SubmitButton } from "@/components/submit-button";
+import { useChurch, useClientQuery } from "@/components/church-state";
 import { importBulletin } from "@/lib/actions";
 import { bulletinAccept, bulletinFormatNote } from "@/lib/extract-text";
 import { CHECKS, checklistProgress, COPYRIGHT_NOTE } from "@/lib/checklist";
-import { requireScreen } from "@/lib/guard";
 import { can } from "@/lib/roles";
 import { formatKoreanDate, formatTime } from "@/lib/format";
-import { reminderRecipient, syncReminders } from "@/lib/reminders";
-import { updateDb } from "@/lib/store";
+import { reminderRecipient } from "@/lib/reminders";
 import { todayISO, weekServices } from "@/lib/worship";
-
-export const metadata = { title: "예배 준비 · 예배 운영" };
 
 const SAMPLE = `2026년 10월 18일 주일
 1부 예배 오전 9:00
@@ -28,17 +27,12 @@ const SAMPLE = `2026년 10월 18일 주일
 찬송 405장
 축도`;
 
-export default async function PreparePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ imported?: string; skipped?: string; lyrics?: string; error?: string; detail?: string }>;
-}) {
-  const user = await requireScreen("screen.prepare");
+export default function PreparePage() {
+  const { ready, user, db: loaded } = useChurch();
+  const query = useClientQuery();
+  if (!ready || !user || !loaded) return null;
   const output = can(user.roles, "screen.output");
-  const query = await searchParams;
-  const db = updateDb((current) => {
-    syncReminders(current);
-  });
+  const db = loaded;
   const today = todayISO();
   const week = weekServices(db.services, today);
   const context = { people: db.people, songs: db.songs, settings: db.settings, reminders: db.reminders };
