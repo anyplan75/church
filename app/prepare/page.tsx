@@ -2,6 +2,7 @@ import Link from "next/link";
 import { NotifyButton } from "@/components/notify-button";
 import { SubmitButton } from "@/components/submit-button";
 import { importBulletin } from "@/lib/actions";
+import { bulletinAccept, bulletinFormatNote } from "@/lib/extract-text";
 import { CHECKS, checklistProgress, COPYRIGHT_NOTE } from "@/lib/checklist";
 import { requireScreen } from "@/lib/guard";
 import { can } from "@/lib/roles";
@@ -77,7 +78,7 @@ export default async function PreparePage({
 
       <section className="card mt-8 p-5">
         <h2 className="font-serif text-2xl">주보 가져오기</h2>
-        <p className="mt-2 text-sm text-muted">붙여 넣은 글, 텍스트, 워드(DOCX), 한글(HWPX)을 받습니다. 예전 한글(HWP)은 HWPX로 저장한 뒤 올려 주세요. 한 주에 들어 있는 예배를 모두 준비합니다. 예배 줄 아래에 장소 교육관처럼 적으면 그 장소를 쓰고, 적지 않으면 본당으로 둡니다.</p>
+        <p className="mt-2 text-sm text-muted">{bulletinFormatNote()} 예배 줄 아래에 장소 교육관처럼 적으면 그 장소를 쓰고, 적지 않으면 본당으로 둡니다.</p>
         {query.imported ? (
           <p className="mt-4 text-sm text-pine">
             예배 {query.imported}개를 준비했습니다.
@@ -96,7 +97,7 @@ export default async function PreparePage({
           </label>
           <label className="field">
             <span>파일</span>
-            <input className="input" name="file" type="file" accept=".txt,.text,.md,.docx,.hwpx,.hwp,text/plain" />
+            <input className="input" name="file" type="file" accept={bulletinAccept()} />
           </label>
           <SubmitButton>이번 주 예배 준비</SubmitButton>
         </form>

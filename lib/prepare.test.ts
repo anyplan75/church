@@ -403,7 +403,7 @@ describe("files", () => {
     zip.file("Contents/section0.xml", xml);
     const hwpx = await zip.generateAsync({ type: "nodebuffer" });
     assert.match(await extractUploadedText("주보.hwpx", hwpx), /묵도/);
-    await assert.rejects(extractUploadedText("주보.hwp", Buffer.from("HWP Document File")), /HWPX/);
+    await assert.rejects(extractUploadedText("주보.hwp", Buffer.from("HWP Document File")), /한글/);
     const docx = new JSZip();
     docx.file(
       "[Content_Types].xml",

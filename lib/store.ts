@@ -8,8 +8,10 @@ const file = path.join(process.cwd(), "data", "church.json");
 
 function write(db: Db) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
+  const body = JSON.stringify(db, null, 2);
+  if (fs.existsSync(file) && fs.readFileSync(file, "utf8") === body) return;
   const temporary = `${file}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(temporary, JSON.stringify(db, null, 2));
+  fs.writeFileSync(temporary, body);
   fs.renameSync(temporary, file);
 }
 
