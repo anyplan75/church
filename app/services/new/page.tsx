@@ -1,10 +1,12 @@
 import { NewServiceForm } from "@/components/new-service-form";
+import { requireScreen } from "@/lib/guard";
 import { readDb } from "@/lib/store";
 import { comingSunday, compareService, isISODate, todayISO } from "@/lib/worship";
 
 export const metadata = { title: "예배 만들기 · 예배 운영" };
 
 export default async function NewServicePage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+  await requireScreen("screen.new");
   const query = await searchParams;
   const db = readDb();
   const today = todayISO();

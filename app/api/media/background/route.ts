@@ -1,8 +1,11 @@
 import fs from "fs";
 import path from "path";
+import { denyApi } from "@/lib/guard";
 import { readDb } from "@/lib/store";
 
 export async function GET() {
+  const denied = await denyApi(["screen.output", "screen.settings"]);
+  if (denied) return denied;
   const filename = readDb().settings.backgroundFile;
   if (!filename) return new Response(null, { status: 404 });
   const safe = path.basename(filename);

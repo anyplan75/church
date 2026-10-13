@@ -1,5 +1,8 @@
+import { AccountPanel } from "@/components/account-panel";
 import { SubmitButton } from "@/components/submit-button";
 import { updateSettings } from "@/lib/actions";
+import { readAccounts } from "@/lib/accounts";
+import { requireScreen } from "@/lib/guard";
 import { readDb } from "@/lib/store";
 
 export const metadata = { title: "설정 · 예배 운영" };
@@ -11,12 +14,18 @@ const OVERLAYS = [
   { id: "right", label: "오른쪽" },
 ] as const;
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string; error?: string; accountSaved?: string; accountError?: string; account?: string }>;
+}) {
+  const user = await requireScreen("screen.settings");
   const query = await searchParams;
   const settings = readDb().settings;
+  const accounts = readAccounts();
 
   return (
-    <div className="page max-w-xl">
+    <div className="page max-w-3xl">
       <h1 className="font-serif text-4xl">설정</h1>
       <p className="mt-2 text-muted">교회 이름, 송출 배경, 자막 위치를 정합니다. 자막은 통역 화면처럼 순서 위에 겹칩니다.</p>
       {query.saved ? <p className="mt-4 text-sm text-pine">설정을 저장했습니다.</p> : null}
@@ -57,6 +66,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </label>
         <SubmitButton>저장</SubmitButton>
       </form>
+      <AccountPanel accounts={accounts} currentId={user.id} error={query.accountError} saved={query.accountSaved} errorAccount={query.account} />
     </div>
   );
 }

@@ -13,11 +13,13 @@ export function LiveConsole({
   people,
   songs,
   churchName,
+  access,
 }: {
   service: Service;
   people: Person[];
   songs: Song[];
   churchName: string;
+  access: { output: boolean; bulletin: boolean; editor: boolean };
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(service.status);
@@ -96,15 +98,21 @@ export function LiveConsole({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href={`/services/${service.id}/output`} target="_blank" className="btn btn-on-dark btn-small">
-            송출 화면
-          </Link>
-          <Link href={`/services/${service.id}/bulletin`} className="btn btn-on-dark btn-small">
-            주보
-          </Link>
-          <Link href={`/services/${service.id}`} className="btn btn-on-dark btn-small">
-            순서 편집
-          </Link>
+          {access.output ? (
+            <Link href={`/services/${service.id}/output`} target="_blank" className="btn btn-on-dark btn-small">
+              송출 화면
+            </Link>
+          ) : null}
+          {access.bulletin ? (
+            <Link href={`/services/${service.id}/bulletin`} className="btn btn-on-dark btn-small">
+              주보
+            </Link>
+          ) : null}
+          {access.editor ? (
+            <Link href={`/services/${service.id}`} className="btn btn-on-dark btn-small">
+              순서 편집
+            </Link>
+          ) : null}
           {status === "live" ? (
             confirming ? (
               <button type="button" className="btn btn-wine btn-small" onClick={() => void finish()}>
@@ -124,9 +132,11 @@ export function LiveConsole({
           {service.items.length === 0 ? (
             <div>
               <h1 className="font-serif text-5xl">순서가 없습니다</h1>
-              <Link href={`/services/${service.id}`} className="btn btn-light mt-6">
-                순서를 만들러 가기
-              </Link>
+              {access.editor ? (
+                <Link href={`/services/${service.id}`} className="btn btn-light mt-6">
+                  순서를 만들러 가기
+                </Link>
+              ) : null}
             </div>
           ) : status !== "live" && status !== "done" ? (
             <div>

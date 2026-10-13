@@ -1,10 +1,19 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
 import { formatKoreanDate, formatMonthDay, formatTime, formatWeekday, relativeDay } from "@/lib/format";
+import { requireScreen } from "@/lib/guard";
+import { can, primaryServiceHref, serviceDestinations } from "@/lib/roles";
 import { readDb } from "@/lib/store";
 import { addDays, clampLiveIndex, mondayOf, nextService, preacherName, todayISO, weekServices } from "@/lib/worship";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await requireScreen("screen.week");
+  const prepare = can(user.roles, "screen.prepare");
+  const create = can(user.roles, "screen.new");
+  const editor = can(user.roles, "screen.editor");
+  const liveScreen = can(user.roles, "screen.live");
+  const bulletin = can(user.roles, "screen.bulletin");
+  const output = can(user.roles, "screen.output");
   const db = readDb();
   const todayText = todayISO();
   const start = mondayOf(todayText);
@@ -25,12 +34,16 @@ export default function HomePage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/prepare" className="btn btn-quiet">
-            예배 준비
-          </Link>
-          <Link href="/services/new" className="btn btn-primary">
-            예배 만들기
-          </Link>
+          {prepare ? (
+            <Link href="/prepare" className="btn btn-quiet">
+              예배 준비
+            </Link>
+          ) : null}
+          {create ? (
+            <Link href="/services/new" className="btn btn-primary">
+              예배 만들기
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -51,24 +64,37 @@ export default function HomePage() {
             <StatusBadge status={next.status} />
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
-            <Link href={`/services/${next.id}/live`} className={live ? "btn btn-light" : "btn btn-primary"}>
-              진행 화면
-            </Link>
-            <Link href={`/services/${next.id}`} className={live ? "btn btn-on-dark" : "btn btn-quiet"}>
-              순서 편집
-            </Link>
-            <Link href={`/services/${next.id}/bulletin`} className={live ? "btn btn-on-dark" : "btn btn-quiet"}>
-              주보
-            </Link>
+            {liveScreen ? (
+              <Link href={`/services/${next.id}/live`} className={live ? "btn btn-light" : "btn btn-primary"}>
+                진행 화면
+              </Link>
+            ) : null}
+            {editor ? (
+              <Link href={`/services/${next.id}`} className={live ? "btn btn-on-dark" : "btn btn-quiet"}>
+                순서 편집
+              </Link>
+            ) : null}
+            {output ? (
+              <Link href={`/services/${next.id}/output`} target="_blank" className={live ? "btn btn-on-dark" : "btn btn-quiet"}>
+                송출 화면
+              </Link>
+            ) : null}
+            {bulletin ? (
+              <Link href={`/services/${next.id}/bulletin`} className={live ? "btn btn-on-dark" : "btn btn-quiet"}>
+                주보
+              </Link>
+            ) : null}
           </div>
         </section>
       ) : (
         <section className="card mt-8 px-6 py-10">
           <h2 className="font-serif text-3xl">예정된 예배가 없습니다</h2>
           <p className="mt-2 text-muted">순서를 만들고 담당을 정한 뒤, 예배 중에 진행 화면으로 넘기면 됩니다.</p>
-          <Link href="/services/new" className="btn btn-primary mt-5">
-            첫 예배 만들기
-          </Link>
+          {create ? (
+            <Link href="/services/new" className="btn btn-primary mt-5">
+              첫 예배 만들기
+            </Link>
+          ) : null}
         </section>
       )}
 
@@ -84,15 +110,20 @@ export default function HomePage() {
                     <p className="text-sm text-muted">{formatWeekday(day)}</p>
                     <p className="font-serif text-3xl leading-none">{Number(day.slice(8))}</p>
                   </div>
-                  <Link href={`/services/new?date=${day}`} className="btn btn-quiet btn-small day-add-mobile">
-                    추가
-                  </Link>
+                  {create ? (
+                    <Link href={`/services/new?date=${day}`} className="btn btn-quiet btn-small day-add-mobile">
+                      추가
+                    </Link>
+                  ) : null}
                 </div>
                 <div className="min-w-0 flex-1">
                   {services.length === 0 ? <p className="text-muted">예배 없음</p> : null}
                   <div className="space-y-2">
-                    {services.map((service) => (
-                      <Link key={service.id} href={`/services/${service.id}`} className="block rounded-xl px-3 py-2 hover:bg-white">
+                    {services.map((service) => {
+                      const links = serviceDestinations(service.id, user.roles);
+                      const primary = primaryServiceHref(service.id, user.roles);
+                      const extras = editor ? [] : links.slice(1);
+                      const body = (
                         <div className="service-line">
                           <div>
                             <p className="font-medium">
@@ -105,13 +136,36 @@ export default function HomePage() {
                           </div>
                           <StatusBadge status={service.status} />
                         </div>
-                      </Link>
-                    ))}
+                      );
+                      if (extras.length === 0) {
+                        return (
+                          <Link key={service.id} href={primary} className="block rounded-xl px-3 py-2 hover:bg-white">
+                            {body}
+                          </Link>
+                        );
+                      }
+                      return (
+                        <div key={service.id} className="rounded-xl px-3 py-2">
+                          <Link href={primary} className="block hover:bg-white">
+                            {body}
+                          </Link>
+                          <p className="mt-1 flex flex-wrap gap-2 px-0 text-sm">
+                            {extras.map((link) => (
+                              <Link key={link.href} href={link.href} className="text-pine">
+                                {link.label}
+                              </Link>
+                            ))}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <Link href={`/services/new?date=${day}`} className="btn btn-quiet btn-small day-add-desktop">
-                  추가
-                </Link>
+                {create ? (
+                  <Link href={`/services/new?date=${day}`} className="btn btn-quiet btn-small day-add-desktop">
+                    추가
+                  </Link>
+                ) : null}
               </div>
             );
           })}

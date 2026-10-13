@@ -1,7 +1,10 @@
+import { denyApi } from "@/lib/guard";
 import { syncReminders } from "@/lib/reminders";
 import { updateDb } from "@/lib/store";
 
 export async function GET() {
+  const denied = await denyApi(["screen.prepare"]);
+  if (denied) return denied;
   const db = updateDb((current) => {
     syncReminders(current);
   });
@@ -14,6 +17,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = await denyApi(["mutate.prepare"]);
+  if (denied) return denied;
   const body = (await request.json().catch(() => null)) as { ids?: unknown } | null;
   const ids = new Set(Array.isArray(body?.ids) ? body.ids.filter((id): id is string => typeof id === "string") : []);
   updateDb((db) => {
