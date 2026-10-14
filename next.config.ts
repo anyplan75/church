@@ -2,14 +2,14 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const pages = process.env.GITHUB_PAGES === "1";
+const staticExport = pages || process.env.STATIC_EXPORT === "1";
 
 const nextConfig: NextConfig = {
-  ...(pages
+  ...(staticExport
     ? {
         output: "export" as const,
-        basePath: "/church",
-        assetPrefix: "/church",
         trailingSlash: true,
+        ...(pages ? { basePath: "/church", assetPrefix: "/church" } : {}),
       }
     : {}),
   images: { unoptimized: true },

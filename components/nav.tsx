@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/account-actions";
+import { backToChurches } from "@/lib/platform-actions";
 import { can, homeFor, type Capability, type Role } from "@/lib/roles";
 
 const LINKS: { href: string; label: string; capability: Capability }[] = [
@@ -21,7 +22,17 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Nav({ churchName, email, roles }: { churchName: string; email: string; roles: Role[] }) {
+export function Nav({
+  churchName,
+  email,
+  roles,
+  platform = false,
+}: {
+  churchName: string;
+  email: string;
+  roles: Role[];
+  platform?: boolean;
+}) {
   const pathname = usePathname();
   if (pathname.endsWith("/live") || pathname.endsWith("/output")) return null;
   const links = LINKS.filter((link) => can(roles, link.capability));
@@ -49,6 +60,13 @@ export function Nav({ churchName, email, roles }: { churchName: string; email: s
               );
             })}
           </nav>
+          {platform ? (
+            <form action={backToChurches}>
+              <button type="submit" className="btn btn-quiet btn-small">
+                교회 목록
+              </button>
+            </form>
+          ) : null}
           <span className="max-w-44 truncate text-xs text-muted" title={email}>
             {email}
           </span>

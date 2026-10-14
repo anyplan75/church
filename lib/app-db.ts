@@ -1,13 +1,29 @@
 import { normalizeDb } from "./db-shape";
-import { firebaseRefresh, firebaseSignIn } from "./firebase-auth";
-import { hashLocalPassword, verifyLocalPassword } from "./local-password";
+import { DatabasePermissionError, dbGet, dbSet } from "./firebase-db";
+import {
+  emailFromIdToken,
+  firebaseDeleteAccount,
+  firebaseRefresh,
+  firebaseSignIn,
+  firebaseSignUp,
+  firebaseUpdateAccount,
+  type FirebaseSession,
+} from "./firebase-auth";
 import { go } from "./page-path";
+import {
+  canAddChurch,
+  canSeeChurch,
+  isChurchId,
+  isPlatformEmail,
+  makeChurchId,
+  rolesFromMap,
+  rolesToMap,
+  type Actor,
+} from "./platform";
 import { syncReminders } from "./reminders";
-import { ALL_ROLES, can, type Capability, type Role } from "./roles";
+import { ALL_ROLES, can, normalizeRoles, type Capability, type Role } from "./roles";
 import { buildSeed } from "./seed";
 import type { Db } from "./types";
-
-export const DEMO_EMAIL = "demo@eunhye.kr";
 
 export type LocalAccount = {
   id: string;
@@ -17,20 +33,61 @@ export type LocalAccount = {
   personId: string | null;
 };
 
-export type CurrentUser = { id: string; email: string; roles: Role[] };
+export type ChurchRow = {
+  id: string;
+  name: string;
+  operatorEmail: string;
+  createdAt: number;
+};
 
-type Session = { accountId: string; email: string; roles: Role[]; refreshToken: string };
+export type CurrentUser = {
+  id: string;
+  email: string;
+  roles: Role[];
+  kind: "platform" | "church";
+  churchId: string | null;
+};
 
-type Snapshot = { ready: boolean; user: CurrentUser | null; db: Db | null };
+type Session = {
+  accountId: string;
+  email: string;
+  roles: Role[];
+  refreshToken: string;
+  idToken: string;
+  expiresAt: number;
+  kind: "platform" | "church";
+  churchId: string | null;
+};
 
+type RemoteAccount = {
+  email?: string;
+  churchId?: string;
+  roles?: unknown;
+  personId?: string | null;
+};
+
+type Snapshot = {
+  ready: boolean;
+  user: CurrentUser | null;
+  db: Db | null;
+  churches: ChurchRow[];
+  error: string;
+};
+
+const SESSION_KEY = "church-worship-session";
 const listeners = new Set<() => void>();
 let db: Db | null = null;
 let accounts: LocalAccount[] = [];
+let churches: ChurchRow[] = [];
 let session: Session | null = null;
 let files = new Map<string, string>();
 let ready = false;
+let error = "";
 let booting: Promise<void> | null = null;
-const initialSnapshot: Snapshot = { ready: false, user: null, db: null };
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let writeChain: Promise<void> = Promise.resolve();
+let writing = false;
+const initialSnapshot: Snapshot = { ready: false, user: null, db: null, churches: [], error: "" };
 let snapshot: Snapshot = initialSnapshot;
 
 export function subscribeChurch(listener: () => void) {
@@ -47,7 +104,7 @@ export function serverChurchSnapshot(): Snapshot {
 }
 
 function emit() {
-  snapshot = { ready, user: currentUser(), db };
+  snapshot = { ready, user: currentUser(), db, churches: churches.slice(), error };
   for (const listener of listeners) listener();
 }
 
@@ -62,58 +119,77 @@ export async function bootChurch() {
 }
 
 async function load() {
-  const savedDb = await idbGet<Db>("db");
-  const savedAccounts = await idbGet<LocalAccount[]>("accounts");
-  const savedSession = await idbGet<Session>("session");
-  const savedFiles = await idbGet<Record<string, string>>("files");
-  db = savedDb ? normalizeDb(savedDb) : buildSeed();
-  syncReminders(db);
-  accounts = Array.isArray(savedAccounts) ? savedAccounts.map(withPersonLink) : [];
-  files = new Map(Object.entries(savedFiles ?? {}));
-  session = savedSession && savedSession.email ? savedSession : null;
-  if (session?.refreshToken) {
-    const alive = await firebaseRefresh(session.refreshToken).catch(() => false);
-    if (!alive && !usesLocalPassword(session)) session = null;
+  forgetBrowserData();
+  session = readStoredSession();
+  if (session) {
+    const refreshed = await firebaseRefresh(session.refreshToken).catch(() => null);
+    if (!refreshed) session = null;
+    else {
+      session = {
+        ...session,
+        accountId: refreshed.localId || session.accountId,
+        email: emailFromIdToken(refreshed.idToken) || refreshed.email || session.email,
+        idToken: refreshed.idToken,
+        refreshToken: refreshed.refreshToken,
+        expiresAt: refreshed.expiresAt,
+      };
+    }
   }
-  if (!savedDb) await idbSet("db", db);
+  if (session) await adoptSession(session).catch(() => clearSession());
   ready = true;
   emit();
+  if (!pollTimer && typeof window !== "undefined") pollTimer = setInterval(() => void refreshRemote(), 4000);
 }
 
-function usesLocalPassword(value: Session | null): boolean {
-  if (!value) return false;
-  const account = accounts.find((item) => item.email === value.email);
-  return Boolean(account && account.passwordHash.startsWith("pbkdf2$"));
+function forgetBrowserData() {
+  if (typeof indexedDB === "undefined") return;
+  try {
+    indexedDB.deleteDatabase("church-worship");
+  } catch {
+    /* 이전 브라우저 저장은 더 이상 쓰지 않습니다. */
+  }
 }
 
 export function readDb(): Db {
-  if (!db) db = buildSeed();
-  return db;
+  return db ?? buildSeed();
 }
 
 export function updateDb(mutator: (current: Db) => void): Db {
-  const current = readDb();
-  mutator(current);
-  db = current;
-  void idbSet("db", current);
+  const actor = actorOf(session);
+  if (!session || !db || !actor || !session.churchId || !canSeeChurch(actor, session.churchId)) go("/login");
+  mutator(db!);
+  syncReminders(db!);
+  scheduleChurchWrite();
   emit();
-  return current;
+  return db!;
 }
 
 export function currentUser(): CurrentUser | null {
   if (!session) return null;
-  return { id: session.accountId, email: session.email, roles: session.roles };
+  return {
+    id: session.accountId,
+    email: session.email,
+    roles: session.roles,
+    kind: session.kind,
+    churchId: session.churchId,
+  };
 }
 
 export function listAccounts(): LocalAccount[] {
   return accounts.slice();
 }
 
+export function listChurches(): ChurchRow[] {
+  const actor = actorOf(session);
+  if (!actor) return [];
+  return churches.filter((church) => canSeeChurch(actor, church.id));
+}
+
 export function requireMutation(capability: Capability): CurrentUser {
   const user = currentUser();
   if (!user) go("/login");
-  if (!can(user.roles, capability)) go("/denied");
-  return user;
+  if (!can(user!.roles, capability)) go("/denied");
+  return user!;
 }
 
 export function mutationUser(capability: Capability): { ok: true; user: CurrentUser } | { ok: false; message: string } {
@@ -124,51 +200,148 @@ export function mutationUser(capability: Capability): { ok: true; user: CurrentU
 }
 
 export async function loginWithPassword(email: string, password: string): Promise<CurrentUser | null> {
-  const local = accounts.find((account) => account.email === email);
-  if (local?.passwordHash.startsWith("pbkdf2$") && (await verifyLocalPassword(password, local.passwordHash))) {
-    rememberSession({ accountId: local.id, email: local.email, roles: local.roles, refreshToken: "" });
-    return currentUser();
-  }
   const remote = await firebaseSignIn(email, password).catch(() => null);
   if (!remote) return null;
-  const roles = email === DEMO_EMAIL ? ALL_ROLES : local?.roles ?? [];
-  if (roles.length === 0) return null;
-  const account: LocalAccount = {
-    id: remote.localId,
-    email,
-    passwordHash: local?.passwordHash.startsWith("pbkdf2$") ? local.passwordHash : "firebase",
-    roles,
-    personId: local?.personId ?? null,
-  };
-  upsertAccount(account);
-  rememberSession({ accountId: account.id, email, roles, refreshToken: remote.refreshToken });
+  const next = sessionFromAuth(remote, isPlatformEmail(remote.email) ? "platform" : "church", null, []);
+  const adopted = await adoptSession(next).catch((reason: unknown) => {
+    error = reason instanceof DatabasePermissionError ? "데이터베이스 권한이 없습니다." : "로그인하지 못했습니다.";
+    return false;
+  });
+  if (!adopted) {
+    clearSession();
+    return null;
+  }
+  emit();
   return currentUser();
 }
 
-export async function saveLocalAccount(account: LocalAccount, password?: string) {
-  const next = { ...account };
-  if (password) next.passwordHash = await hashLocalPassword(password);
-  upsertAccount(next);
-  if (session?.accountId === next.id || session?.email === next.email) {
-    session = { ...session, accountId: next.id, email: next.email, roles: next.roles };
-    await idbSet("session", session);
+export async function addChurchWithOperator(input: {
+  name: string;
+  email: string;
+  password: string;
+  roles: readonly string[];
+}): Promise<{ ok: true } | { ok: false; code: string }> {
+  const actor = actorOf(session);
+  if (!session || !actor || !canAddChurch(actor)) return { ok: false, code: "denied" };
+  const name = input.name.trim().slice(0, 40);
+  if (!name) return { ok: false, code: "name" };
+  const roles = normalizeRoles(input.roles);
+  if (roles.length === 0) return { ok: false, code: "roles" };
+  if (isPlatformEmail(input.email)) return { ok: false, code: "taken" };
+  const created = await firebaseSignUp(input.email, input.password);
+  if (!created.ok) return { ok: false, code: created.taken ? "taken" : "email" };
+  const id = makeChurchId();
+  const churchDb = buildSeed();
+  churchDb.settings.churchName = name;
+  const row: ChurchRow = { id, name, operatorEmail: created.session.email, createdAt: Date.now() };
+  try {
+    const token = await currentToken();
+    await dbSet(`churches/${id}/meta`, { name, createdAt: row.createdAt }, token);
+    await dbSet(`churches/${id}/data`, churchDb, token);
+    await dbSet(`churches/${id}/members/${created.session.localId}`, memberBody(created.session.email, id, roles, null), token);
+    await dbSet(`accounts/${created.session.localId}`, memberBody(created.session.email, id, roles, null), token);
+    await dbSet(`churchIndex/${id}`, row, token);
+    churches = [...churches.filter((item) => item.id !== id), row].sort((a, b) => a.name.localeCompare(b.name, "ko"));
+    error = "";
+    emit();
+    return { ok: true };
+  } catch (reason) {
+    await firebaseDeleteAccount(created.session.idToken).catch(() => undefined);
+    error = reason instanceof DatabasePermissionError ? "데이터베이스 권한이 없습니다." : "교회를 저장하지 못했습니다.";
+    emit();
+    return { ok: false, code: "denied" };
+  }
+}
+
+export async function enterChurch(id: string) {
+  const actor = actorOf(session);
+  if (!session || !actor || !canAddChurch(actor) || !canSeeChurch(actor, id)) go("/platform");
+  session = { ...session!, churchId: id, roles: ALL_ROLES, kind: "platform" };
+  persistSession();
+  await loadChurch(id).catch(() => {
+    error = "이 교회를 열지 못했습니다.";
+  });
+  emit();
+}
+
+export function leaveChurch() {
+  if (!session || session.kind !== "platform") return;
+  session = { ...session, churchId: null, roles: [] };
+  db = null;
+  accounts = [];
+  files = new Map();
+  persistSession();
+  emit();
+}
+
+export async function registerChurchMember(email: string, password: string, roles: readonly Role[], personId: string | null) {
+  const churchId = activeChurchId();
+  if (!churchId) go("/login");
+  requireMutation("mutate.admin");
+  if (isPlatformEmail(email)) throw new Error("이미 있는 이메일입니다.");
+  const created = await firebaseSignUp(email, password);
+  if (!created.ok) throw new Error(created.taken ? "이미 있는 이메일입니다." : "이메일 형식을 확인해 주세요.");
+  try {
+    const token = await currentToken();
+    const body = memberBody(created.session.email, churchId!, roles, personId);
+    await dbSet(`accounts/${created.session.localId}`, body, token);
+    await dbSet(`churches/${churchId}/members/${created.session.localId}`, body, token);
+    upsertAccount({ id: created.session.localId, email: created.session.email, passwordHash: "firebase", roles: normalizeRoles(roles), personId });
+    emit();
+  } catch (reason) {
+    await firebaseDeleteAccount(created.session.idToken).catch(() => undefined);
+    throw reason;
+  }
+}
+
+export async function updateChurchMember(
+  id: string,
+  input: { email: string; roles: readonly Role[]; personId: string | null; currentPassword?: string; password?: string },
+) {
+  const churchId = activeChurchId();
+  if (!churchId) go("/login");
+  requireMutation("mutate.admin");
+  const current = accounts.find((account) => account.id === id);
+  if (!current || !canSeeChurch(actorOf(session)!, churchId)) throw new Error("계정을 찾을 수 없습니다.");
+  let email = input.email;
+  if ((email !== current.email || input.password) && input.currentPassword) {
+    const signed = await firebaseSignIn(current.email, input.currentPassword);
+    if (!signed || signed.localId !== id) throw new Error("이메일 또는 비밀번호가 맞지 않습니다.");
+    const updated = await firebaseUpdateAccount(signed.idToken, {
+      email: email !== current.email ? email : undefined,
+      password: input.password,
+    });
+    if (!updated.ok) throw new Error("계정을 저장하지 못했습니다.");
+    email = updated.email || email;
+  } else if (email !== current.email || input.password) {
+    throw new Error("현재 비밀번호를 입력해 주세요.");
+  }
+  const body = memberBody(email, churchId, input.roles, input.personId);
+  const authToken = await currentToken();
+  await dbSet(`accounts/${id}`, body, authToken);
+  await dbSet(`churches/${churchId}/members/${id}`, body, authToken);
+  upsertAccount({ ...current, email, roles: normalizeRoles(input.roles), personId: input.personId });
+  if (session?.accountId === id) {
+    session = { ...session, email, roles: normalizeRoles(input.roles) };
+    persistSession();
   }
   emit();
 }
 
-export function removeLocalAccount(id: string) {
+export async function removeLocalAccount(id: string) {
+  const churchId = activeChurchId();
+  if (!churchId) go("/login");
+  requireMutation("mutate.admin");
+  const authToken = await currentToken();
+  await dbSet(`accounts/${id}`, null, authToken);
+  await dbSet(`churches/${churchId}/members/${id}`, null, authToken);
   accounts = accounts.filter((account) => account.id !== id);
-  void idbSet("accounts", accounts);
-  if (session?.accountId === id) {
-    session = null;
-    void idbSet("session", null);
-  }
+  if (session?.accountId === id) clearSession();
   emit();
 }
 
 export function endLocalSession() {
-  session = null;
-  void idbSet("session", null);
+  clearSession();
   emit();
 }
 
@@ -178,14 +351,19 @@ export function storedBackgroundUrl(name: string | null | undefined): string | n
 }
 
 export async function saveBackgroundFile(name: string, dataUrl: string) {
+  const churchId = activeChurchId();
+  if (!churchId) return;
   files.set(name, dataUrl);
-  await idbSet("files", Object.fromEntries(files));
+  const authToken = await currentToken();
+  await dbSet(`churches/${churchId}/files/${encodePath(name)}`, dataUrl, authToken);
 }
 
 export function clearBackgroundFile(name: string | null) {
   if (!name) return;
   files.delete(name);
-  void idbSet("files", Object.fromEntries(files));
+  const churchId = activeChurchId();
+  if (!churchId || !session) return;
+  void currentToken().then((current) => dbSet(`churches/${churchId}/files/${encodePath(name)}`, null, current)).catch(() => undefined);
 }
 
 export function dueReminders() {
@@ -203,10 +381,157 @@ export function markRemindersSent(ids: string[]) {
   });
 }
 
-function withPersonLink(account: LocalAccount): LocalAccount {
+function memberBody(email: string, churchId: string, roles: readonly Role[], personId: string | null) {
+  const body: RemoteAccount = { email, churchId, roles: rolesToMap(roles) };
+  if (personId) body.personId = personId;
+  return body;
+}
+
+function activeChurchId(): string | null {
+  const actor = actorOf(session);
+  if (!session?.churchId || !actor || !canSeeChurch(actor, session.churchId)) return null;
+  return session.churchId;
+}
+
+function actorOf(value: Session | null): Actor | null {
+  if (!value) return null;
+  return { kind: value.kind, churchId: value.churchId };
+}
+
+async function adoptSession(next: Session): Promise<boolean> {
+  const authToken = next.idToken;
+  if (isPlatformEmail(next.email)) {
+    const adminUid = await dbGet<string>("platform/adminUid", authToken).catch((reason: unknown) => {
+      if (reason instanceof DatabasePermissionError) return "";
+      throw reason;
+    });
+    if (adminUid && adminUid !== next.accountId) return false;
+    if (!adminUid) {
+      await dbSet("platform/adminUid", next.accountId, authToken).catch((reason: unknown) => {
+        error = reason instanceof DatabasePermissionError ? "데이터베이스 권한이 없습니다." : "";
+      });
+    }
+    session = { ...next, kind: "platform", roles: next.churchId ? ALL_ROLES : [], churchId: isChurchId(next.churchId || "") ? next.churchId : null };
+    persistSession();
+    churches = await loadChurchIndex(session.idToken);
+    if (session.churchId) await loadChurch(session.churchId);
+    return true;
+  }
+  const remote = await dbGet<RemoteAccount>(`accounts/${next.accountId}`, authToken).catch((reason: unknown) => {
+    if (reason instanceof DatabasePermissionError) return null;
+    throw reason;
+  });
+  const churchId = remote?.churchId || "";
+  const roles = rolesFromMap(remote?.roles);
+  if (!remote || !isChurchId(churchId) || roles.length === 0) return false;
+  session = { ...next, kind: "church", churchId, roles, email: remote.email || next.email };
+  persistSession();
+  churches = [];
+  await loadChurch(churchId);
+  return Boolean(db);
+}
+
+async function loadChurchIndex(authToken: string): Promise<ChurchRow[]> {
+  const index = await dbGet<Record<string, Partial<ChurchRow>>>("churchIndex", authToken).catch((reason: unknown) => {
+    if (reason instanceof DatabasePermissionError) {
+      error = "데이터베이스 권한이 없습니다.";
+      return null;
+    }
+    throw reason;
+  });
+  if (!index || typeof index !== "object") return [];
+  return Object.entries(index)
+    .filter(([id]) => isChurchId(id))
+    .map(([id, row]) => ({
+      id,
+      name: String(row?.name || "교회").slice(0, 40),
+      operatorEmail: String(row?.operatorEmail || ""),
+      createdAt: Number(row?.createdAt || 0),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+}
+
+async function loadChurch(id: string) {
+  const actor = actorOf(session);
+  if (!session || !actor || !canSeeChurch(actor, id)) return;
+  const authToken = await currentToken();
+  const [data, members, storedFiles] = await Promise.all([
+    dbGet<Db>(`churches/${id}/data`, authToken),
+    dbGet<Record<string, RemoteAccount>>(`churches/${id}/members`, authToken),
+    dbGet<Record<string, string>>(`churches/${id}/files`, authToken),
+  ]);
+  db = data ? normalizeDb(data) : null;
+  if (db) syncReminders(db);
+  accounts = Object.entries(members || {})
+    .map(([memberId, member]) => toAccount(memberId, member))
+    .filter((account): account is LocalAccount => account !== null);
+  files = new Map(Object.entries(storedFiles || {}).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+  if (session.kind === "church") {
+    const mine = accounts.find((account) => account.id === session?.accountId);
+    if (mine) session = { ...session, roles: mine.roles, email: mine.email };
+  }
+}
+
+function toAccount(id: string, member: RemoteAccount | null): LocalAccount | null {
+  if (!member) return null;
+  const roles = rolesFromMap(member.roles);
+  const email = String(member.email || "").trim().toLowerCase();
+  if (!email || roles.length === 0) return null;
+  return { id, email, passwordHash: "firebase", roles, personId: member.personId || null };
+}
+
+function scheduleChurchWrite() {
+  const churchId = activeChurchId();
+  if (!churchId || !db) return;
+  const payload = normalizeDb(structuredClone(db));
+  writing = true;
+  writeChain = writeChain
+    .then(async () => {
+      const authToken = await currentToken();
+      await dbSet(`churches/${churchId}/data`, payload, authToken);
+      error = "";
+    })
+    .catch((reason: unknown) => {
+      error = reason instanceof DatabasePermissionError ? "데이터베이스 권한이 없습니다." : "저장하지 못했습니다.";
+      emit();
+    })
+    .finally(() => {
+      writing = false;
+    });
+}
+
+async function refreshRemote() {
+  if (!session || writing) return;
+  try {
+    const authToken = await currentToken();
+    if (session.kind === "platform") churches = await loadChurchIndex(authToken);
+    if (session.churchId && canSeeChurch(actorOf(session)!, session.churchId)) await loadChurch(session.churchId);
+    emit();
+  } catch {
+    /* 다음 주기에 다시 받습니다. */
+  }
+}
+
+async function currentToken(): Promise<string> {
+  if (!session) throw new Error("auth");
+  if (session.expiresAt > Date.now() + 60_000) return session.idToken;
+  const refreshed = await firebaseRefresh(session.refreshToken);
+  if (!refreshed) throw new Error("auth");
+  session = { ...session, idToken: refreshed.idToken, refreshToken: refreshed.refreshToken, expiresAt: refreshed.expiresAt };
+  persistSession();
+  return session.idToken;
+}
+
+function sessionFromAuth(remote: FirebaseSession, kind: "platform" | "church", churchId: string | null, roles: Role[]): Session {
   return {
-    ...account,
-    personId: typeof account.personId === "string" && account.personId ? account.personId : null,
+    accountId: remote.localId,
+    email: remote.email,
+    roles,
+    refreshToken: remote.refreshToken,
+    idToken: remote.idToken,
+    expiresAt: remote.expiresAt,
+    kind,
+    churchId,
   };
 }
 
@@ -214,40 +539,50 @@ function upsertAccount(account: LocalAccount) {
   const index = accounts.findIndex((item) => item.id === account.id || item.email === account.email);
   if (index >= 0) accounts[index] = account;
   else accounts.push(account);
-  void idbSet("accounts", accounts);
 }
 
-function rememberSession(next: Session) {
-  session = next;
-  void idbSet("session", next);
-  emit();
+function persistSession() {
+  if (typeof localStorage === "undefined" || !session) return;
+  const stored = {
+    accountId: session.accountId,
+    email: session.email,
+    refreshToken: session.refreshToken,
+    kind: session.kind,
+    churchId: session.churchId,
+  };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(stored));
 }
 
-function idb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("church-worship", 1);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains("kv")) request.result.createObjectStore("kv");
+function readStoredSession(): Session | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SESSION_KEY) || "null") as Partial<Session> | null;
+    if (!parsed?.refreshToken || !parsed.email || !parsed.accountId) return null;
+    if (parsed.kind !== "platform" && parsed.kind !== "church") return null;
+    return {
+      accountId: parsed.accountId,
+      email: parsed.email,
+      roles: [],
+      refreshToken: parsed.refreshToken,
+      idToken: "",
+      expiresAt: 0,
+      kind: parsed.kind,
+      churchId: parsed.churchId || null,
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+  } catch {
+    return null;
+  }
 }
 
-async function idbGet<T>(key: string): Promise<T | null> {
-  const database = await idb();
-  return new Promise((resolve, reject) => {
-    const request = database.transaction("kv", "readonly").objectStore("kv").get(key);
-    request.onsuccess = () => resolve((request.result as T | undefined) ?? null);
-    request.onerror = () => reject(request.error);
-  });
+function clearSession() {
+  session = null;
+  db = null;
+  accounts = [];
+  churches = [];
+  files = new Map();
+  if (typeof localStorage !== "undefined") localStorage.removeItem(SESSION_KEY);
 }
 
-async function idbSet(key: string, value: unknown) {
-  const database = await idb();
-  await new Promise<void>((resolve, reject) => {
-    const request = database.transaction("kv", "readwrite").objectStore("kv").put(value, key);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+function encodePath(name: string): string {
+  return encodeURIComponent(name).replaceAll(".", "%2E");
 }

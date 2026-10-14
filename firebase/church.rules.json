@@ -1,0 +1,39 @@
+{
+  "church": {
+    "platform": {
+      "adminUid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.token.email == 'anyplan@me.com' && newData.val() == auth.uid && (!data.exists() || data.val() == auth.uid)"
+      }
+    },
+    "churchIndex": {
+      ".read": "auth != null && auth.uid == root.child('church/platform/adminUid').val()",
+      ".write": "auth != null && auth.uid == root.child('church/platform/adminUid').val()"
+    },
+    "accounts": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).child('churchId').val() == data.child('churchId').val())",
+        ".write": "auth != null && (auth.uid == root.child('church/platform/adminUid').val() || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && newData.child('churchId').val() == root.child('church/accounts').child(auth.uid).child('churchId').val()))"
+      }
+    },
+    "churches": {
+      "$churchId": {
+        ".read": "auth != null && (auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId)",
+        "meta": {
+          ".write": "auth != null && auth.uid == root.child('church/platform/adminUid').val()"
+        },
+        "data": {
+          ".write": "auth != null && (auth.uid == root.child('church/platform/adminUid').val() || (root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && (root.child('church/accounts').child(auth.uid).child('roles/prepare').val() == true || root.child('church/accounts').child(auth.uid).child('roles/run').val() == true || root.child('church/accounts').child(auth.uid).child('roles/output').val() == true || root.child('church/accounts').child(auth.uid).child('roles/directory').val() == true || root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true)))"
+        },
+        "files": {
+          ".write": "auth != null && (auth.uid == root.child('church/platform/adminUid').val() || (root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true))"
+        },
+        "members": {
+          "$uid": {
+            ".write": "auth != null && (auth.uid == root.child('church/platform/adminUid').val() || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && newData.child('churchId').val() == $churchId))"
+          }
+        }
+      }
+    }
+  }
+}

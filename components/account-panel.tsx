@@ -80,6 +80,10 @@ export function AccountPanel({
               <span>이메일</span>
               <input className="input" name="email" type="email" defaultValue={account.email} autoComplete="off" maxLength={120} required />
             </label>
+            <label className="field">
+              <span>현재 비밀번호</span>
+              <input className="input" name="currentPassword" type="password" autoComplete="current-password" placeholder="이메일이나 비밀번호를 바꿀 때만" />
+            </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="field">
                 <span>새 비밀번호</span>
