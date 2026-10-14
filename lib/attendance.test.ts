@@ -84,4 +84,14 @@ describe("출결", () => {
     assert.equal(json.includes("신천지"), false);
     assert.equal(json.includes("추수꾼"), false);
   });
+
+  it("목록이 없으면 예시 예배와 사람을 채우지 않는다", () => {
+    const db = normalizeDb({ settings: { churchName: "서귀포제일교회", backgroundColor: "#1b3a32", backgroundFile: null, overlay: "bottom" } });
+    assert.equal(db.settings.churchName, "서귀포제일교회");
+    assert.deepEqual(db.services, []);
+    assert.deepEqual(db.people, []);
+    assert.deepEqual(db.songs, []);
+    assert.deepEqual(db.departments, []);
+    assert.equal(JSON.stringify(db).includes("은혜교회"), false);
+  });
 });

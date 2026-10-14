@@ -1,20 +1,20 @@
 import { canStoreAttendance } from "./attendance";
 import type { ActivityEntry, AttendanceMark, Db, Department, Membership, OverlayPosition, Person, Service, Settings, Song, Supply, SupplyStatus } from "./types";
-import { buildSeed } from "./seed";
 import { isItemPhoto, oneLine } from "./supplies";
 import { normalizeService } from "./worship";
 
+const EMPTY_SETTINGS: Settings = { churchName: "교회", backgroundColor: "#1b3a32", backgroundFile: null, overlay: "bottom" };
+
 export function normalizeDb(raw: Partial<Db> | null | undefined): Db {
-  const seed = buildSeed();
   const data = raw && typeof raw === "object" ? raw : {};
-  const people = Array.isArray(data.people) ? data.people.map(normalizePerson) : seed.people;
+  const people = Array.isArray(data.people) ? data.people.map(normalizePerson) : [];
   return {
-    settings: normalizeSettings(data.settings, seed.settings),
+    settings: normalizeSettings(data.settings, EMPTY_SETTINGS),
     people,
-    songs: Array.isArray(data.songs) ? data.songs.map(normalizeSong) : seed.songs,
-    services: Array.isArray(data.services) ? data.services.map((service) => normalizeService(service as Service)) : seed.services,
+    songs: Array.isArray(data.songs) ? data.songs.map(normalizeSong) : [],
+    services: Array.isArray(data.services) ? data.services.map((service) => normalizeService(service as Service)) : [],
     reminders: Array.isArray(data.reminders) ? data.reminders.filter(isReminder) : [],
-    departments: normalizeDepartments(data.departments, seed.departments),
+    departments: normalizeDepartments(data.departments, []),
     attendance: normalizeAttendance(data.attendance).filter((mark) => canStoreAttendance(people.find((person) => person.id === mark.personId))),
     supplies: normalizeSupplies(data.supplies),
     activity: normalizeActivity(data.activity),

@@ -11,8 +11,26 @@ export function cleanPath(pathname: string): string {
   return path || "/";
 }
 
+export function navigationTarget(path: string, pathname = "/", base = pageBase()): string {
+  const raw = path.startsWith("/") ? path : `/${path}`;
+  const slashed = pathname.endsWith("/") ? withDirectorySlash(raw) : raw;
+  return `${base}${slashed}`;
+}
+
+function withDirectorySlash(path: string): string {
+  const hashAt = path.indexOf("#");
+  const hash = hashAt === -1 ? "" : path.slice(hashAt);
+  const beforeHash = hashAt === -1 ? path : path.slice(0, hashAt);
+  const queryAt = beforeHash.indexOf("?");
+  const pathname = queryAt === -1 ? beforeHash : beforeHash.slice(0, queryAt);
+  const query = queryAt === -1 ? "" : beforeHash.slice(queryAt);
+  const directory = pathname === "/" || pathname.endsWith("/") ? pathname : `${pathname}/`;
+  return `${directory}${query}${hash}`;
+}
+
 export function go(path: string): never {
-  const target = `${pageBase()}${path.startsWith("/") ? path : `/${path}`}`;
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  const target = navigationTarget(path, pathname);
   if (typeof window !== "undefined") window.location.assign(target);
   throw new Error("NAV");
 }

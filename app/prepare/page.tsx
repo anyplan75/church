@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { NotifyButton } from "@/components/notify-button";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
@@ -30,6 +31,10 @@ const SAMPLE = `2026년 10월 18일 주일
 export default function PreparePage() {
   const { ready, user, db: loaded } = useChurch();
   const query = useClientQuery();
+  useEffect(() => {
+    if (!query.imported && !query.error) return;
+    document.getElementById("bulletin-import")?.scrollIntoView({ block: "start" });
+  }, [query.imported, query.error, ready]);
   if (!ready || !user || !loaded) return null;
   const output = can(user.roles, "screen.output");
   const db = loaded;
@@ -70,7 +75,7 @@ export default function PreparePage() {
         </div>
       </section>
 
-      <section className="card mt-8 p-5">
+      <section id="bulletin-import" className="card mt-8 p-5">
         <h2 className="font-serif text-2xl">주보 가져오기</h2>
         <p className="mt-2 text-sm text-muted">{bulletinFormatNote()} 예배 줄 아래에 장소 교육관처럼 적으면 그 장소를 쓰고, 적지 않으면 본당으로 둡니다.</p>
         {query.imported ? (
@@ -97,7 +102,7 @@ export default function PreparePage() {
         </form>
       </section>
 
-      <section className="mt-8">
+      <section id="week-services" className="mt-8">
         <h2 className="font-serif text-2xl">이번 주 예배</h2>
         <div className="mt-4 space-y-3">
           {week.length === 0 ? <p className="text-muted">이번 주 예배가 없습니다. 주보를 가져오거나 예배를 만들어 주세요.</p> : null}

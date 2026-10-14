@@ -1,5 +1,5 @@
 import { serviceSaveBlock } from "./access";
-import { clearBackgroundFile, currentUser, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
+import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
 import { missingRequired } from "./checklist";
@@ -411,6 +411,7 @@ export async function importBulletin(formData: FormData) {
     skipped = result.skipped;
     lyrics = result.skippedLyrics;
   });
+  await flushChurchWrite();
   refreshService();
   if (imported === 0 && skipped === 0) go("/prepare?error=none");
   go(`/prepare?imported=${imported}&skipped=${skipped}&lyrics=${lyrics}`);

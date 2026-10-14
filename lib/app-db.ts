@@ -250,8 +250,17 @@ export async function addChurchWithOperator(input: {
   const created = await firebaseSignUp(input.email, input.password);
   if (!created.ok) return { ok: false, code: created.taken ? "taken" : "email" };
   const id = makeChurchId();
-  const churchDb = buildSeed();
-  churchDb.settings.churchName = name;
+  const churchDb = normalizeDb({
+    settings: { churchName: name, backgroundColor: "#1b3a32", backgroundFile: null, overlay: "bottom" },
+    people: [],
+    songs: [],
+    services: [],
+    reminders: [],
+    departments: [],
+    attendance: [],
+    supplies: [],
+    activity: [],
+  });
   pushActivity(churchDb, session.email, "교회를 만들었습니다");
   const row: ChurchRow = { id, name, operatorEmail: created.session.email, createdAt: Date.now() };
   try {
@@ -503,6 +512,10 @@ function toAccount(id: string, member: RemoteAccount | null): LocalAccount | nul
   const email = String(member.email || "").trim().toLowerCase();
   if (!email || roles.length === 0) return null;
   return { id, email, passwordHash: "firebase", roles, personId: member.personId || null };
+}
+
+export function flushChurchWrite(): Promise<void> {
+  return writeChain.then(() => undefined);
 }
 
 function scheduleChurchWrite() {
