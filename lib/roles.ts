@@ -56,7 +56,8 @@ export type Capability =
   | "screen.attendance"
   | "screen.inventory"
   | "mutate.attendance.leader"
-  | "mutate.inventory";
+  | "mutate.inventory"
+  | "screen.activity";
 
 const GRANTS: Record<Role, readonly Capability[]> = {
   view: ["screen.week", "screen.services", "screen.bulletin", "screen.attendance", "screen.inventory"],
@@ -84,7 +85,7 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "screen.inventory",
     "mutate.inventory",
   ],
-  admin: ["screen.settings", "mutate.admin", "screen.attendance", "mutate.attendance.leader", "screen.inventory", "mutate.inventory"],
+  admin: ["screen.settings", "mutate.admin", "screen.attendance", "mutate.attendance.leader", "screen.inventory", "mutate.inventory", "screen.activity"],
 };
 
 const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] = [
@@ -95,6 +96,7 @@ const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] 
   { test: (pathname) => pathname === "/people", caps: ["screen.people"] },
   { test: (pathname) => pathname === "/songs", caps: ["screen.songs"] },
   { test: (pathname) => pathname === "/settings", caps: ["screen.settings"] },
+  { test: (pathname) => pathname === "/activity", caps: ["screen.activity"] },
   { test: (pathname) => pathname === "/attendance", caps: ["screen.attendance"] },
   { test: (pathname) => pathname === "/inventory", caps: ["screen.inventory"] },
   { test: (pathname) => /^\/services\/[^/]+\/bulletin$/.test(pathname), caps: ["screen.bulletin"] },

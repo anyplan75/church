@@ -280,6 +280,7 @@ export function normalizeService(input: Service): Service {
     items,
     announcements,
     liveIndex: clampLiveIndex(Number(input.liveIndex) || 0, items.length),
+    liveSlide: clampLiveIndex(Number(input.liveSlide) || 0, 40),
     startedAt: typeof input.startedAt === "string" && input.startedAt ? input.startedAt : null,
     notes: String(input.notes ?? "").slice(0, 2000),
     checks: normalizeChecks(input.checks),

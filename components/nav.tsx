@@ -15,6 +15,7 @@ const LINKS: { href: string; label: string; capability: Capability }[] = [
   { href: "/people", label: "사람", capability: "screen.people" },
   { href: "/songs", label: "찬양", capability: "screen.songs" },
   { href: "/settings", label: "설정", capability: "screen.settings" },
+  { href: "/activity", label: "기록", capability: "screen.activity" },
 ];
 
 function isActive(pathname: string, href: string) {

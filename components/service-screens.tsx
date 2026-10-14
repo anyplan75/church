@@ -9,6 +9,8 @@ import { Projector } from "@/components/projector";
 import { ServiceEditor } from "@/components/service-editor";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch } from "@/components/church-state";
+import { CopyrightNotice } from "@/components/copyright-notice";
+import { LocalTextPanel } from "@/components/local-text-panel";
 import { updateSlideFields } from "@/lib/actions";
 import { updateDb } from "@/lib/app-db";
 import { COPYRIGHT_NOTE } from "@/lib/checklist";
@@ -167,12 +169,14 @@ export function SlidesScreen({ id }: { id?: string }) {
           송출 화면
         </Link>
       </div>
+      <div className="mt-4 max-w-3xl">
+        <CopyrightNotice />
+      </div>
       <p className="mt-4 max-w-3xl text-sm text-muted">{COPYRIGHT_NOTE}</p>
       <div className="mt-6 space-y-4">
         {slides.map((slide, index) => {
           const item = service.items[index];
           if (!item) return null;
-          const scripture = item.kind === "scripture" || item.kind === "sermon";
           return (
             <article key={slide.itemId} className="card grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
               <div className="rounded-2xl p-6 text-[#f7f3ea]" style={{ background: db.settings.backgroundColor || "#1b3a32" }}>
@@ -193,18 +197,7 @@ export function SlidesScreen({ id }: { id?: string }) {
                   <span>화면에 한 줄로 낼 말 (가사 금지)</span>
                   <input className="input" name="screenCue" defaultValue={item.screenCue} maxLength={80} />
                 </label>
-                {scripture ? (
-                  <>
-                    <label className="flex items-start gap-2 text-sm">
-                      <input type="checkbox" name="scriptureLicensed" defaultChecked={item.scriptureLicensed} className="mt-1" />
-                      <span>사용 가능한 번역을 직접 붙여 넣었습니다</span>
-                    </label>
-                    <label className="field">
-                      <span>화면에 낼 본문</span>
-                      <textarea className="textarea" name="scriptureText" defaultValue={item.scriptureText} maxLength={400} />
-                    </label>
-                  </>
-                ) : null}
+                <LocalTextPanel item={item} song={db.songs.find((song) => song.id === item.songId)} />
                 <SubmitButton className="btn btn-quiet">이 순서 저장</SubmitButton>
               </form>
             </article>

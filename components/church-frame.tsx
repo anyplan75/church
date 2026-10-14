@@ -29,8 +29,13 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
       router.replace(landing(user));
       return;
     }
-    if (user.kind === "platform" && !user.churchId && path !== "/platform") {
+    if (user.kind === "platform" && !user.churchId && path !== "/platform" && path !== "/activity") {
       router.replace("/platform");
+      return;
+    }
+    if (path === "/activity") {
+      if (user.kind === "platform" || can(user.roles, "screen.activity")) return;
+      router.replace("/denied");
       return;
     }
     if (user.kind === "church" && path === "/platform") {

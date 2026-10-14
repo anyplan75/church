@@ -108,6 +108,7 @@ export type Service = {
   items: WorshipItem[];
   announcements: Announcement[];
   liveIndex: number;
+  liveSlide?: number;
   startedAt: string | null;
   notes: string;
   checks: Record<string, boolean>;
@@ -150,6 +151,13 @@ export type Supply = {
   status: SupplyStatus;
 };
 
+export type ActivityEntry = {
+  id: string;
+  at: string;
+  email: string;
+  action: string;
+};
+
 export type Db = {
   settings: Settings;
   people: Person[];
@@ -159,4 +167,5 @@ export type Db = {
   departments: Department[];
   attendance: AttendanceMark[];
   supplies: Supply[];
+  activity: ActivityEntry[];
 };

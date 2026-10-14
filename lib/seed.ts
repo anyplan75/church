@@ -218,6 +218,7 @@ export function buildSeed(today = todayISO()): Db {
     ],
     attendance: [],
     supplies: [],
+    activity: [],
     people: [
       { id: "person-senior", name: "김은혜", roles: ["담임목사"], phone: "", active: true, membership: "member" as const, attendanceConsent: false },
       { id: "person-associate", name: "박요한", roles: ["부목사"], phone: "", active: true, membership: "member" as const, attendanceConsent: false },

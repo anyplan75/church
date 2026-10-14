@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { logout } from "@/lib/account-actions";
 import { addChurch, openChurch } from "@/lib/platform-actions";
 import { useChurch, useClientQuery } from "@/components/church-state";
@@ -30,11 +31,16 @@ export default function PlatformPage() {
           <h1 className="mt-1 font-serif text-4xl">교회</h1>
           <p className="mt-2 text-muted">교회를 추가하고, 그 교회 운영자의 이메일·비밀번호·권한을 만듭니다. 교회 운영자는 자기 교회만 봅니다.</p>
         </div>
-        <form action={logout}>
-          <button type="submit" className="btn btn-quiet">
-            나가기
-          </button>
-        </form>
+        <div className="flex gap-2">
+          <Link href="/activity" className="btn btn-quiet">
+            작업 기록
+          </Link>
+          <form action={logout}>
+            <button type="submit" className="btn btn-quiet">
+              나가기
+            </button>
+          </form>
+        </div>
       </div>
       <p className="mt-4 text-sm text-muted">{user.email}</p>
       {error ? <p className="mt-4 text-sm text-wine">{error}</p> : null}
