@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { deflateSync } from "node:zlib";
+import { deflateRawSync, deflateSync } from "node:zlib";
+import { inflateRawSync as browserInflateRawSync } from "./zlib-browser.ts";
 import * as CFB from "cfb";
 import JSZip from "jszip";
 import { parseBulletin } from "./bulletin-parse.ts";
-import { bulletinAccept, bulletinFormatNote, extractUploadedText } from "./extract-text.ts";
+import { BULLETIN_UPLOAD_BYTES, bulletinAccept, bulletinFormatNote, extractUploadedText } from "./extract-text.ts";
 import { canReadKoreanImages } from "./extract-image.ts";
 
 const LINE = "3부 예배 오후 2:00\n묵도";
@@ -131,6 +132,10 @@ describe("new bulletin files", () => {
   it("reads a minimal hwp, including a compressed file and an inline control", async () => {
     const section = Buffer.concat(LINE.split("\n").map((line) => hwpParagraph(line)));
     expectWorship(await extractUploadedText("주보.hwp", hwpFile(section, false)));
+    const raw = browserInflateRawSync(deflateRawSync(section));
+    assert.equal(typeof raw.readUInt32LE, "function");
+    assert.equal(raw.readUInt32LE(0), section.readUInt32LE(0));
+    expectWorship(await extractUploadedText("주보.hwp.hwp", hwpFile(section, false)));
     expectWorship(await extractUploadedText("주보.hwp", hwpFile(section, true)));
     const control = Buffer.alloc(16);
     control.writeUInt16LE(0x0b, 0);
@@ -194,6 +199,7 @@ describe("new bulletin files", () => {
     const note = bulletinFormatNote();
     const accept = bulletinAccept();
     for (const format of ["TXT", "DOC", "DOCX", "HWP", "HWPX", "PDF", "RTF", "ODT", "HTML"]) assert.match(note, new RegExp(format));
+    assert.ok(BULLETIN_UPLOAD_BYTES >= 10 * 1024 * 1024);
     assert.match(accept, /\.pdf/);
     assert.match(accept, /\.hwp/);
     assert.match(accept, /\.doc[,\s]/);

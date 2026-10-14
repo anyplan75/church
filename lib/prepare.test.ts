@@ -63,6 +63,23 @@ ${LYRIC}
 말씀 기도의 자리 김은혜
 축도`;
 
+  it("does not open a service from a bare column label", () => {
+    const parsed = parseBulletin("1부\n묵도\n1부 정종옥 권사 2부 박준호 장로\n축도", [], "2026-10-14");
+    assert.equal(parsed.services.length, 0);
+  });
+
+  it("reads a named afternoon service and a wednesday prayer meeting", () => {
+    const parsed = parseBulletin(`2026년 10월 11일\n주일찬양예배 오후 2:00\n찬양 다같이\n축도\n2026년 10월 14일\n수요기도회 오후 7:00\n기도 김순\n축도`, [], "2026-10-14");
+    assert.equal(parsed.services.length, 2);
+    assert.equal(parsed.services[0].type, "sunday-3");
+    assert.equal(parsed.services[0].title, "주일찬양예배");
+    assert.equal(parsed.services[0].date, "2026-10-11");
+    assert.equal(parsed.services[0].time, "14:00");
+    assert.equal(parsed.services[1].title, "수요기도회");
+    assert.equal(parsed.services[1].date, "2026-10-14");
+    assert.equal(parsed.services[1].time, "19:00");
+  });
+
   it("reads every service in the week and drops lyrics", () => {
     const parsed = parseBulletin(text, people, "2026-10-12");
     assert.equal(parsed.services.length, 2);
