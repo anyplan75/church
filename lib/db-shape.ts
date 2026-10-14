@@ -1,5 +1,5 @@
 import { canStoreAttendance } from "./attendance";
-import type { AttendanceMark, Db, Department, Membership, OverlayPosition, Person, Service, Settings, Song, Supply, SupplyStatus } from "./types";
+import type { ActivityEntry, AttendanceMark, Db, Department, Membership, OverlayPosition, Person, Service, Settings, Song, Supply, SupplyStatus } from "./types";
 import { buildSeed } from "./seed";
 import { isItemPhoto, oneLine } from "./supplies";
 import { normalizeService } from "./worship";
@@ -17,6 +17,7 @@ export function normalizeDb(raw: Partial<Db> | null | undefined): Db {
     departments: normalizeDepartments(data.departments, seed.departments),
     attendance: normalizeAttendance(data.attendance).filter((mark) => canStoreAttendance(people.find((person) => person.id === mark.personId))),
     supplies: normalizeSupplies(data.supplies),
+    activity: normalizeActivity(data.activity),
   };
 }
 
@@ -118,6 +119,21 @@ function normalizeSupplies(value: unknown): Supply[] {
 
 function isSupplyStatus(value: unknown): value is SupplyStatus {
   return value === "have" || value === "need" || value === "requested";
+}
+
+function normalizeActivity(value: unknown): ActivityEntry[] {
+  if (!Array.isArray(value)) return [];
+  const entries: ActivityEntry[] = [];
+  for (const item of value) {
+    const record = item as Partial<ActivityEntry> | null;
+    const email = String(record?.email ?? "").trim().toLowerCase().slice(0, 120);
+    const action = String(record?.action ?? "").replace(/\s+/g, " ").trim().slice(0, 140);
+    const at = String(record?.at ?? "");
+    if (!email || !action || !at) continue;
+    entries.push({ id: String(record?.id || crypto.randomUUID()), at: at.slice(0, 40), email, action });
+    if (entries.length >= 400) break;
+  }
+  return entries;
 }
 
 function isReminder(value: Db["reminders"][number]): value is Db["reminders"][number] {

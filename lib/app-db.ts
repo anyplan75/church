@@ -1,3 +1,4 @@
+import { describeDbChange, pushActivity } from "./activity";
 import { normalizeDb } from "./db-shape";
 import { DatabasePermissionError, dbGet, dbSet } from "./firebase-db";
 import {
@@ -23,7 +24,7 @@ import {
 import { syncReminders } from "./reminders";
 import { ALL_ROLES, can, normalizeRoles, type Capability, type Role } from "./roles";
 import { buildSeed } from "./seed";
-import type { Db } from "./types";
+import type { ActivityEntry, Db } from "./types";
 
 export type LocalAccount = {
   id: string;
@@ -154,14 +155,32 @@ export function readDb(): Db {
   return db ?? buildSeed();
 }
 
-export function updateDb(mutator: (current: Db) => void): Db {
+export function updateDb(mutator: (current: Db) => void, action?: string): Db {
   const actor = actorOf(session);
   if (!session || !db || !actor || !session.churchId || !canSeeChurch(actor, session.churchId)) go("/login");
+  const before = structuredClone(db!);
   mutator(db!);
   syncReminders(db!);
+  const label = action ?? describeDbChange(before, db!);
+  if (label) pushActivity(db!, session.email, label);
   scheduleChurchWrite();
   emit();
   return db!;
+}
+
+export async function readActivityBoards(): Promise<{ churchId: string; churchName: string; entries: ActivityEntry[] }[]> {
+  if (!session) return [];
+  if (session.kind === "platform") {
+    const token = await currentToken();
+    const boards = [];
+    for (const church of churches) {
+      const entries = await dbGet<ActivityEntry[]>(`churches/${church.id}/data/activity`, token).catch(() => null);
+      boards.push({ churchId: church.id, churchName: church.name, entries: Array.isArray(entries) ? entries : [] });
+    }
+    return boards;
+  }
+  if (!db || !session.churchId) return [];
+  return [{ churchId: session.churchId, churchName: db.settings.churchName, entries: db.activity ?? [] }];
 }
 
 export function currentUser(): CurrentUser | null {
@@ -233,6 +252,7 @@ export async function addChurchWithOperator(input: {
   const id = makeChurchId();
   const churchDb = buildSeed();
   churchDb.settings.churchName = name;
+  pushActivity(churchDb, session.email, "교회를 만들었습니다");
   const row: ChurchRow = { id, name, operatorEmail: created.session.email, createdAt: Date.now() };
   try {
     const token = await currentToken();
@@ -261,6 +281,7 @@ export async function enterChurch(id: string) {
   await loadChurch(id).catch(() => {
     error = "이 교회를 열지 못했습니다.";
   });
+  if (db) updateDb(() => undefined, "교회를 열었습니다");
   emit();
 }
 
@@ -287,6 +308,7 @@ export async function registerChurchMember(email: string, password: string, role
     await dbSet(`accounts/${created.session.localId}`, body, token);
     await dbSet(`churches/${churchId}/members/${created.session.localId}`, body, token);
     upsertAccount({ id: created.session.localId, email: created.session.email, passwordHash: "firebase", roles: normalizeRoles(roles), personId });
+    updateDb(() => undefined, `계정을 추가함: ${created.session.email}`);
     emit();
   } catch (reason) {
     await firebaseDeleteAccount(created.session.idToken).catch(() => undefined);
@@ -325,6 +347,7 @@ export async function updateChurchMember(
     session = { ...session, email, roles: normalizeRoles(input.roles) };
     persistSession();
   }
+  updateDb(() => undefined, `계정 권한을 바꿈: ${email}`);
   emit();
 }
 
@@ -336,6 +359,7 @@ export async function removeLocalAccount(id: string) {
   await dbSet(`accounts/${id}`, null, authToken);
   await dbSet(`churches/${churchId}/members/${id}`, null, authToken);
   accounts = accounts.filter((account) => account.id !== id);
+  updateDb(() => undefined, "계정을 삭제함");
   if (session?.accountId === id) clearSession();
   emit();
 }
@@ -428,6 +452,7 @@ async function adoptSession(next: Session): Promise<boolean> {
   persistSession();
   churches = [];
   await loadChurch(churchId);
+  if (db) updateDb(() => undefined, "로그인");
   return Boolean(db);
 }
 
@@ -482,12 +507,12 @@ function toAccount(id: string, member: RemoteAccount | null): LocalAccount | nul
 
 function scheduleChurchWrite() {
   const churchId = activeChurchId();
-  if (!churchId || !db) return;
+  if (!churchId || !db || !session) return;
   const payload = normalizeDb(structuredClone(db));
+  const authToken = session.idToken;
   writing = true;
   writeChain = writeChain
     .then(async () => {
-      const authToken = await currentToken();
       await dbSet(`churches/${churchId}/data`, payload, authToken);
       error = "";
     })

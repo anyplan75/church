@@ -83,6 +83,7 @@ export async function saveLiveProgress(
   id: string,
   liveIndex: number,
   status?: ServiceStatus,
+  liveSlide?: number,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
     const auth = await mutationUser("mutate.run");
@@ -92,6 +93,7 @@ export async function saveLiveProgress(
       if (!service) throw new Error("예배를 찾을 수 없습니다.");
       const goingLive = status === "live" && service.status !== "live";
       service.liveIndex = clampLiveIndex(liveIndex, service.items.length);
+      if (liveSlide !== undefined) service.liveSlide = clampLiveIndex(liveSlide, 40);
       if (status && isServiceStatus(status)) {
         service.status = status;
         if (status === "live" && !service.startedAt) service.startedAt = new Date().toISOString();

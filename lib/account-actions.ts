@@ -9,6 +9,7 @@ import {
   removeLocalAccount,
   requireMutation,
   updateChurchMember,
+  updateDb,
 } from "./app-db";
 import { go } from "./page-path";
 import { homeFor, normalizeRoles } from "./roles";
@@ -43,6 +44,8 @@ export async function login(formData: FormData) {
 }
 
 export async function logout() {
+  const user = currentUser();
+  if (user?.churchId) updateDb(() => undefined, "로그아웃");
   endLocalSession();
   go("/login");
 }

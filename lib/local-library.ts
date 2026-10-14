@@ -1,0 +1,106 @@
+import type { ItemKind, Song, WorshipItem } from "./types";
+
+export type LibraryKind = "bible" | "hymn" | "praise";
+
+export type LibraryQuery = {
+  kind: LibraryKind;
+  title: string;
+  hymnNumber: string;
+  scripture: string;
+};
+
+export type LibraryTemplate = {
+  kind: LibraryKind;
+  fileName: string;
+  caption: string;
+  bodyLabel: string;
+};
+
+const SONG_KINDS = new Set<ItemKind>(["hymn", "praise", "choir"]);
+
+export function libraryQuery(item: Pick<WorshipItem, "kind" | "title" | "scripture">, song?: Pick<Song, "title" | "hymnNumber"> | null): LibraryQuery | null {
+  if (item.kind === "hymn" || (SONG_KINDS.has(item.kind) && song?.hymnNumber)) {
+    return { kind: "hymn", title: song?.title || item.title, hymnNumber: digits(song?.hymnNumber || ""), scripture: "" };
+  }
+  if (item.kind === "praise" || item.kind === "choir") {
+    return { kind: "praise", title: (song?.title || item.title).trim(), hymnNumber: "", scripture: "" };
+  }
+  if ((item.kind === "scripture" || item.kind === "sermon") && scriptureKey(item.scripture)) {
+    return { kind: "bible", title: item.title, hymnNumber: "", scripture: item.scripture.trim() };
+  }
+  return null;
+}
+
+export function scriptureKey(scripture: string): string {
+  const match = scripture.trim().match(/([가-힣A-Za-z]+)\s*(\d+)\s*[:：]\s*(\d+)/);
+  if (!match) return "";
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
+export function wantedFileNames(query: LibraryQuery): string[] {
+  if (query.kind === "hymn" && query.hymnNumber) {
+    const number = query.hymnNumber;
+    return [`hymn-${number}.txt`, `찬송-${number}.txt`, `찬송${number}.txt`, `${number}.txt`, `${number}장.txt`];
+  }
+  if (query.kind === "bible") {
+    const key = scriptureKey(query.scripture);
+    return key ? [`bible-${key}.txt`, `${key}.txt`] : [];
+  }
+  const slug = compact(query.title);
+  return slug ? [`praise-${slug}.txt`, `찬양-${slug}.txt`, `${slug}.txt`] : [];
+}
+
+export function fileMatchesQuery(fileName: string, query: LibraryQuery): boolean {
+  const base = fileName.replace(/\\/g, "/").split("/").pop()?.toLowerCase() ?? "";
+  if (!base.endsWith(".txt")) return false;
+  const names = new Set(wantedFileNames(query).map((name) => name.toLowerCase()));
+  if (names.has(base)) return true;
+  const stem = base.slice(0, -4);
+  if (query.kind === "hymn" && query.hymnNumber) {
+    return new RegExp(`(^|[^0-9])${query.hymnNumber}([^0-9]|$)`).test(stem);
+  }
+  if (query.kind === "bible") {
+    const key = scriptureKey(query.scripture).toLowerCase();
+    return Boolean(key) && stem.includes(key);
+  }
+  const slug = compact(query.title).toLowerCase();
+  return Boolean(slug) && stem.includes(slug);
+}
+
+export function preferredFileName(query: LibraryQuery): string {
+  return wantedFileNames(query)[0] || "note.txt";
+}
+
+export function emptyTemplate(query: LibraryQuery): LibraryTemplate {
+  if (query.kind === "hymn") {
+    return { kind: "hymn", fileName: preferredFileName(query), caption: `찬송 ${query.hymnNumber}장`, bodyLabel: "가사" };
+  }
+  if (query.kind === "bible") {
+    return { kind: "bible", fileName: preferredFileName(query), caption: query.scripture, bodyLabel: "본문" };
+  }
+  return { kind: "praise", fileName: preferredFileName(query), caption: query.title || "찬양", bodyLabel: "가사" };
+}
+
+export function textFileBody(query: LibraryQuery, body: string): string {
+  const written = body.replace(/\r/g, "").trim();
+  if (query.kind === "hymn") return `찬송 ${query.hymnNumber}장\n${query.title}\n\n${written}\n`;
+  if (query.kind === "bible") return `${query.scripture}\n\n${written}\n`;
+  return `${query.title}\n\n${written}\n`;
+}
+
+export function splitSlides(text: string): string[] {
+  const chunks = text
+    .replace(/\r/g, "")
+    .split(/\n\s*\n/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+  return chunks.slice(0, 12);
+}
+
+function digits(value: string): string {
+  return (value.match(/\d+/)?.[0] ?? "").slice(0, 6);
+}
+
+function compact(value: string): string {
+  return value.trim().replace(/\s+/g, "").slice(0, 40);
+}

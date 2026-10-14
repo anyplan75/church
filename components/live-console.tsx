@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { CopyrightNotice } from "@/components/copyright-notice";
+import { SlideDesk } from "@/components/slide-desk";
 import { saveLiveProgress } from "@/lib/actions";
 import { formatKoreanDate, formatTime } from "@/lib/format";
 import type { Person, Service, Song } from "@/lib/types";
-import { clampLiveIndex, describeSong, kindLabel, personName } from "@/lib/worship";
+import { clampLiveIndex } from "@/lib/worship";
 
 export function LiveConsole({
   service,
@@ -24,47 +26,27 @@ export function LiveConsole({
   const router = useRouter();
   const [status, setStatus] = useState(service.status);
   const [index, setIndex] = useState(clampLiveIndex(service.liveIndex, service.items.length));
+  const [slide, setSlide] = useState(service.liveSlide ?? 0);
   const [startedAt, setStartedAt] = useState(service.startedAt);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
   const [, startTransition] = useTransition();
-  const indexRef = useRef(index);
   const statusRef = useRef(status);
-  indexRef.current = index;
   statusRef.current = status;
   const elapsed = useElapsed(startedAt, status === "live");
-  const item = service.items[index];
-  const upcoming = service.items[index + 1];
-  const songsById = new Map(songs.map((song) => [song.id, song]));
 
-  function go(next: number) {
-    const clamped = clampLiveIndex(next, service.items.length);
+  function go(groupIndex: number, inGroup: number) {
+    const clamped = clampLiveIndex(groupIndex, service.items.length);
     setIndex(clamped);
+    setSlide(inGroup);
     setConfirming(false);
     if (statusRef.current !== "live") return;
     startTransition(() => {
-      void saveLiveProgress(service.id, clamped).then((result) => {
+      void saveLiveProgress(service.id, clamped, undefined, inGroup).then((result) => {
         if (!result.ok) setError(result.message);
       });
     });
   }
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (statusRef.current !== "live") return;
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        go(indexRef.current + 1);
-      }
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        go(indexRef.current - 1);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [service.id, service.items.length]);
 
   async function start() {
     setError("");
@@ -75,6 +57,7 @@ export function LiveConsole({
     }
     setStatus("live");
     setIndex(0);
+    setSlide(0);
     setStartedAt(new Date().toISOString());
   }
 
@@ -127,95 +110,27 @@ export function LiveConsole({
         </div>
       </header>
 
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="flex min-h-[68vh] flex-col justify-center px-6 py-12 lg:px-14">
-          {service.items.length === 0 ? (
-            <div>
-              <h1 className="font-serif text-5xl">순서가 없습니다</h1>
-              {access.editor ? (
-                <Link href={`/services/${service.id}`} className="btn btn-light mt-6">
-                  순서를 만들러 가기
-                </Link>
-              ) : null}
-            </div>
-          ) : status !== "live" && status !== "done" ? (
-            <div>
-              <p className="text-sm text-[#d9d0c2]">시작할 준비</p>
-              <h1 className="mt-3 font-serif text-5xl">{service.title}</h1>
-              <p className="mt-4 text-lg text-[#d9d0c2]">
-                {service.place} · 순서 {service.items.length}개
-              </p>
-              <button type="button" className="btn btn-light mt-8 px-6 py-3 text-base" onClick={() => void start()}>
-                예배 시작
-              </button>
-            </div>
-          ) : item ? (
-            <div>
-              <p className="text-sm text-[#d9d0c2]">
-                {status === "done" ? "마친 예배" : "지금"} · {index + 1} / {service.items.length}
-                {status === "live" ? ` · ${elapsed}` : ""}
-              </p>
-              <p className="mt-4 text-sm text-[#d9d0c2]">{kindLabel(item.kind)}</p>
-              <h1 className="mt-2 font-serif text-6xl leading-tight">{item.title}</h1>
-              {item.scripture ? <p className="mt-5 text-2xl">{item.scripture}</p> : null}
-              <p className="mt-4 text-2xl text-[#f3e6cf]">
-                {[personName(people, item.personId), describeSong(songs.find((song) => song.id === item.songId))].filter(Boolean).join(" · ") || "다함께"}
-              </p>
-              {item.note ? <p className="mt-4 max-w-2xl text-lg text-[#d9d0c2]">{item.note}</p> : null}
-              {upcoming ? <p className="mt-10 text-[#d9d0c2]">다음 · {upcoming.title}</p> : <p className="mt-10 text-[#d9d0c2]">마지막 순서입니다</p>}
-            </div>
-          ) : null}
-          {error ? <p className="mt-6 text-[#ffd0d4]">{error}</p> : null}
-        </section>
-
-        <aside className="border-t border-white/10 px-4 pb-28 pt-5 lg:h-[calc(100vh-8.5rem)] lg:overflow-y-auto lg:border-t-0 lg:border-l lg:pb-4">
-          <h2 className="px-2 text-sm text-[#d9d0c2]">전체 순서</h2>
-          <ol className="mt-3 space-y-1">
-            {service.items.map((entry, entryIndex) => {
-              const detail = orderDetail(entry, people, songsById);
-              return (
-              <li key={entry.id}>
-                <button
-                  type="button"
-                  className={`flex w-full items-baseline gap-3 rounded-xl px-3 py-2 text-left disabled:opacity-70 ${entryIndex === index ? "bg-white/10" : "hover:bg-white/5"}`}
-                  onClick={() => go(entryIndex)}
-                  disabled={status !== "live" && status !== "done"}
-                >
-                  <span className="w-5 text-sm text-[#d9d0c2]">{entryIndex + 1}</span>
-                  <span>
-                    <span className="block">{entry.title}</span>
-                    {detail ? <span className="block text-sm text-[#d9d0c2]">{detail}</span> : null}
-                  </span>
-                </button>
-              </li>
-              );
-            })}
-          </ol>
-        </aside>
-      </div>
-
-      {status === "live" && service.items.length > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 flex justify-center gap-3 bg-gradient-to-t from-pine via-pine/95 to-transparent px-4 py-5">
-          <button type="button" className="btn btn-on-dark" onClick={() => go(index - 1)} disabled={index === 0}>
-            이전
-          </button>
-          <button type="button" className="btn btn-light px-8" onClick={() => go(index + 1)} disabled={index >= service.items.length - 1}>
-            다음 순서
-          </button>
-          <span className="self-center text-sm text-[#d9d0c2]">← 이전 · → 다음</span>
+      <div className="px-5 pt-4">
+        <div className="text-[#f6f1e6]">
+          <CopyrightNotice />
         </div>
-      ) : null}
+        {status !== "live" && status !== "done" && service.items.length > 0 ? (
+          <button type="button" className="btn btn-light mt-4" onClick={() => void start()}>
+            예배 시작
+          </button>
+        ) : null}
+        {status === "live" ? <p className="mt-3 text-sm text-[#d9d0c2]">진행 {elapsed}</p> : null}
+        {error ? <p className="mt-3 text-[#ffd0d4]">{error}</p> : null}
+      </div>
+      {service.items.length === 0 ? (
+        <div className="px-6 py-16">
+          <h1 className="font-serif text-5xl">순서가 없습니다</h1>
+        </div>
+      ) : (
+        <SlideDesk service={service} people={people} songs={songs} groupIndex={index} inGroup={slide} onJump={go} />
+      )}
     </div>
   );
-}
-
-function orderDetail(entry: Service["items"][number], people: Person[], songsById: Map<string, Song>) {
-  const person = personName(people, entry.personId);
-  const song = describeSong(entry.songId ? songsById.get(entry.songId) : undefined);
-  const extra = [person, song].filter(Boolean).join(" · ");
-  if (extra) return extra;
-  const kind = kindLabel(entry.kind);
-  return kind !== entry.title ? kind : "";
 }
 
 function useElapsed(startedAt: string | null, active: boolean) {
