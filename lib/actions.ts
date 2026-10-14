@@ -3,7 +3,7 @@ import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notif
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
 import { missingRequired } from "./checklist";
-import { extractUploadedText } from "./extract-text";
+import { BULLETIN_UPLOAD_BYTES, extractUploadedText } from "./extract-text";
 import { go } from "./page-path";
 import { syncReminders } from "./reminders";
 import { isOverlayPosition } from "./db-shape";
@@ -391,7 +391,7 @@ export async function importBulletin(formData: FormData) {
   const file = formData.get("file");
   let text = pasted;
   if (file instanceof File && file.size > 0) {
-    if (file.size > 8 * 1024 * 1024) go("/prepare?error=size");
+    if (file.size > BULLETIN_UPLOAD_BYTES) go("/prepare?error=size");
     try {
       const extracted = await extractUploadedText(file.name, Buffer.from(await file.arrayBuffer()));
       text = [pasted.trim(), extracted].filter(Boolean).join("\n");

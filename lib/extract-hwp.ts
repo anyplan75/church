@@ -1,5 +1,6 @@
 import { inflateRawSync, inflateSync } from "zlib";
 import * as CFB from "cfb";
+import { worshipLinesFromHwpBody } from "./hwp-order";
 
 const HWP_READ = "한글 파일에서 글을 읽지 못했습니다.";
 const HWP_PASSWORD = "암호가 걸린 한글 파일은 암호를 푼 뒤 올려 주세요.";
@@ -24,7 +25,8 @@ export async function extractHwp(data: Buffer): Promise<string> {
     const raw = readStream(container, path);
     if (!raw) continue;
     const body = compressed ? inflateHwp(raw) : raw;
-    paragraphs.push(...paragraphsFromRecords(body));
+    const ordered = worshipLinesFromHwpBody(body);
+    paragraphs.push(ordered || paragraphsFromRecords(body).join("\n"));
   }
   const text = paragraphs.join("\n").trim();
   if (!text) throw new Error(HWP_READ);
@@ -43,14 +45,18 @@ function readStream(container: CFB.CFB$Container, name: string): Buffer | null {
 
 function inflateHwp(data: Buffer): Buffer {
   try {
-    return inflateSync(data);
+    return toBuffer(inflateSync(data));
   } catch {
     try {
-      return inflateRawSync(data);
+      return toBuffer(inflateRawSync(data));
     } catch {
       throw new Error(HWP_READ);
     }
   }
+}
+
+function toBuffer(data: Uint8Array): Buffer {
+  return Buffer.isBuffer(data) ? data : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
 }
 
 function paragraphsFromRecords(data: Buffer): string[] {

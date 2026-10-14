@@ -70,6 +70,12 @@ export function parseBulletin(text: string, people: Person[], today = todayISO()
       continue;
     }
 
+    if (/^인도(?:\s|및)/.test(raw) && current) {
+      const name = bulletinPersonName(`축도 ${raw.replace(/^인도(?:\s*및\s*말씀)?\s*[:：]?\s*/, "")}`, people);
+      if (name) current.preacherName = name;
+      continue;
+    }
+
     if (!current) {
       if (isLooseLyric(raw)) skippedLyrics += 1;
       continue;
@@ -211,23 +217,37 @@ function placeFromHeader(line: string): string {
 
 function cleanPlace(value: string): string {
   const place = value.replace(/\s+/g, " ").trim();
-  if (!place || place.length > 40) return "";
+  if (!place || place.length > 40 || /(?:찬양예배|기도회|주일예배)$/.test(place.replace(/\s/g, ""))) return "";
   return place;
 }
 
 function parseHeader(line: string): { type: ServiceType; time: string; title: string; place: string } | null {
   if (line.length > 40) return null;
+  if (hasTwoServiceParts(line)) return null;
   let type: ServiceType | null = null;
+  let title = "";
   const part = line.match(/([1-3])\s*부/);
-  if (part) type = `sunday-${part[1]}` as ServiceType;
+  if (/주일\s*찬양\s*예배/.test(line)) {
+    type = "sunday-3";
+    title = "주일찬양예배";
+  } else if (part && /예배|오전|오후|\d{1,2}\s*:\s*\d{2}/.test(line)) type = `sunday-${part[1]}` as ServiceType;
   else if (line.includes("새벽")) type = "dawn";
-  else if (line.includes("수요")) type = "wednesday";
+  else if (/수요\s*기도회/.test(line)) {
+    type = "wednesday";
+    title = "수요기도회";
+  } else if (line.includes("수요")) type = "wednesday";
   else if (line.includes("금요")) type = "friday";
   else if (line.includes("특별")) type = "special";
   else if (/(주일\s*예배|주일예배)/.test(line)) type = "sunday-2";
   else return null;
   const defaults = serviceTypeDefaults(type);
-  return { type, time: parseClock(line) ?? defaults.time, title: defaults.title, place: placeFromHeader(line) };
+  return { type, time: parseClock(line) ?? defaults.time, title: title || defaults.title, place: placeFromHeader(line) };
+}
+
+function hasTwoServiceParts(line: string): boolean {
+  const first = line.search(/[1-3]\s*부/);
+  if (first < 0) return false;
+  return /[1-3]\s*부/.test(line.slice(first + 2));
 }
 
 function parseClock(line: string): string | null {

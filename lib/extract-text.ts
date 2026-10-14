@@ -10,6 +10,8 @@ import { extractRtf } from "./extract-rtf";
 
 const HWPX_READ = "한글 파일에서 글을 읽지 못했습니다. HWPX가 맞는지 확인해 주세요.";
 
+export const BULLETIN_UPLOAD_BYTES = 16 * 1024 * 1024;
+
 export async function extractUploadedText(name: string, data: Buffer): Promise<string> {
   const lower = name.toLowerCase();
   if (lower.endsWith(".txt") || lower.endsWith(".text") || lower.endsWith(".md")) return data.toString("utf8");

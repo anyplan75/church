@@ -6,7 +6,7 @@ import { NotifyButton } from "@/components/notify-button";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { importBulletin } from "@/lib/actions";
-import { bulletinAccept, bulletinFormatNote } from "@/lib/extract-text";
+import { BULLETIN_UPLOAD_BYTES, bulletinAccept, bulletinFormatNote } from "@/lib/extract-text";
 import { CHECKS, checklistProgress, COPYRIGHT_NOTE } from "@/lib/checklist";
 import { can } from "@/lib/roles";
 import { formatKoreanDate, formatTime } from "@/lib/format";
@@ -87,7 +87,7 @@ export default function PreparePage() {
         ) : null}
         {query.error === "empty" ? <p className="mt-4 text-sm text-wine">주보 내용을 붙여 넣거나 파일을 선택해 주세요.</p> : null}
         {query.error === "none" ? <p className="mt-4 text-sm text-wine">예배 구분을 찾지 못했습니다. 1부 예배, 수요 예배처럼 적어 주세요.</p> : null}
-        {query.error === "size" ? <p className="mt-4 text-sm text-wine">파일은 8MB 이하로 올려 주세요.</p> : null}
+        {query.error === "size" ? <p className="mt-4 text-sm text-wine">파일은 {BULLETIN_UPLOAD_BYTES / (1024 * 1024)}MB 이하로 올려 주세요.</p> : null}
         {query.error === "file" ? <p className="mt-4 text-sm text-wine">{query.detail || "파일을 읽지 못했습니다."}</p> : null}
         <form action={importBulletin} className="mt-4 space-y-3">
           <label className="field">

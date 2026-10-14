@@ -1,9 +1,13 @@
 import { inflate, inflateRaw } from "pako";
 
-export function inflateSync(data: Uint8Array): Uint8Array {
-  return inflate(data);
+function asBuffer(data: Uint8Array): Buffer {
+  return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
 }
 
-export function inflateRawSync(data: Uint8Array): Uint8Array {
-  return inflateRaw(data);
+export function inflateSync(data: Uint8Array): Buffer {
+  return asBuffer(inflate(data));
+}
+
+export function inflateRawSync(data: Uint8Array): Buffer {
+  return asBuffer(inflateRaw(data));
 }
