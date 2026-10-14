@@ -514,6 +514,10 @@ function toAccount(id: string, member: RemoteAccount | null): LocalAccount | nul
   return { id, email, passwordHash: "firebase", roles, personId: member.personId || null };
 }
 
+export function flushChurchWrite(): Promise<void> {
+  return writeChain.then(() => undefined);
+}
+
 function scheduleChurchWrite() {
   const churchId = activeChurchId();
   if (!churchId || !db || !session) return;
