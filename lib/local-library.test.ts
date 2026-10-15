@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { bibleBook, emptyTemplate, fileMatchesQuery, fileSlides, folderStatusText, libraryMatchText, libraryQuery, passageFromBook, previewLine, scriptureKey, searchedLabel, splitSlides, textFileBody } from "./local-library.ts";
+import { bibleBook, emptyTemplate, fileMatchesQuery, fileSlides, folderStatusText, libraryMatchText, libraryQuery, nameContains, passageFromBook, previewLine, scriptureKey, searchedLabel, splitSlides, textFileBody } from "./local-library.ts";
 import { buildDesk } from "./slide-show.ts";
 import { buildSeed } from "./seed.ts";
 
@@ -64,6 +64,22 @@ describe("예배 폴더", () => {
     assert.deepEqual(fileSlides({ kind: "hymn", title: "찬송", hymnNumber: "44", scripture: "" }, "첫째 줄\n\n둘째 줄"), ["첫째 줄", "둘째 줄"]);
     assert.equal(libraryMatchText("찬송가44장.txt", "찬송가44장"), "찬송가44장.txt · 준비됨");
     assert.equal(libraryMatchText(null, "신명기.txt"), "파일 없음 · 신명기.txt");
+  });
+});
+
+describe("파일 이름 포함", () => {
+  const bible = { kind: "bible" as const, title: "성경봉독", hymnNumber: "", scripture: "창세기 1:1" };
+  const hymn = { kind: "hymn" as const, title: "찬송", hymnNumber: "150", scripture: "" };
+  const praise = { kind: "praise" as const, title: "주님은 왕", hymnNumber: "", scripture: "" };
+  it("앞의 숫자가 있어도 찾는 글자가 들어 있으면 맞는다", () => {
+    assert.equal(fileMatchesQuery("01 창세기.txt", bible), true);
+    assert.equal(fileMatchesQuery("001_창세기.txt", bible), true);
+    assert.equal(fileMatchesQuery("150 찬송가150장.txt", hymn), true);
+    assert.equal(fileMatchesQuery("0150 찬송가 150장.txt", hymn), true);
+    assert.equal(fileMatchesQuery("01 주님은 왕.txt", praise), true);
+    assert.equal(nameContains("001_창세기.txt", "창세기"), true);
+    assert.equal(fileMatchesQuery("다른노래.txt", { kind: "hymn", title: "복의 근원", hymnNumber: "28", scripture: "" }), false);
+    assert.equal(fileMatchesQuery("찬송가15장.txt", hymn), false);
   });
 });
 

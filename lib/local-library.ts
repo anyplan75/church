@@ -24,9 +24,9 @@ export type FolderView = {
 };
 
 export const LIBRARY_RULES = [
-  "성경은 창세기.txt 같은 책 파일에서 주보의 장절을 읽습니다.",
-  "찬송은 찬송가N장으로 찾습니다.",
-  "찬양은 제목이고 띄어쓰기는 무시합니다.",
+  "성경은 파일 이름에 창세기 같은 책 이름이 들어 있으면 그 파일에서 주보의 장절을 읽습니다. 앞의 숫자는 무시합니다.",
+  "찬송은 파일 이름에 찬송가N장이 들어 있으면 됩니다. 앞의 숫자는 무시합니다.",
+  "찬양은 파일 이름에 제목이 들어 있으면 됩니다. 띄어쓰기와 앞의 숫자는 무시합니다.",
 ] as const;
 
 export const LIBRARY_STEPS = [
@@ -164,31 +164,38 @@ export function wantedFileNames(query: LibraryQuery): string[] {
   return slug ? [`praise-${slug}.txt`, `찬양-${slug}.txt`, `${slug}.txt`] : [];
 }
 
+export function foldedStem(fileName: string): string {
+  const base = fileName.replace(/\\/g, "/").split("/").pop() ?? "";
+  return base.replace(/\.txt$/i, "").normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+}
+
+export function stripLeadingNumber(value: string): string {
+  return value.replace(/^\d+[_-]?/, "");
+}
+
+export function nameContains(fileName: string, label: string): boolean {
+  const needle = label.normalize("NFKC").replace(/\s+/g, "").replace(/\.txt$/i, "").toLowerCase();
+  if (!needle) return false;
+  const folded = foldedStem(fileName);
+  return folded.includes(needle) || stripLeadingNumber(folded).includes(needle);
+}
+
 export function fileMatchesQuery(fileName: string, query: LibraryQuery): boolean {
   const base = fileName.replace(/\\/g, "/").split("/").pop()?.toLowerCase() ?? "";
   if (!base.endsWith(".txt")) return false;
-  const names = new Set(wantedFileNames(query).map((name) => name.toLowerCase()));
-  if (names.has(base)) return true;
-  const stem = base.slice(0, -4);
-  const folded = stem.normalize("NFKC").replace(/\s+/g, "");
-  if (query.kind === "hymn" && query.hymnNumber && folded === `찬송가${query.hymnNumber}장`) return true;
-  if (query.kind === "bible") {
-    const book = bibleBook(query.scripture).normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-    if (book && folded.toLowerCase() === book) return true;
-  }
-  if (query.kind === "praise") {
-    const title = query.title.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-    if (title && folded.toLowerCase() === title) return true;
-  }
+  const folded = foldedStem(fileName);
   if (query.kind === "hymn" && query.hymnNumber) {
-    return new RegExp(`(^|[^0-9])${query.hymnNumber}([^0-9]|$)`).test(stem);
+    if (nameContains(fileName, `찬송가${query.hymnNumber}장`)) return true;
+    return new RegExp(`(^|[^0-9])${query.hymnNumber}([^0-9]|$)`).test(folded);
   }
   if (query.kind === "bible") {
+    const book = bibleBook(query.scripture);
+    if (book && nameContains(fileName, book)) return true;
     const key = scriptureKey(query.scripture).toLowerCase();
-    return Boolean(key) && stem.includes(key);
+    return Boolean(key) && folded.includes(key);
   }
-  const slug = compact(query.title).toLowerCase();
-  return Boolean(slug) && stem.includes(slug);
+  const title = query.title.normalize("NFKC").replace(/\s+/g, "");
+  return Boolean(title) && nameContains(fileName, title);
 }
 
 export function preferredFileName(query: LibraryQuery): string {
