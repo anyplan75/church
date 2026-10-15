@@ -1,7 +1,7 @@
 "use client";
 
-import { AttendanceBoard } from "@/components/attendance-board";
+import { ReplacePage } from "@/components/replace-page";
 
 export default function AttendancePage() {
-  return <AttendanceBoard />;
+  return <ReplacePage href="/week" />;
 }

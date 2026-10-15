@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Nav } from "@/components/nav";
+import { SessionGuard } from "@/components/session-guard";
 import { ReminderWatcher } from "@/components/reminder-watcher";
 import { useChurch } from "@/components/church-state";
 import { cleanPath } from "@/lib/page-path";
@@ -55,6 +56,7 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
         <Nav churchName={db.settings.churchName} email={user.email} roles={user.roles} platform={user.kind === "platform"} />
       ) : null}
       {user && can(user.roles, "screen.prepare") ? <ReminderWatcher /> : null}
+      {user ? <SessionGuard /> : null}
       {children}
     </>
   );

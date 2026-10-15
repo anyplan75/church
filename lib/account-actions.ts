@@ -12,6 +12,7 @@ import {
   updateDb,
 } from "./app-db";
 import { go } from "./page-path";
+import { closeVisit } from "./simple";
 import { homeFor, normalizeRoles } from "./roles";
 
 function text(formData: FormData, key: string): string {
@@ -45,7 +46,11 @@ export async function login(formData: FormData) {
 
 export async function logout() {
   const user = currentUser();
-  if (user?.churchId) updateDb(() => undefined, "로그아웃");
+  if (user?.churchId) {
+    updateDb((current) => {
+      current.visits = closeVisit(current.visits ?? [], user.email);
+    });
+  }
   endLocalSession();
   go("/login");
 }

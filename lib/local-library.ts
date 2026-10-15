@@ -40,11 +40,12 @@ export function scriptureKey(scripture: string): string {
 export function wantedFileNames(query: LibraryQuery): string[] {
   if (query.kind === "hymn" && query.hymnNumber) {
     const number = query.hymnNumber;
-    return [`hymn-${number}.txt`, `찬송-${number}.txt`, `찬송${number}.txt`, `${number}.txt`, `${number}장.txt`];
+    return [`찬송가${number}장.txt`, `hymn-${number}.txt`, `찬송-${number}.txt`, `찬송${number}.txt`, `${number}.txt`, `${number}장.txt`];
   }
   if (query.kind === "bible") {
     const key = scriptureKey(query.scripture);
-    return key ? [`bible-${key}.txt`, `${key}.txt`] : [];
+    const book = query.scripture.trim().match(/^([가-힣]+)/)?.[1] ?? "";
+    return [book ? `${book}.txt` : "", key ? `bible-${key}.txt` : "", key ? `${key}.txt` : ""].filter(Boolean);
   }
   const slug = compact(query.title);
   return slug ? [`praise-${slug}.txt`, `찬양-${slug}.txt`, `${slug}.txt`] : [];
@@ -56,6 +57,16 @@ export function fileMatchesQuery(fileName: string, query: LibraryQuery): boolean
   const names = new Set(wantedFileNames(query).map((name) => name.toLowerCase()));
   if (names.has(base)) return true;
   const stem = base.slice(0, -4);
+  const folded = stem.normalize("NFKC").replace(/\s+/g, "");
+  if (query.kind === "hymn" && query.hymnNumber && folded === `찬송가${query.hymnNumber}장`) return true;
+  if (query.kind === "bible") {
+    const book = query.scripture.trim().match(/^([가-힣]+)/)?.[1] ?? "";
+    if (book && folded === book) return true;
+  }
+  if (query.kind === "praise") {
+    const title = query.title.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+    if (title && folded.toLowerCase() === title) return true;
+  }
   if (query.kind === "hymn" && query.hymnNumber) {
     return new RegExp(`(^|[^0-9])${query.hymnNumber}([^0-9]|$)`).test(stem);
   }

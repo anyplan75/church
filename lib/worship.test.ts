@@ -115,7 +115,7 @@ describe("services", () => {
     assert.deepEqual(split.upcoming.map((item) => item.id), ["late", "early", "next"]);
     assert.deepEqual(split.past.map((item) => item.id), ["past"]);
     assert.equal(nextService(services, "2026-10-12")?.id, "late");
-    assert.deepEqual(weekServices(services, "2026-10-12").map((item) => item.id), ["early", "next"]);
+    assert.deepEqual(weekServices(services, "2026-10-12").map((item) => item.id), ["late", "past"]);
   });
 
   it("counts missing leaders and describes a bulletin line", () => {

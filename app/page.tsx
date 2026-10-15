@@ -1,176 +1,93 @@
 "use client";
 
-import Link from "next/link";
-import { useChurch } from "@/components/church-state";
-import { StatusBadge } from "@/components/status-badge";
-import { formatKoreanDate, formatMonthDay, formatTime, formatWeekday, relativeDay } from "@/lib/format";
-import { can, primaryServiceHref, serviceDestinations } from "@/lib/roles";
-import { addDays, clampLiveIndex, mondayOf, nextService, preacherName, todayISO, weekServices } from "@/lib/worship";
+import { useEffect, useState } from "react";
+import { SubmitButton } from "@/components/submit-button";
+import { useChurch, useClientQuery } from "@/components/church-state";
+import { importBulletin } from "@/lib/actions";
+import { BULLETIN_UPLOAD_BYTES, bulletinAccept, bulletinFormatNote } from "@/lib/extract-text";
+import { formatKoreanDate, formatMonthDay, formatTime } from "@/lib/format";
+import { bulletinWeeks, serviceText } from "@/lib/simple";
+import { sundayOf, todayISO } from "@/lib/worship";
 
-export default function HomePage() {
-  const { ready, user, db } = useChurch();
-  if (!ready || !user || !db) return null;
-  const prepare = can(user.roles, "screen.prepare");
-  const create = can(user.roles, "screen.new");
-  const editor = can(user.roles, "screen.editor");
-  const liveScreen = can(user.roles, "screen.live");
-  const bulletin = can(user.roles, "screen.bulletin");
-  const output = can(user.roles, "screen.output");
-  const todayText = todayISO();
-  const start = mondayOf(todayText);
-  const days = Array.from({ length: 7 }, (_, index) => addDays(start, index));
-  const week = weekServices(db.services, todayText);
-  const next = nextService(db.services, todayText);
-  const live = next?.status === "live";
-  const current = next && live ? next.items[clampLiveIndex(next.liveIndex, next.items.length)] : undefined;
+export default function BulletinPage() {
+  const { ready, db } = useChurch();
+  const query = useClientQuery();
+  const [sunday, setSunday] = useState("");
+  useEffect(() => {
+    if (!query.imported && !query.error) return;
+    document.getElementById("bulletin-import")?.scrollIntoView({ block: "start" });
+  }, [query.imported, query.error, ready]);
+  if (!ready || !db) return null;
+  const weeks = bulletinWeeks(db.services);
+  const today = todayISO();
+  const selected = weeks.find((week) => week.sunday === sunday) ?? weeks.find((week) => week.sunday === sundayOf(today)) ?? weeks[0];
 
   return (
     <div className="page">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-gold">이번 주</p>
-          <h1 className="mt-1 font-serif text-4xl">{formatKoreanDate(todayText)}</h1>
-          <p className="mt-2 text-muted">
-            {formatMonthDay(start)} – {formatMonthDay(days[6])} · 예배 {week.length}번
+      <h1 className="font-serif text-4xl">주보</h1>
+      <p className="mt-2 text-muted">주보를 읽으면 그 주의 예배와 광고만 텍스트로 정리합니다. 가사와 성경 본문은 저장하지 않습니다.</p>
+
+      <section id="bulletin-import" className="card mt-6 p-5">
+        <h2 className="font-serif text-2xl">주보 입력</h2>
+        <p className="mt-2 text-sm text-muted">{bulletinFormatNote()}</p>
+        {query.imported ? (
+          <p className="mt-4 text-sm text-pine">
+            예배 {query.imported}개를 준비했습니다.
+            {query.skipped && query.skipped !== "0" ? ` 진행 중이거나 마친 예배 ${query.skipped}개는 바꾸지 않았습니다.` : ""}
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {prepare ? (
-            <Link href="/prepare" className="btn btn-quiet">
-              예배 준비
-            </Link>
-          ) : null}
-          {create ? (
-            <Link href="/services/new" className="btn btn-primary">
-              예배 만들기
-            </Link>
-          ) : null}
-        </div>
-      </div>
+        ) : null}
+        {query.error === "empty" ? <p className="mt-4 text-sm text-wine">주보 내용을 붙여 넣거나 파일을 선택해 주세요.</p> : null}
+        {query.error === "none" ? <p className="mt-4 text-sm text-wine">예배 구분을 찾지 못했습니다.</p> : null}
+        {query.error === "size" ? <p className="mt-4 text-sm text-wine">파일은 {BULLETIN_UPLOAD_BYTES / (1024 * 1024)}MB 이하로 올려 주세요.</p> : null}
+        {query.error === "file" ? <p className="mt-4 text-sm text-wine">{query.detail || "파일을 읽지 못했습니다."}</p> : null}
+        <form action={importBulletin} className="mt-4 space-y-3">
+          <label className="field">
+            <span>주보 글</span>
+            <textarea className="textarea" name="text" rows={8} placeholder="예배 순서와 광고를 붙여 넣습니다." />
+          </label>
+          <label className="field">
+            <span>파일</span>
+            <input className="input" name="file" type="file" accept={bulletinAccept()} />
+          </label>
+          <SubmitButton>주보 읽기</SubmitButton>
+        </form>
+      </section>
 
-      {next ? (
-        <section className={live ? "card card-live mt-8 p-6 md:p-8" : "card mt-8 p-6 md:p-8"}>
-          <p className={live ? "text-sm text-[#d9d0c2]" : "text-sm text-gold"}>{live ? "지금 진행 중" : "다음 예배"}</p>
-          <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="font-serif text-4xl">{next.title}</h2>
-              <p className={`mt-3 ${live ? "text-[#d9d0c2]" : "text-muted"}`}>
-                {formatKoreanDate(next.date)} {relativeDay(next.date, todayText) ? `· ${relativeDay(next.date, todayText)}` : ""} · {formatTime(next.time)} · {next.place}
-              </p>
-              {preacherName(next, db.people) ? (
-                <p className={`mt-1 ${live ? "text-[#f3e6cf]" : "text-ink"}`}>설교 {preacherName(next, db.people)}</p>
-              ) : null}
-              {current ? <p className="mt-4 text-xl">지금 순서 · {current.title}</p> : null}
-            </div>
-            <StatusBadge status={next.status} />
+      <section id="bulletin-weeks" className="mt-8">
+        <h2 className="font-serif text-2xl">주보의 주</h2>
+        {weeks.length === 0 ? <p className="mt-3 text-muted">아직 읽어 둔 주보가 없습니다.</p> : null}
+        {weeks.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="주보 주">
+            {weeks.map((week) => {
+              const active = week.sunday === selected?.sunday;
+              return (
+                <button
+                  key={week.sunday}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={active ? "btn btn-primary btn-small" : "btn btn-quiet btn-small"}
+                  onClick={() => setSunday(week.sunday)}
+                >
+                  {formatMonthDay(week.sunday)} 주
+                </button>
+              );
+            })}
           </div>
-          <div className="mt-6 flex flex-wrap gap-2">
-            {liveScreen ? (
-              <Link href={`/services/${next.id}/live`} className={live ? "btn btn-light" : "btn btn-primary"}>
-                진행 화면
-              </Link>
-            ) : null}
-            {editor ? (
-              <Link href={`/services/${next.id}`} className={live ? "btn btn-on-dark" : "btn btn-quiet"}>
-                순서 편집
-              </Link>
-            ) : null}
-            {output ? (
-              <Link href={`/services/${next.id}/output`} target="_blank" className={live ? "btn btn-on-dark" : "btn btn-quiet"}>
-                송출 화면
-              </Link>
-            ) : null}
-            {bulletin ? (
-              <Link href={`/services/${next.id}/bulletin`} className={live ? "btn btn-on-dark" : "btn btn-quiet"}>
-                주보
-              </Link>
-            ) : null}
+        ) : null}
+        {selected ? (
+          <div className="mt-4 space-y-4" role="tabpanel">
+            <p className="text-sm text-muted">{formatKoreanDate(selected.sunday)}부터 토요일까지</p>
+            {selected.services.map((service) => (
+              <article key={service.id} className="card p-4">
+                <h3 className="font-medium">
+                  {service.title} · {formatKoreanDate(service.date)} {formatTime(service.time)}
+                </h3>
+                <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-ink">{serviceText(service) || "예배 순서가 없습니다."}</pre>
+              </article>
+            ))}
           </div>
-        </section>
-      ) : (
-        <section className="card mt-8 px-6 py-10">
-          <h2 className="font-serif text-3xl">예정된 예배가 없습니다</h2>
-          <p className="mt-2 text-muted">순서를 만들고 담당을 정한 뒤, 예배 중에 진행 화면으로 넘기면 됩니다.</p>
-          {create ? (
-            <Link href="/services/new" className="btn btn-primary mt-5">
-              첫 예배 만들기
-            </Link>
-          ) : null}
-        </section>
-      )}
-
-      <section className="mt-10">
-        <h2 className="font-serif text-2xl">일주일</h2>
-        <div className="mt-3">
-          {days.map((day) => {
-            const services = week.filter((service) => service.date === day);
-            return (
-              <div key={day} className={day === todayText ? "day day-today" : "day"}>
-                <div className="day-meta">
-                  <div>
-                    <p className="text-sm text-muted">{formatWeekday(day)}</p>
-                    <p className="font-serif text-3xl leading-none">{Number(day.slice(8))}</p>
-                  </div>
-                  {create ? (
-                    <Link href={`/services/new?date=${day}`} className="btn btn-quiet btn-small day-add-mobile">
-                      추가
-                    </Link>
-                  ) : null}
-                </div>
-                <div className="min-w-0 flex-1">
-                  {services.length === 0 ? <p className="text-muted">예배 없음</p> : null}
-                  <div className="space-y-2">
-                    {services.map((service) => {
-                      const links = serviceDestinations(service.id, user.roles);
-                      const primary = primaryServiceHref(service.id, user.roles);
-                      const extras = editor ? [] : links.slice(1);
-                      const body = (
-                        <div className="service-line">
-                          <div>
-                            <p className="font-medium">
-                              {formatTime(service.time)} {service.title}
-                            </p>
-                            <p className="text-sm text-muted">
-                              {service.place}
-                              {preacherName(service, db.people) ? ` · 설교 ${preacherName(service, db.people)}` : ""}
-                            </p>
-                          </div>
-                          <StatusBadge status={service.status} />
-                        </div>
-                      );
-                      if (extras.length === 0) {
-                        return (
-                          <Link key={service.id} href={primary} className="block rounded-xl px-3 py-2 hover:bg-white">
-                            {body}
-                          </Link>
-                        );
-                      }
-                      return (
-                        <div key={service.id} className="rounded-xl px-3 py-2">
-                          <Link href={primary} className="block hover:bg-white">
-                            {body}
-                          </Link>
-                          <p className="mt-1 flex flex-wrap gap-2 px-0 text-sm">
-                            {extras.map((link) => (
-                              <Link key={link.href} href={link.href} className="text-pine">
-                                {link.label}
-                              </Link>
-                            ))}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                {create ? (
-                  <Link href={`/services/new?date=${day}`} className="btn btn-quiet btn-small day-add-desktop">
-                    추가
-                  </Link>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+        ) : null}
       </section>
     </div>
   );
