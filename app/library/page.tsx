@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { saveLibrary } from "@/lib/actions";
@@ -27,12 +27,24 @@ export default function LibraryPage() {
   const query = useClientQuery();
   const [notice, setNotice] = useState("");
   const [hit, setHit] = useState("");
+  const [overlay, setOverlay] = useState("bottom");
+  const [overlayFontId, setOverlayFontId] = useState("noto-sans-kr");
+  const [fullFontId, setFullFontId] = useState("noto-sans-kr");
+  const [step, setStep] = useState(2);
+  const [primed, setPrimed] = useState(false);
+  useEffect(() => {
+    if (!db || primed) return;
+    setOverlay(db.settings.overlay);
+    setOverlayFontId(captionFont(db.settings.overlayFont).id);
+    setFullFontId(captionFont(db.settings.fullscreenFont).id);
+    setStep(fullscreenStep(db.settings.fullscreenStep));
+    setPrimed(true);
+  }, [db, primed]);
   if (!ready || !db) return null;
   const settings = db.settings;
   const folders = settings.folders ?? { bible: "", hymn: "", praise: "" };
   const backgrounds = settings.backgrounds ?? ["배경 1", "배경 2", "배경 3", "배경 4", "배경 5"];
-  const step = fullscreenStep(settings.fullscreenStep);
-  const previewFont = captionFont(settings.fullscreenFont).family;
+  const previewFont = captionFont(fullFontId).family;
 
   async function connect(slot: string) {
     setNotice("");
@@ -83,7 +95,7 @@ export default function LibraryPage() {
           <p className="text-sm text-muted">실시간 통역 자막처럼 글자만 두고, 뒤는 투명하며, 가장자리에 어두운 그라데이션을 깔습니다.</p>
           <label className="field">
             <span>위치</span>
-            <select className="select" name="overlay" defaultValue={settings.overlay}>
+            <select className="select" name="overlay" value={overlay} onChange={(event) => setOverlay(event.target.value)}>
               {OVERLAYS.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label}
@@ -91,25 +103,21 @@ export default function LibraryPage() {
               ))}
             </select>
           </label>
-          <FontSelect name="overlayFont" value={settings.overlayFont} />
-          <div className="relative mt-2 h-40 overflow-hidden rounded-xl bg-black/80">
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
-            <p
-              className="absolute inset-x-4 bottom-3 text-center text-lg font-bold text-white"
-              style={{ fontFamily: captionFont(settings.overlayFont).family, textShadow: "2px 2px 4px rgba(0,0,0,.8)" }}
-            >
-              자막은 영상 위에 겹칩니다
-            </p>
+          <FontSelect name="overlayFont" value={overlayFontId} onChange={setOverlayFontId} />
+          <div className="caption-frame mt-2" data-overlay-preview={overlay}>
+            <div className={`worship-shade layout-${overlay}`} style={{ fontFamily: captionFont(overlayFontId).family }}>
+              <p>자막은 영상 위에 겹칩니다</p>
+            </div>
           </div>
         </section>
 
         <section className="card space-y-4 p-5">
           <h2 className="font-serif text-2xl">전체화면 메인 자막</h2>
           <p className="text-sm text-muted">글은 가운데 정렬이고 두 줄입니다. 위에서 아래 위치를 다섯 단계로 고릅니다.</p>
-          <FontSelect name="fullscreenFont" value={settings.fullscreenFont} />
+          <FontSelect name="fullscreenFont" value={fullFontId} onChange={setFullFontId} />
           <label className="field">
             <span>세로 위치</span>
-            <select className="select" name="fullscreenStep" defaultValue={String(step)}>
+            <select className="select" name="fullscreenStep" value={String(step)} onChange={(event) => setStep(fullscreenStep(Number(event.target.value)))}>
               {STEPS.map((label, index) => (
                 <option key={label} value={index}>
                   {label}
@@ -138,11 +146,11 @@ export default function LibraryPage() {
   );
 }
 
-function FontSelect({ name, value }: { name: string; value?: string }) {
+function FontSelect({ name, value, onChange }: { name: string; value?: string; onChange: (value: string) => void }) {
   return (
     <label className="field">
       <span>폰트</span>
-      <select className="select" name={name} defaultValue={captionFont(value).id}>
+      <select className="select" name={name} value={captionFont(value).id} onChange={(event) => onChange(event.target.value)}>
         {CAPTION_FONTS.map((font) => (
           <option key={font.id} value={font.id}>
             {font.label}

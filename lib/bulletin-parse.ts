@@ -34,8 +34,10 @@ export function parseBulletin(text: string, people: Person[], today = todayISO()
   let date = "";
   let current: BulletinDraft | null = null;
   let inAnnouncements = false;
+  let inNews = false;
   let skippedLyrics = 0;
   const services: BulletinDraft[] = [];
+  const news: string[] = [];
 
   function pushCurrent() {
     if (current && current.items.length > 0) services.push(current);
@@ -47,6 +49,21 @@ export function parseBulletin(text: string, people: Person[], today = todayISO()
     const foundDate = readDate(raw);
     if (foundDate) date = foundDate;
     if (isDateLine(raw)) continue;
+
+    if (raw === "교회소식") {
+      inNews = true;
+      inAnnouncements = false;
+      continue;
+    }
+
+    if (inNews) {
+      if (isBullet(raw)) {
+        const text = stripBullet(raw).slice(0, 500);
+        if (text && !isPhoneLine(text)) news.push(text);
+        continue;
+      }
+      inNews = false;
+    }
 
     const header = parseHeader(raw);
     if (header) {
@@ -70,9 +87,11 @@ export function parseBulletin(text: string, people: Person[], today = todayISO()
       continue;
     }
 
-    if (/^인도(?:\s|및)/.test(raw) && current) {
-      const name = bulletinPersonName(`축도 ${raw.replace(/^인도(?:\s*및\s*말씀)?\s*[:：]?\s*/, "")}`, people);
+    if (/^인도(?:\s|및|$)/.test(raw) && current) {
+      const rest = raw.replace(/^인도(?:\s*및\s*말씀)?\s*[:：]?\s*/, "").trim();
+      const name = rest ? bulletinPersonName(`축도 ${rest}`, people) : "";
       if (name) current.preacherName = name;
+      current.items.push(blank("other", "인도", { personName: name, note: rest.slice(0, 80) }));
       continue;
     }
 
@@ -96,6 +115,13 @@ export function parseBulletin(text: string, people: Person[], today = todayISO()
     current.items.push(parsed.item);
   }
   pushCurrent();
+  const hosts = services.filter((service) => service.type === "sunday-1" || service.type === "sunday-2" || service.type === "sunday-3" || service.type === "wednesday");
+  for (const service of hosts.length > 0 ? hosts : services) {
+    for (const text of news) {
+      if (service.announcements.length >= 30) break;
+      if (!service.announcements.includes(text)) service.announcements.push(text);
+    }
+  }
   return { services, skippedLyrics };
 }
 
@@ -118,10 +144,10 @@ function parseItem(raw: string, people: Person[]): { item: BulletinItem | null; 
     const title = shortenTitle(name ? stripPersonMention(praise[1], name) : praise[1].trim());
     return { lyric: title.dropped, item: blank("praise", "찬양", { personName: name, songTitle: title.value }) };
   }
-  if (/^통성기도/.test(line)) return { item: blank("prayer", "통성기도", { personName: name }), lyric: false };
+  if (/^통성기도/.test(line)) return { item: blank("prayer", "통성기도", { personName: name, note: trailingNote(line, "통성기도", name) }), lyric: false };
   if (/^(대표기도|기도)/.test(line)) {
     const title = line.startsWith("대표기도") ? "대표기도" : "기도";
-    return { item: blank("prayer", title, { personName: name }), lyric: false };
+    return { item: blank("prayer", title, { personName: name, note: trailingNote(line, title, name) }), lyric: false };
   }
   const scripture = line.match(/^성경봉독\s*(.*)$/);
   if (scripture) {
@@ -138,9 +164,9 @@ function parseItem(raw: string, people: Person[]): { item: BulletinItem | null; 
     const note = (name ? stripPersonMention(sermon[2], name) : sermon[2].trim()).slice(0, 80);
     return { item: blank("sermon", sermon[1] === "말씀" ? "말씀" : "설교", { personName: name, note }), lyric: false };
   }
-  if (/^봉헌/.test(line)) return { item: blank("offering", "봉헌", { personName: name }), lyric: false };
-  if (/^광고/.test(line)) return { item: blank("announcement", "광고"), lyric: false };
-  if (/^축도/.test(line)) return { item: blank("benediction", "축도", { personName: name }), lyric: false };
+  if (/^봉헌/.test(line)) return { item: blank("offering", "봉헌", { personName: name, note: trailingNote(line, "봉헌", name) }), lyric: false };
+  if (/^광고/.test(line)) return { item: blank("announcement", "광고", { note: trailingNote(line, "광고", name) }), lyric: false };
+  if (/^축도/.test(line)) return { item: blank("benediction", "축도", { personName: name, note: trailingNote(line, "축도", name) }), lyric: false };
   return { item: null, lyric: isLooseLyric(line) };
 }
 
@@ -155,6 +181,16 @@ function blank(kind: ItemKind, title: string, extra: Partial<BulletinItem> = {})
     songTitle: "",
     ...extra,
   };
+}
+
+function trailingNote(line: string, title: string, personName: string): string {
+  const rest = line.replace(new RegExp(`^${title}\\s*`), "").trim();
+  if (!rest || rest === personName) return rest.slice(0, 80);
+  return rest.slice(0, 80);
+}
+
+function isPhoneLine(text: string): boolean {
+  return /\d{2,4}[)\-\s.]?\d{3,4}[-\s.]\d{4}/.test(text);
 }
 
 function shortenTitle(value: string): { value: string; dropped: boolean } {
@@ -222,7 +258,7 @@ function cleanPlace(value: string): string {
 }
 
 function parseHeader(line: string): { type: ServiceType; time: string; title: string; place: string } | null {
-  if (line.length > 40) return null;
+  if (line.length > 40 || /^[-•·*–]/.test(line) || /^\d+\s*[.)]/.test(line)) return null;
   if (hasTwoServiceParts(line)) return null;
   let type: ServiceType | null = null;
   let title = "";

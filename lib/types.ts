@@ -69,6 +69,7 @@ export type Person = {
   address?: string;
   email?: string;
   memo?: string;
+  photo?: string;
 };
 
 export type SongLicense = "title-only" | "permitted";

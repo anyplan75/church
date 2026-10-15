@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import JSZip from "jszip";
 import { applyBulletin } from "./bulletin-apply.ts";
 import { parseBulletin } from "./bulletin-parse.ts";
+import { bulletsFromCells, worshipItemLine } from "./hwp-order.ts";
 import { acceptReadyChecks, checkItems, missingRequired, type CheckContext } from "./checklist.ts";
 import { extractUploadedText, textFromHwpxXml } from "./extract-text.ts";
 import { dueAt, planReminders, reminderRecipient } from "./reminders.ts";
@@ -62,6 +63,41 @@ ${LYRIC}
 성경봉독 시편 23:1
 말씀 기도의 자리 김은혜
 축도`;
+
+  it("keeps the leader, hymn number, praise title, sermon title, and weekly news", () => {
+    const text = `2026년 10월 11일
+주일찬양예배 오후 2:00
+인도 최승원 목사
+찬양 위드엘 찬양단
+기도 구영준 안수집사
+성경봉독 야고보서 3:1-6
+설교 그것을 보면 살리라
+찬송 455장 주님의 마음을 본받는 자
+봉헌 인도자
+축도 최승원 목사
+2026년 10월 12일
+새벽기도회 오전 5:30
+찬송 546장
+교회소식
+- 새가족을 환영합니다.
+- 제직회는 예배 후에 있습니다.`;
+    const parsed = parseBulletin(text, [], "2026-10-11");
+    const praise = parsed.services[0];
+    assert.equal(praise.items[0]?.title, "인도");
+    assert.equal(praise.items[0]?.personName, "최승원");
+    assert.equal(praise.items.find((item) => item.kind === "praise")?.songTitle, "위드엘 찬양단");
+    assert.equal(praise.items.find((item) => item.title === "기도")?.personName, "구영준");
+    assert.equal(praise.items.find((item) => item.kind === "scripture")?.scripture, "야고보서 3:1-6");
+    assert.equal(praise.items.find((item) => item.kind === "sermon")?.note, "그것을 보면 살리라");
+    assert.equal(praise.items.find((item) => item.kind === "sermon")?.personName, "");
+    assert.equal(praise.items.find((item) => item.kind === "hymn")?.hymnNumber, "455");
+    assert.equal(praise.items.find((item) => item.kind === "offering")?.personName, "");
+    assert.equal(praise.items.find((item) => item.kind === "offering")?.note, "인도자");
+    assert.deepEqual(praise.announcements, ["새가족을 환영합니다.", "제직회는 예배 후에 있습니다."]);
+    assert.deepEqual(parsed.services[1]?.announcements, []);
+    assert.equal(worshipItemLine("설교", "자기절제의 삶"), "설교 자기절제의 삶");
+    assert.deepEqual(bulletsFromCells(["✜ 새가족을 환영합니다.\n여행오신 분을 안내합니다.", "전화 064-000-0000"]), ["✜ 새가족을 환영합니다. 여행오신 분을 안내합니다."]);
+  });
 
   it("does not open a service from a bare column label", () => {
     const parsed = parseBulletin("1부\n묵도\n1부 정종옥 권사 2부 박준호 장로\n축도", [], "2026-10-14");

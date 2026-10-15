@@ -147,11 +147,18 @@ export function homeFor(roles: readonly Role[]): string {
 
 export type ServiceLink = { href: string; label: string };
 
+export function outputLinks(id: string): ServiceLink[] {
+  return [
+    { href: `/services/${id}/output?mode=overlay`, label: "오버레이 송출" },
+    { href: `/services/${id}/output?mode=main`, label: "메인 송출" },
+  ];
+}
+
 export function serviceDestinations(id: string, roles: readonly Role[]): ServiceLink[] {
   const links: ServiceLink[] = [];
   if (can(roles, "screen.editor")) links.push({ href: `/services/${id}`, label: "순서" });
   if (can(roles, "screen.live")) links.push({ href: `/services/${id}/live`, label: "진행" });
-  if (can(roles, "screen.output")) links.push({ href: `/services/${id}/output`, label: "송출" });
+  if (can(roles, "screen.output")) links.push(...outputLinks(id));
   if (can(roles, "screen.bulletin")) links.push({ href: `/services/${id}/bulletin`, label: "주보" });
   return links;
 }

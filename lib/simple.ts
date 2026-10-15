@@ -1,5 +1,5 @@
-import type { PersonCategory, Service, Settings, VisitLog, WorshipItem } from "./types";
-import { sundayOf } from "./worship";
+import type { Person, PersonCategory, Service, Settings, Song, VisitLog, WorshipItem } from "./types";
+import { personName, sundayOf } from "./worship";
 
 export const CAPTION_FONTS = [
   { id: "noto-sans-kr", label: "본고딕", family: '"Noto Sans KR", sans-serif' },
@@ -36,17 +36,46 @@ export function bulletinWeeks(services: Service[]): WeekBucket[] {
     }));
 }
 
-export function orderLine(item: WorshipItem): string {
-  const extra = [item.pendingName, item.scripture, item.note]
-    .map((part) => part.trim())
-    .filter((part) => part && !item.title.includes(part));
-  return [item.title.trim(), ...extra].join(" ").replace(/\s+/g, " ").trim();
+export function orderLine(item: WorshipItem, songs: Song[] = [], people: Person[] = []): string {
+  const song = item.songId ? songs.find((entry) => entry.id === item.songId) : undefined;
+  const hymn = song?.hymnNumber ? `${song.hymnNumber}장` : "";
+  const rawTitle = song?.title.trim() ?? "";
+  const songTitle = !rawTitle || rawTitle === item.title || rawTitle === "찬양" || rawTitle === "찬송" || rawTitle === `찬송 ${hymn}` || rawTitle === hymn ? "" : rawTitle;
+  const person = (personName(people, item.personId) || item.pendingName).trim();
+  const note = item.note.trim();
+  const parts = [item.title.trim()];
+  const add = (value: string) => {
+    const text = value.replace(/\s+/g, " ").trim();
+    if (!text) return;
+    if (parts.join("").replace(/\s+/g, "").includes(text.replace(/\s+/g, ""))) return;
+    parts.push(text);
+  };
+  add(hymn);
+  add(songTitle);
+  const personInNote = person && note.replace(/\s+/g, "").includes(person.replace(/\s+/g, ""));
+  if (item.kind === "sermon" || item.kind === "scripture") {
+    add(note);
+    add(item.scripture);
+    if (!personInNote) add(person);
+  } else if (personInNote) add(note);
+  else {
+    add(person);
+    add(note);
+    add(item.scripture);
+  }
+  return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
-export function serviceText(service: Service): string {
-  const lines = service.items.map(orderLine).filter(Boolean);
+export function serviceText(service: Service, songs: Song[] = [], people: Person[] = []): string {
+  const lines = service.items.map((item) => orderLine(item, songs, people)).filter(Boolean);
+  if (!service.items.some((item) => item.title.replace(/\s+/g, "") === "인도")) {
+    const leader = personName(people, service.preacherId);
+    if (leader) lines.unshift(`인도 ${leader}`);
+  }
   const ads = service.announcements.map((item) => item.text.trim()).filter(Boolean);
-  return [...lines, ...ads].join("\n");
+  if (ads.length === 0) return lines.join("\n");
+  const head = lines.some((line) => line === "광고" || line.startsWith("광고 ")) ? [] : ["광고"];
+  return [...lines, ...head, ...ads].join("\n");
 }
 
 export function compactLabel(value: string): string {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { CopyrightNotice } from "@/components/copyright-notice";
+import { OutputLinks } from "@/components/output-links";
 import { SlideDesk } from "@/components/slide-desk";
 import { saveLiveProgress } from "@/lib/actions";
 import { formatKoreanDate, formatTime } from "@/lib/format";
@@ -84,11 +85,7 @@ export function LiveConsole({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {access.output ? (
-            <Link href={`/services/${service.id}/output`} target="_blank" className="btn btn-on-dark btn-small">
-              송출 화면
-            </Link>
-          ) : null}
+          {access.output ? <OutputLinks id={service.id} className="btn btn-on-dark btn-small" /> : null}
           {access.bulletin ? (
             <Link href={`/services/${service.id}/bulletin`} className="btn btn-on-dark btn-small">
               주보

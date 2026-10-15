@@ -67,6 +67,7 @@ function normalizePerson(person: Person): Person {
     address: String(person?.address ?? "").trim().slice(0, 120),
     email: String(person?.email ?? "").trim().slice(0, 120),
     memo: String(person?.memo ?? "").trim().slice(0, 400),
+    photo: isItemPhoto(String(person?.photo ?? "")) ? String(person.photo) : "",
   };
 }
 

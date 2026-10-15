@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { fileMatchesQuery } from "./local-library.ts";
-import { formatVisit, noteVisit, openVisit, settingsReady, setupComplete } from "./simple.ts";
-import type { Settings } from "./types.ts";
+import { formatVisit, noteVisit, openVisit, orderLine, serviceText, settingsReady, setupComplete } from "./simple.ts";
+import type { Person, Service, Settings, Song, WorshipItem } from "./types.ts";
 import { sundayOf, weekServices } from "./worship.ts";
 
 const settings = {
@@ -16,6 +16,22 @@ const settings = {
   mainReady: true,
   backgrounds: ["배경 1", "배경 2", "배경 3", "배경 4", "배경 5"],
 } as Settings;
+
+function item(partial: Partial<WorshipItem>): WorshipItem {
+  return {
+    id: partial.id ?? "item",
+    kind: partial.kind ?? "other",
+    title: partial.title ?? "",
+    note: partial.note ?? "",
+    scripture: partial.scripture ?? "",
+    scriptureText: "",
+    scriptureLicensed: false,
+    screenCue: "",
+    personId: partial.personId ?? null,
+    pendingName: partial.pendingName ?? "",
+    songId: partial.songId ?? null,
+  };
+}
 
 describe("단순 운영", () => {
   it("한 주는 주일부터 토요일까지다", () => {
@@ -43,6 +59,44 @@ describe("단순 운영", () => {
     assert.equal(fileMatchesQuery("찬송가 1장.txt", { kind: "hymn", title: "찬송", hymnNumber: "1", scripture: "" }), true);
     assert.equal(fileMatchesQuery("창세기.txt", { kind: "bible", title: "성경봉독", hymnNumber: "", scripture: "창세기 1:1" }), true);
     assert.equal(fileMatchesQuery("주 님 은 왕.txt", { kind: "praise", title: "주님은 왕", hymnNumber: "", scripture: "" }), true);
+  });
+
+  it("예배 순서에 장 번호와 찬양 제목과 인도자와 본문 제목과 광고를 남긴다", () => {
+    const song: Song = { id: "s1", title: "주님의 마음을 본받는 자", hymnNumber: "455", key: "", license: "title-only", permittedLine: "" };
+    const plain: Song = { id: "s2", title: "찬송 546장", hymnNumber: "546", key: "", license: "title-only", permittedLine: "" };
+    const praise: Song = { id: "s3", title: "위드엘 찬양단", hymnNumber: "", key: "", license: "title-only", permittedLine: "" };
+    const person: Person = { id: "p1", name: "이종찬", roles: ["목사"], phone: "", active: true, membership: "member", attendanceConsent: false };
+    const hymn = item({ kind: "hymn", title: "찬송", songId: "s1" });
+    const dawn = item({ kind: "hymn", title: "찬송", songId: "s2" });
+    const choir = item({ kind: "praise", title: "찬양", songId: "s3" });
+    const prayer = item({ kind: "prayer", title: "기도", pendingName: "구영준", note: "구영준 안수집사" });
+    const sermon = item({ kind: "sermon", title: "설교", note: "그것을 보면 살리라", personId: "p1" });
+    assert.equal(orderLine(hymn, [song], []), "찬송 455장 주님의 마음을 본받는 자");
+    assert.equal(orderLine(dawn, [plain], []), "찬송 546장");
+    assert.equal(orderLine(choir, [praise], []), "찬양 위드엘 찬양단");
+    assert.equal(orderLine(prayer, [], []), "기도 구영준 안수집사");
+    assert.equal(orderLine(sermon, [], [person]), "설교 그것을 보면 살리라 이종찬");
+    const service = {
+      id: "svc",
+      title: "주일 1부 예배",
+      date: "2026-10-11",
+      time: "09:00",
+      type: "sunday-1",
+      place: "본당",
+      preacherId: "p1",
+      status: "planning",
+      items: [hymn],
+      announcements: [{ id: "a1", text: "새가족을 환영합니다." }],
+      liveIndex: 0,
+      startedAt: null,
+      notes: "",
+      checks: {},
+      source: "bulletin",
+    } as Service;
+    const text = serviceText(service, [song], [person]);
+    assert.match(text, /^인도 이종찬/);
+    assert.match(text, /찬송 455장 주님의 마음을 본받는 자/);
+    assert.match(text, /광고\n새가족을 환영합니다\./);
   });
 
   it("접속과 나간 시각만 문장으로 남긴다", () => {

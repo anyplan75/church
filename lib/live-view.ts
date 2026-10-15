@@ -15,6 +15,7 @@ export type LiveView = {
   backgroundColor: string;
   backgroundUrl: string | null;
   fontFamily: string;
+  overlayFontFamily: string;
   vertical: number;
 };
 
@@ -34,6 +35,7 @@ export function liveView(db: Db, serviceId: string): LiveView | null {
     backgroundColor: db.settings.backgroundColor || "#1b3a32",
     backgroundUrl: storedBackgroundUrl(db.settings.backgroundFile),
     fontFamily: captionFont(db.settings.fullscreenFont).family,
+    overlayFontFamily: captionFont(db.settings.overlayFont).family,
     vertical: fullscreenStep(db.settings.fullscreenStep),
   };
 }

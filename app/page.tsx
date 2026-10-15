@@ -83,7 +83,7 @@ export default function BulletinPage() {
                 <h3 className="font-medium">
                   {service.title} · {formatKoreanDate(service.date)} {formatTime(service.time)}
                 </h3>
-                <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-ink">{serviceText(service) || "예배 순서가 없습니다."}</pre>
+                <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-ink">{serviceText(service, db.songs, db.people) || "예배 순서가 없습니다."}</pre>
               </article>
             ))}
           </div>
