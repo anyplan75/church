@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { bibleBook, emptyTemplate, fileMatchesQuery, folderStatusText, libraryQuery, previewLine, scriptureKey, searchedLabel, splitSlides, textFileBody } from "./local-library.ts";
+import { bibleBook, emptyTemplate, fileMatchesQuery, fileSlides, folderStatusText, libraryMatchText, libraryQuery, passageFromBook, previewLine, scriptureKey, searchedLabel, splitSlides, textFileBody } from "./local-library.ts";
 import { buildDesk } from "./slide-show.ts";
 import { buildSeed } from "./seed.ts";
 
@@ -50,6 +50,20 @@ describe("폴더와 주보 줄", () => {
     assert.equal(folderStatusText({ state: "connected", folderName: "찬송가", txtCount: 0, names: [] }), "연결됨 · 찬송가 · txt 파일이 없습니다.");
     assert.equal(folderStatusText({ state: "reconnect", folderName: "찬양", txtCount: 0, names: [] }), "찬양 폴더 권한이 없습니다. 다시 연결해 주세요.");
     assert.equal(folderStatusText({ state: "idle", folderName: "", txtCount: 0, names: [] }), "아직 연결하지 않았습니다.");
+  });
+});
+
+describe("예배 폴더", () => {
+  it("책 파일에서 주보의 장절만 고르고 맞는 파일은 준비됨으로 표시한다", () => {
+    const book = "1장\n1 다른장\n3장\n1 삼장하나\n2 삼장둘\n4장\n1 끝";
+    assert.deepEqual(passageFromBook(book, "야고보서 3:1-2"), ["삼장하나", "삼장둘"]);
+    assert.deepEqual(passageFromBook("3:1 하나\n3:2 둘\n4:1 셋", "야고보서 3:1-2"), ["하나", "둘"]);
+    assert.deepEqual(passageFromBook("32장\n3 가\n4 나\n33장\n1 다", "신명기 32장 3-4절"), ["가", "나"]);
+    const query = { kind: "bible" as const, title: "성경봉독", hymnNumber: "", scripture: "야고보서 3:1-2" };
+    assert.deepEqual(fileSlides(query, book), ["삼장하나\n삼장둘"]);
+    assert.deepEqual(fileSlides({ kind: "hymn", title: "찬송", hymnNumber: "44", scripture: "" }, "첫째 줄\n\n둘째 줄"), ["첫째 줄", "둘째 줄"]);
+    assert.equal(libraryMatchText("찬송가44장.txt", "찬송가44장"), "찬송가44장.txt · 준비됨");
+    assert.equal(libraryMatchText(null, "신명기.txt"), "파일 없음 · 신명기.txt");
   });
 });
 

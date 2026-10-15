@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { saveLibrary } from "@/lib/actions";
 import { connectFolder, findNamedFile, readFolderView } from "@/lib/local-files";
+import { LibraryUseSteps } from "@/components/service-folder";
 import { folderStatusText, LIBRARY_RULES, type FolderView } from "@/lib/local-library";
 import { CAPTION_FONTS, captionFont, compactLabel, fullscreenStep } from "@/lib/simple";
 
@@ -80,6 +81,7 @@ export default function LibraryPage() {
     <div className="page">
       <h1 className="font-serif text-4xl">라이브러리</h1>
       <p className="mt-2 text-muted">성경, 찬송가, 찬양 폴더를 각각 지정합니다. 본문은 이 컴퓨터의 파일에서만 읽고 앱에는 저장하지 않습니다.</p>
+      <LibraryUseSteps />
       <section className="card mt-6 p-5">
         <h2 className="font-serif text-2xl">찾는 규칙</h2>
         <ul className="mt-3 space-y-1 text-sm leading-6">

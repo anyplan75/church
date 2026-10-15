@@ -5,6 +5,7 @@ import { useChurch } from "@/components/church-state";
 import { StatusBadge } from "@/components/status-badge";
 import { formatKoreanDate, formatTime } from "@/lib/format";
 import { OutputLinks } from "@/components/output-links";
+import { LibraryUseSteps } from "@/components/service-folder";
 import { can, serviceDestinations, type Role } from "@/lib/roles";
 import { assignmentProgress, preacherName, splitServices, todayISO } from "@/lib/worship";
 import type { Person, Service } from "@/lib/types";
@@ -21,6 +22,7 @@ export default function ServicesPage() {
         <div>
           <h1 className="font-serif text-4xl">예배</h1>
           <p className="mt-2 text-muted">순서를 준비하고, 마친 예배를 다시 볼 수 있습니다.</p>
+          <LibraryUseSteps />
         </div>
         {can(user.roles, "screen.new") ? (
           <Link href="/services/new" className="btn btn-primary">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useChurch } from "@/components/church-state";
+import { LibraryUseSteps } from "@/components/service-folder";
 import { saveLiveProgress } from "@/lib/actions";
 import { formatKoreanDate, formatMonthDay, formatTime } from "@/lib/format";
 import { can } from "@/lib/roles";
@@ -31,6 +32,7 @@ export default function WeekPage() {
       <p className="mt-2 text-muted">
         {formatMonthDay(start)} – {formatMonthDay(addDays(start, 6))} · 주일부터 토요일까지
       </p>
+      <LibraryUseSteps />
       {unlocked ? null : (
         <p className="mt-4 text-sm text-wine">
           {START_BLOCKED} <Link href="/settings">설정으로 가기</Link>
