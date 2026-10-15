@@ -89,8 +89,10 @@ export function passageFromBook(text: string, scripture: string): string[] {
   const span = verseSpan(scripture);
   if (!span) return [];
   const lines = text.replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean);
+  const colonVerse = new RegExp(`^(?:[가-힣A-Za-z]{1,8}\\s*)?(?:제\\s*)?${span.chapter}\\s*(?:장\\s*)?[:：]\\s*(\\d+)\\s*(?:절)?\\s*(.*)$`);
+  const chapterVerse = new RegExp(`^(?:제\\s*)?${span.chapter}\\s*장\\s*(\\d+)\\s*절\\s*(.*)$`);
   const direct = lines.flatMap((line) => {
-    const match = line.match(new RegExp(`^(?:제\\s*)?${span.chapter}\\s*[:：]\\s*(\\d+)\\s*(?:절)?\\s*(.*)$`));
+    const match = line.match(colonVerse) || line.match(chapterVerse);
     if (!match) return [];
     const verse = Number(match[1]);
     if (verse < span.start || verse > span.end) return [];
@@ -107,7 +109,7 @@ export function passageFromBook(text: string, scripture: string): string[] {
     }
     if (inChapter && /^(?:제\s*)?\d+\s*장/.test(line)) break;
     if (!inChapter || /^(?:제\s*)?\d+\s*장/.test(line)) continue;
-    const match = line.match(/^(\d+)\s*(?:절|[.)])?\s*(.*)$/);
+    const match = line.match(/^[<\[（(]?\s*(\d+)\s*[>\]）)]?\s*(?:절|[.)])?\s*(.*)$/);
     if (!match) continue;
     const verse = Number(match[1]);
     if (verse < span.start || verse > span.end) continue;
@@ -117,14 +119,42 @@ export function passageFromBook(text: string, scripture: string): string[] {
   return block.slice(0, 24);
 }
 
+const SLIDE_LINE = 18;
+
+export function readableLines(text: string): string[] {
+  const rows = text.replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean);
+  const lines: string[] = [];
+  for (const row of rows) {
+    let rest = row;
+    while (rest.length > SLIDE_LINE) {
+      const space = rest.lastIndexOf(" ", SLIDE_LINE);
+      const cut = space >= 8 ? space : SLIDE_LINE;
+      lines.push(rest.slice(0, cut).trim());
+      rest = rest.slice(cut).trim();
+    }
+    if (rest) lines.push(rest);
+  }
+  return lines;
+}
+
+export function twoLineSlides(text: string): string[] {
+  const lines = readableLines(text);
+  const slides: string[] = [];
+  for (let index = 0; index < lines.length; index += 2) {
+    const pair = [lines[index], lines[index + 1]].filter(Boolean);
+    if (pair.length > 0) slides.push(pair.join("\n"));
+  }
+  return slides.slice(0, 40);
+}
+
 export function fileSlides(query: LibraryQuery, text: string): string[] {
   if (query.kind === "bible") {
     const verses = passageFromBook(text, query.scripture);
-    const chunks: string[] = [];
-    for (let index = 0; index < verses.length; index += 4) chunks.push(verses.slice(index, index + 4).join("\n"));
-    return chunks.slice(0, 12);
+    const rows = text.replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean);
+    const source = verses.length > 0 ? verses.join("\n") : rows.length > 0 && rows.length <= 40 ? rows.join("\n") : "";
+    return twoLineSlides(source);
   }
-  return splitSlides(text);
+  return twoLineSlides(text);
 }
 
 export function previewLine(text: string): string {

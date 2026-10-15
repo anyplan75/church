@@ -66,11 +66,18 @@ export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?
       <div className="worship-stage" style={{ justifyContent: "flex-start", paddingTop: `${8 + view.vertical * 14}vh` }}>
         {view.status !== "live" ? <p className="worship-kicker">미리보기</p> : null}
         {slide ? (
-          <>
-            <p className="worship-kicker">{slide.kicker}</p>
-            <h1 className="worship-heading">{lines[0]}</h1>
-            {lines[1] ? <p className="worship-line">{lines[1]}</p> : null}
-          </>
+          bodyLines.length > 0 ? (
+            <>
+              <p className="worship-pair">{bodyLines[0]}</p>
+              {bodyLines[1] ? <p className="worship-pair">{bodyLines[1]}</p> : null}
+            </>
+          ) : (
+            <>
+              <p className="worship-kicker">{slide.kicker}</p>
+              <h1 className="worship-heading">{lines[0]}</h1>
+              {lines[1] ? <p className="worship-line">{lines[1]}</p> : null}
+            </>
+          )
         ) : (
           <h1 className="worship-heading">순서가 없습니다</h1>
         )}

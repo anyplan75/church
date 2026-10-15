@@ -1,4 +1,5 @@
-import { fileMatchesQuery, fileSlides, nameContains, previewLine, splitSlides, type FolderView, type LibraryQuery } from "./local-library";
+import { fileMatchesQuery, fileSlides, nameContains, previewLine, twoLineSlides, type FolderView, type LibraryQuery } from "./local-library";
+import { decodeLocalText } from "./text-encoding";
 
 const DB_NAME = "church-local-texts";
 const HANDLE = "directory";
@@ -82,7 +83,7 @@ export async function findLocalText(query: LibraryQuery): Promise<{ fileName: st
   for await (const entry of handle.values()) {
     if (entry.kind !== "file" || !fileMatchesQuery(entry.name, query) || !entry.getFile) continue;
     const file = await entry.getFile();
-    const text = await file.text();
+    const text = await textOf(file);
     return { fileName: entry.name, text };
   }
   return null;
@@ -94,7 +95,7 @@ export async function readFolderFill(query: LibraryQuery): Promise<{ fileName: s
   for await (const entry of handle.values()) {
     if (entry.kind !== "file" || !fileMatchesQuery(entry.name, query) || !entry.getFile) continue;
     const file = await entry.getFile();
-    const text = await file.text();
+    const text = await textOf(file);
     return { fileName: entry.name, slides: fileSlides(query, text) };
   }
   return { fileName: null, slides: [] };
@@ -106,7 +107,7 @@ export async function peekLocalMatch(query: LibraryQuery): Promise<{ fileName: s
   for await (const entry of handle.values()) {
     if (entry.kind !== "file" || !fileMatchesQuery(entry.name, query) || !entry.getFile) continue;
     const file = await entry.getFile();
-    const preview = previewLine(await file.slice(0, 2000).text());
+    const preview = previewLine(await textOf(file, 65536));
     return { fileName: entry.name, preview };
   }
   return null;
@@ -129,11 +130,16 @@ export async function confirmLocalText(query: LibraryQuery, text: string) {
 export async function confirmedSlides(query: LibraryQuery): Promise<string[]> {
   const saved = await idbGet<Confirmed>(confirmKey(query));
   if (!saved?.text) return [];
-  return splitSlides(saved.text);
+  return twoLineSlides(saved.text);
 }
 
 function confirmKey(query: LibraryQuery): string {
   return `text:${query.kind}:${query.hymnNumber}:${query.scripture}:${query.title}`;
+}
+
+async function textOf(file: Blob, limit?: number): Promise<string> {
+  const blob = typeof limit === "number" ? file.slice(0, limit) : file;
+  return decodeLocalText(new Uint8Array(await blob.arrayBuffer()));
 }
 
 function handleKey(slot: string): string {
