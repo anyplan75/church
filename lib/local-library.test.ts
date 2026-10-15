@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { emptyTemplate, fileMatchesQuery, scriptureKey, splitSlides, textFileBody, libraryQuery } from "./local-library.ts";
+import { bibleBook, emptyTemplate, fileMatchesQuery, folderStatusText, libraryQuery, previewLine, scriptureKey, searchedLabel, splitSlides, textFileBody } from "./local-library.ts";
 import { buildDesk } from "./slide-show.ts";
 import { buildSeed } from "./seed.ts";
 
@@ -29,6 +29,27 @@ describe("교회 컴퓨터 텍스트", () => {
     const group = local.groups.find((item) => item.itemId === songItem.id)!;
     assert.equal(group.count, 2);
     assert.equal(local.slides[group.start + 1]?.lines[0], "둘째 화면");
+  });
+});
+
+describe("폴더와 주보 줄", () => {
+  it("책 파일과 찬송가 장과 제목으로 찾을 이름을 보여 주고 첫 줄만 남긴다", () => {
+    assert.equal(bibleBook("신명기 32장 3-4절"), "신명기");
+    assert.equal(bibleBook("삿20:29-48"), "삿");
+    assert.equal(scriptureKey("이사야 40:28-31"), "이사야-40-28");
+    const bible = libraryQuery({ kind: "scripture", title: "성경봉독", scripture: "신명기 32장 3-4절" }, null);
+    assert.equal(bible?.kind, "bible");
+    assert.equal(searchedLabel(bible!), "신명기.txt");
+    assert.equal(fileMatchesQuery("신명기.txt", bible!), true);
+    assert.equal(searchedLabel({ kind: "hymn", title: "찬송", hymnNumber: "455", scripture: "" }), "찬송가455장");
+    assert.equal(fileMatchesQuery("찬송가 455장.txt", { kind: "hymn", title: "찬송", hymnNumber: "455", scripture: "" }), true);
+    assert.equal(searchedLabel({ kind: "praise", title: "위드엘 찬양단", hymnNumber: "", scripture: "" }), "위드엘찬양단");
+    assert.equal(previewLine("첫째 줄\n둘째 줄은 화면에 두지 않습니다\n"), "첫째 줄");
+    assert.equal(previewLine("\n\n"), "");
+    assert.equal(folderStatusText({ state: "connected", folderName: "성경", txtCount: 2, names: ["창세기.txt", "출애굽기.txt"] }), "연결됨 · 성경 · txt 2개 · 창세기.txt, 출애굽기.txt");
+    assert.equal(folderStatusText({ state: "connected", folderName: "찬송가", txtCount: 0, names: [] }), "연결됨 · 찬송가 · txt 파일이 없습니다.");
+    assert.equal(folderStatusText({ state: "reconnect", folderName: "찬양", txtCount: 0, names: [] }), "찬양 폴더 권한이 없습니다. 다시 연결해 주세요.");
+    assert.equal(folderStatusText({ state: "idle", folderName: "", txtCount: 0, names: [] }), "아직 연결하지 않았습니다.");
   });
 });
 
