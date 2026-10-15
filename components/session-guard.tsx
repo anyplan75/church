@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/account-actions";
-import { readDb, updateDb } from "@/lib/app-db";
+import { updateDb } from "@/lib/app-db";
 import { useChurch } from "@/components/church-state";
 import { cleanPath } from "@/lib/page-path";
 import { noteVisit, screenLabel } from "@/lib/simple";
@@ -11,24 +11,23 @@ import { noteVisit, screenLabel } from "@/lib/simple";
 const IDLE_MS = 10 * 60 * 1000;
 
 export function SessionGuard() {
-  const { ready, user } = useChurch();
+  const { ready, user, db } = useChurch();
   const pathname = usePathname();
   const noted = useRef("");
 
   useEffect(() => {
-    if (!ready || !user?.churchId) return;
+    if (!ready || !user?.churchId || !db) return;
     const screen = screenLabel(cleanPath(pathname || "/"));
     if (!screen) return;
     const key = `${user.email}:${screen}`;
     if (noted.current === key) return;
     noted.current = key;
-    const current = readDb();
-    const next = noteVisit(current.visits ?? [], user.email, screen);
-    if (JSON.stringify(next) === JSON.stringify(current.visits ?? [])) return;
+    const next = noteVisit(db.visits ?? [], user.email, screen);
+    if (JSON.stringify(next) === JSON.stringify(db.visits ?? [])) return;
     updateDb((db) => {
       db.visits = next;
     });
-  }, [ready, user, pathname]);
+  }, [ready, user, db, pathname]);
 
   useEffect(() => {
     if (!ready || !user || user.kind === "platform") return;
