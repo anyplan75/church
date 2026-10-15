@@ -103,7 +103,7 @@ export function SlideDesk({
                     className={`block w-full rounded-md px-2 py-2 text-left text-sm ${slide.flat === current?.flat ? "bg-white text-pine" : "text-[#f6f1e6] hover:bg-white/10"}`}
                     onClick={() => onJump(slide.groupIndex, slide.inGroup)}
                   >
-                    {slide.inGroup + 1}. {slide.heading}
+                    {slide.inGroup + 1}. {slide.lines[0] || slide.heading}
                   </button>
                 ))}
               </div>
@@ -130,18 +130,19 @@ export function SlideDesk({
 
 function SlideCard({ slide, label, large = false, status = null }: { slide: DeskSlide; label: string; large?: boolean; status?: ReactNode }) {
   return (
-    <article className={large ? "" : "opacity-90"} data-service-slide={large ? slide.itemId : undefined}>
+      <article className={large ? "" : "opacity-90"} data-service-slide={large ? slide.itemId : undefined} data-slide-lines={large ? String(slide.lines.length) : undefined}>
       <p className="text-xs uppercase tracking-wide text-[#d9d0c2]">{label}</p>
-      <div className={`mt-2 rounded-2xl bg-[#10241f] ${large ? "min-h-72 p-8" : "p-4"}`}>
+      <div className={`mt-2 rounded-2xl bg-[#10241f] text-center ${large ? "min-h-72 p-8" : "p-4"}`}>
         <p className="text-sm text-[#d9d0c2]">{slide.kicker}</p>
-        <h2 className={large ? "mt-3 font-serif text-5xl leading-tight" : "mt-2 font-serif text-2xl leading-tight"}>{slide.heading}</h2>
-        {status ? <div className="mt-3">{status}</div> : null}
-        {slide.reference ? <p className="mt-3 text-[#f3e6cf]">{slide.reference}</p> : null}
-        {slide.lines.map((line) => (
-          <p key={line} className={large ? "mt-4 text-2xl" : "mt-2 text-sm"}>
-            {line}
-          </p>
-        ))}
+        {slide.lines.length > 0 ? (
+          <>
+            <p className={large ? "mt-6 font-serif text-5xl leading-tight" : "mt-3 font-serif text-2xl leading-tight"}>{slide.lines[0]}</p>
+            {slide.lines[1] ? <p className={large ? "mt-4 text-3xl leading-tight" : "mt-2 text-lg leading-tight"}>{slide.lines[1]}</p> : null}
+          </>
+        ) : (
+          <h2 className={large ? "mt-3 font-serif text-5xl leading-tight" : "mt-2 font-serif text-2xl leading-tight"}>{slide.heading}</h2>
+        )}
+        {status ? <div className="mt-4">{status}</div> : null}
       </div>
     </article>
   );

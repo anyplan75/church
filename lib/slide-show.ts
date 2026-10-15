@@ -40,7 +40,7 @@ export function buildDesk(service: Service, people: Person[], songs: Song[], loc
     const slide = base[index];
     const song = item.songId ? songs.find((entry) => entry.id === item.songId) : undefined;
     const reference = [item.scripture, song?.hymnNumber ? `${song.hymnNumber}장` : "", personName(people, item.personId)].filter(Boolean).join(" · ");
-    const chunks = (localSlides[item.id] ?? []).map((chunk) => chunk.trim()).filter(Boolean).slice(0, 12);
+    const chunks = (localSlides[item.id] ?? []).map((chunk) => chunk.trim()).filter(Boolean).slice(0, 40);
     const bodies = chunks.length > 0 ? chunks : [""];
     const start = slides.length;
     bodies.forEach((body, inGroup) => {
@@ -53,7 +53,7 @@ export function buildDesk(service: Service, people: Person[], songs: Song[], loc
         kicker: slide?.kicker || kindLabel(item.kind),
         heading: slide?.heading || item.title,
         reference,
-        lines: body ? body.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 8) : [],
+        lines: body ? body.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 2) : [],
       });
     });
     groups.push({ itemId: item.id, index, label: item.title || kindLabel(item.kind), start, count: bodies.length });
