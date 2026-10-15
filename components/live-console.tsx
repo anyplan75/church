@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { CopyrightNotice } from "@/components/copyright-notice";
+import { LibraryUseSteps } from "@/components/service-folder";
 import { OutputLinks } from "@/components/output-links";
 import { SlideDesk } from "@/components/slide-desk";
 import { saveLiveProgress } from "@/lib/actions";
@@ -114,6 +115,7 @@ export function LiveConsole({
         <div className="text-[#f6f1e6]">
           <CopyrightNotice />
         </div>
+        <LibraryUseSteps light />
         {status !== "live" && status !== "done" && service.items.length > 0 ? (
           <button type="button" className="btn btn-light mt-4" onClick={() => void start()} disabled={!canStart}>
             예배 시작

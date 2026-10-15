@@ -29,6 +29,11 @@ export const LIBRARY_RULES = [
   "찬양은 제목이고 띄어쓰기는 무시합니다.",
 ] as const;
 
+export const LIBRARY_STEPS = [
+  "라이브러리에서 성경, 찬송가, 찬양 폴더를 연결합니다.",
+  "이번 주나 예배에서 해당 예배를 엽니다.",
+] as const;
+
 const SONG_KINDS = new Set<ItemKind>(["hymn", "praise", "choir"]);
 
 export function libraryQuery(item: Pick<WorshipItem, "kind" | "title" | "scripture">, song?: Pick<Song, "title" | "hymnNumber"> | null): LibraryQuery | null {
@@ -57,6 +62,69 @@ export function searchedLabel(query: LibraryQuery): string {
     return book ? `${book}.txt` : "성경";
   }
   return query.title.normalize("NFKC").replace(/\s+/g, "") || "찬양";
+}
+
+export function libraryMatchText(fileName: string | null, searched: string): string {
+  return fileName ? `${fileName} · 준비됨` : `파일 없음 · ${searched}`;
+}
+
+export type VerseSpan = { chapter: number; start: number; end: number };
+
+export function verseSpan(scripture: string): VerseSpan | null {
+  const text = scripture.trim();
+  const colon = text.match(/(\d+)\s*[:：]\s*(\d+)\s*(?:[-–~]\s*(\d+))?/);
+  if (colon) {
+    const start = Number(colon[2]);
+    const end = colon[3] ? Number(colon[3]) : start;
+    return { chapter: Number(colon[1]), start, end: Math.max(start, end) };
+  }
+  const chapter = text.match(/(\d+)\s*장(?:\s*(\d+)\s*(?:[-–~]\s*(\d+))?\s*절)?/);
+  if (!chapter) return null;
+  const start = chapter[2] ? Number(chapter[2]) : 1;
+  const end = chapter[3] ? Number(chapter[3]) : chapter[2] ? start : start + 7;
+  return { chapter: Number(chapter[1]), start, end: Math.max(start, end) };
+}
+
+export function passageFromBook(text: string, scripture: string): string[] {
+  const span = verseSpan(scripture);
+  if (!span) return [];
+  const lines = text.replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean);
+  const direct = lines.flatMap((line) => {
+    const match = line.match(new RegExp(`^(?:제\\s*)?${span.chapter}\\s*[:：]\\s*(\\d+)\\s*(?:절)?\\s*(.*)$`));
+    if (!match) return [];
+    const verse = Number(match[1]);
+    if (verse < span.start || verse > span.end) return [];
+    return [match[2].trim() || line];
+  });
+  if (direct.length > 0) return direct.slice(0, 24);
+  let inChapter = false;
+  const block: string[] = [];
+  const heading = new RegExp(`^(?:제\\s*)?${span.chapter}\\s*장`);
+  for (const line of lines) {
+    if (heading.test(line)) {
+      inChapter = true;
+      continue;
+    }
+    if (inChapter && /^(?:제\s*)?\d+\s*장/.test(line)) break;
+    if (!inChapter || /^(?:제\s*)?\d+\s*장/.test(line)) continue;
+    const match = line.match(/^(\d+)\s*(?:절|[.)])?\s*(.*)$/);
+    if (!match) continue;
+    const verse = Number(match[1]);
+    if (verse < span.start || verse > span.end) continue;
+    const words = match[2].trim();
+    if (words) block.push(words);
+  }
+  return block.slice(0, 24);
+}
+
+export function fileSlides(query: LibraryQuery, text: string): string[] {
+  if (query.kind === "bible") {
+    const verses = passageFromBook(text, query.scripture);
+    const chunks: string[] = [];
+    for (let index = 0; index < verses.length; index += 4) chunks.push(verses.slice(index, index + 4).join("\n"));
+    return chunks.slice(0, 12);
+  }
+  return splitSlides(text);
 }
 
 export function previewLine(text: string): string {

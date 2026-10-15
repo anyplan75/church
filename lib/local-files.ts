@@ -1,4 +1,4 @@
-import { fileMatchesQuery, previewLine, splitSlides, type FolderView, type LibraryQuery } from "./local-library";
+import { fileMatchesQuery, fileSlides, previewLine, splitSlides, type FolderView, type LibraryQuery } from "./local-library";
 
 const DB_NAME = "church-local-texts";
 const HANDLE = "directory";
@@ -87,6 +87,18 @@ export async function findLocalText(query: LibraryQuery): Promise<{ fileName: st
     return { fileName: entry.name, text };
   }
   return null;
+}
+
+export async function readFolderFill(query: LibraryQuery): Promise<{ fileName: string | null; slides: string[] }> {
+  const handle = await resolveHandle(query.kind, false);
+  if (!handle) return { fileName: null, slides: [] };
+  for await (const entry of handle.values()) {
+    if (entry.kind !== "file" || !fileMatchesQuery(entry.name, query) || !entry.getFile) continue;
+    const file = await entry.getFile();
+    const text = await file.text();
+    return { fileName: entry.name, slides: fileSlides(query, text) };
+  }
+  return { fileName: null, slides: [] };
 }
 
 export async function peekLocalMatch(query: LibraryQuery): Promise<{ fileName: string; preview: string } | null> {

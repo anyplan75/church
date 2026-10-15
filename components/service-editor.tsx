@@ -7,6 +7,7 @@ import { addRosterPerson, copyServiceNextWeek, deleteService, saveService } from
 import { START_BLOCKED, settingsReady } from "@/lib/simple";
 import { ITEM_KINDS, SERVICE_TYPES, type ItemKind, type Person, type Reminder, type Service, type Settings, type Song } from "@/lib/types";
 import { assignmentProgress, createItem, kindLabel, reorder, songOptionLabel, templateItems } from "@/lib/worship";
+import { FolderMatchLine, LibraryUseSteps, useServiceFolder } from "./service-folder";
 import { OutputLinks } from "./output-links";
 import { StatusBadge } from "./status-badge";
 
@@ -34,6 +35,7 @@ export function ServiceEditor({
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [saveMessage, setSaveMessage] = useState("");
   const [startError, setStartError] = useState("");
+  const folder = useServiceFolder(draft, songs);
   const draftRef = useRef(draft);
   const dirty = useRef(false);
   const version = useRef(0);
@@ -305,7 +307,8 @@ export function ServiceEditor({
       ) : null}
 
       <section className="mt-8">
-        <div className="flex items-center justify-between gap-3">
+        <LibraryUseSteps />
+        <div className="mt-4 flex items-center justify-between gap-3">
           <h2 className="font-serif text-2xl">예배 순서</h2>
           <button type="button" className="btn btn-quiet btn-small" onClick={() => update((current) => ({ ...current, items: [...current.items, createItem("hymn")] }))}>
             순서 추가
@@ -415,6 +418,9 @@ export function ServiceEditor({
                     </button>
                   </div>
                 ) : null}
+                <div className="mt-2">
+                  <FolderMatchLine fill={folder.fills[item.id]} loaded={folder.loaded} />
+                </div>
                 <div className="mt-2 grid gap-2 md:grid-cols-2">
                   {item.kind === "scripture" || item.kind === "sermon" || item.scripture ? (
                     <label className="field">

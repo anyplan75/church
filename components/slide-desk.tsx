@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { confirmedSlides } from "@/lib/local-files";
-import { libraryQuery } from "@/lib/local-library";
+import { useEffect, type ReactNode } from "react";
+import { FolderMatchLine, useServiceFolder } from "@/components/service-folder";
 import { buildDesk, SLIDE_KEYS, type DeskSlide } from "@/lib/slide-show";
 import type { Person, Service, Song } from "@/lib/types";
 
@@ -21,25 +20,11 @@ export function SlideDesk({
   inGroup: number;
   onJump: (groupIndex: number, inGroup: number) => void;
 }) {
-  const [local, setLocal] = useState<Record<string, string[]>>({});
-
-  useEffect(() => {
-    let stop = false;
-    void (async () => {
-      const next: Record<string, string[]> = {};
-      for (const item of service.items) {
-        const song = item.songId ? songs.find((entry) => entry.id === item.songId) : undefined;
-        const query = libraryQuery(item, song);
-        if (!query) continue;
-        const slides = await confirmedSlides(query);
-        if (slides.length > 0) next[item.id] = slides;
-      }
-      if (!stop) setLocal(next);
-    })();
-    return () => {
-      stop = true;
-    };
-  }, [service, songs]);
+  const folder = useServiceFolder(service, songs);
+  const local: Record<string, string[]> = {};
+  for (const [id, fill] of Object.entries(folder.fills)) {
+    if (fill.slides.length > 0) local[id] = fill.slides;
+  }
 
   const desk = buildDesk(service, people, songs, local);
   const current = desk.slides.find((slide) => slide.groupIndex === groupIndex && slide.inGroup === inGroup) ?? desk.slides.find((slide) => slide.groupIndex === groupIndex) ?? desk.slides[0];
@@ -109,6 +94,7 @@ export function SlideDesk({
               >
                 {group.index + 1}. {group.label}
               </button>
+              <FolderMatchLine fill={folder.fills[group.itemId]} loaded={folder.loaded} light />
               <div className="space-y-1 rounded-b-lg bg-black/20 p-1">
                 {desk.slides.slice(group.start, group.start + group.count).map((slide) => (
                   <button
@@ -125,7 +111,9 @@ export function SlideDesk({
           ))}
         </ol>
       </aside>
-      <section className="px-6 py-8">{current ? <SlideCard label="현재" slide={current} large /> : <p>슬라이드가 없습니다</p>}</section>
+      <section className="px-6 py-8">
+        {current ? <SlideCard label="현재" slide={current} large status={<FolderMatchLine fill={folder.fills[current.itemId]} loaded={folder.loaded} light />} /> : <p>슬라이드가 없습니다</p>}
+      </section>
       <aside className="border-t border-white/10 px-4 py-6 lg:border-t-0 lg:border-l">
         {next ? <SlideCard label="다음" slide={next} /> : <p className="text-sm text-[#d9d0c2]">다음 슬라이드가 없습니다</p>}
         <ul className="mt-6 space-y-1 text-xs text-[#d9d0c2]">
@@ -140,13 +128,14 @@ export function SlideDesk({
   );
 }
 
-function SlideCard({ slide, label, large = false }: { slide: DeskSlide; label: string; large?: boolean }) {
+function SlideCard({ slide, label, large = false, status = null }: { slide: DeskSlide; label: string; large?: boolean; status?: ReactNode }) {
   return (
-    <article className={large ? "" : "opacity-90"}>
+    <article className={large ? "" : "opacity-90"} data-service-slide={large ? slide.itemId : undefined}>
       <p className="text-xs uppercase tracking-wide text-[#d9d0c2]">{label}</p>
       <div className={`mt-2 rounded-2xl bg-[#10241f] ${large ? "min-h-72 p-8" : "p-4"}`}>
         <p className="text-sm text-[#d9d0c2]">{slide.kicker}</p>
         <h2 className={large ? "mt-3 font-serif text-5xl leading-tight" : "mt-2 font-serif text-2xl leading-tight"}>{slide.heading}</h2>
+        {status ? <div className="mt-3">{status}</div> : null}
         {slide.reference ? <p className="mt-3 text-[#f3e6cf]">{slide.reference}</p> : null}
         {slide.lines.map((line) => (
           <p key={line} className={large ? "mt-4 text-2xl" : "mt-2 text-sm"}>
