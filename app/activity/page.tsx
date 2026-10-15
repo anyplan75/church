@@ -1,7 +1,7 @@
 "use client";
 
-import { ActivityBoard } from "@/components/activity-board";
+import { ReplacePage } from "@/components/replace-page";
 
 export default function ActivityPage() {
-  return <ActivityBoard />;
+  return <ReplacePage href="/settings" />;
 }

@@ -1,4 +1,4 @@
-import { describeDbChange, pushActivity } from "./activity";
+import { closeVisit, openVisit } from "./simple";
 import { normalizeDb } from "./db-shape";
 import { DatabasePermissionError, dbGet, dbSet } from "./firebase-db";
 import {
@@ -155,14 +155,11 @@ export function readDb(): Db {
   return db ?? buildSeed();
 }
 
-export function updateDb(mutator: (current: Db) => void, action?: string): Db {
+export function updateDb(mutator: (current: Db) => void, _action?: string): Db {
   const actor = actorOf(session);
   if (!session || !db || !actor || !session.churchId || !canSeeChurch(actor, session.churchId)) go("/login");
-  const before = structuredClone(db!);
   mutator(db!);
   syncReminders(db!);
-  const label = action ?? describeDbChange(before, db!);
-  if (label) pushActivity(db!, session.email, label);
   scheduleChurchWrite();
   emit();
   return db!;
@@ -260,8 +257,9 @@ export async function addChurchWithOperator(input: {
     attendance: [],
     supplies: [],
     activity: [],
+    visits: [],
   });
-  pushActivity(churchDb, session.email, "교회를 만들었습니다");
+  churchDb.visits = openVisit(churchDb.visits, session.email);
   const row: ChurchRow = { id, name, operatorEmail: created.session.email, createdAt: Date.now() };
   try {
     const token = await currentToken();
@@ -290,7 +288,9 @@ export async function enterChurch(id: string) {
   await loadChurch(id).catch(() => {
     error = "이 교회를 열지 못했습니다.";
   });
-  if (db) updateDb(() => undefined, "교회를 열었습니다");
+  if (db && session) updateDb((current) => {
+    current.visits = openVisit(current.visits ?? [], session!.email);
+  });
   emit();
 }
 
@@ -461,7 +461,9 @@ async function adoptSession(next: Session): Promise<boolean> {
   persistSession();
   churches = [];
   await loadChurch(churchId);
-  if (db) updateDb(() => undefined, "로그인");
+  if (db && session) updateDb((current) => {
+    current.visits = openVisit(current.visits ?? [], session!.email);
+  });
   return Boolean(db);
 }
 

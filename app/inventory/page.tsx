@@ -1,7 +1,7 @@
 "use client";
 
-import { SupplyBoard } from "@/components/supply-board";
+import { ReplacePage } from "@/components/replace-page";
 
 export default function InventoryPage() {
-  return <SupplyBoard />;
+  return <ReplacePage href="/week" />;
 }

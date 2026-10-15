@@ -1,5 +1,7 @@
 import { canStoreAttendance } from "./attendance";
-import type { ActivityEntry, AttendanceMark, Db, Department, Membership, OverlayPosition, Person, Service, Settings, Song, Supply, SupplyStatus } from "./types";
+import { backgroundsOf, captionFont, fullscreenStep } from "./simple";
+import type { ActivityEntry, AttendanceMark, Db, Department, Membership, Office, OverlayPosition, Person, PersonCategory, Service, Settings, Song, Supply, SupplyStatus, VisitLog } from "./types";
+import { OFFICES, PERSON_CATEGORIES } from "./types";
 import { isItemPhoto, oneLine } from "./supplies";
 import { normalizeService } from "./worship";
 
@@ -18,6 +20,7 @@ export function normalizeDb(raw: Partial<Db> | null | undefined): Db {
     attendance: normalizeAttendance(data.attendance).filter((mark) => canStoreAttendance(people.find((person) => person.id === mark.personId))),
     supplies: normalizeSupplies(data.supplies),
     activity: normalizeActivity(data.activity),
+    visits: normalizeVisits(data.visits),
   };
 }
 
@@ -31,20 +34,65 @@ function normalizeSettings(settings: Partial<Settings> | undefined, fallback: Se
     backgroundColor: /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#1b3a32",
     backgroundFile: base || null,
     overlay: overlay === "top" || overlay === "left" || overlay === "right" || overlay === "bottom" ? overlay : "bottom",
+    defaultPlace: String(settings?.defaultPlace ?? "본당").trim().slice(0, 40) || "본당",
+    folders: {
+      bible: String(settings?.folders?.bible ?? "").trim().slice(0, 80),
+      hymn: String(settings?.folders?.hymn ?? "").trim().slice(0, 80),
+      praise: String(settings?.folders?.praise ?? "").trim().slice(0, 80),
+    },
+    groups: normalizeGroups(settings?.groups),
+    mainReady: settings?.mainReady === true,
+    overlayFont: captionFont(settings?.overlayFont).id,
+    fullscreenFont: captionFont(settings?.fullscreenFont).id,
+    fullscreenStep: fullscreenStep(settings?.fullscreenStep),
+    backgrounds: backgroundsOf(settings ?? fallback),
   };
 }
 
 function normalizePerson(person: Person): Person {
-  const membership = membershipOf(person?.membership);
+  const office = officeOf(person);
+  const category = categoryOf(person, office);
+  const membership = category === "unregistered" ? "visitor" : membershipOf(person?.membership) === "visitor" ? "member" : membershipOf(person?.membership);
+  const storedMembership = category === "unregistered" ? "visitor" : membership === "newcomer" ? "newcomer" : "member";
   return {
     id: String(person?.id || crypto.randomUUID()),
     name: String(person?.name ?? "").trim().slice(0, 40) || "이름",
-    roles: Array.isArray(person?.roles) ? person.roles.map((role) => String(role).slice(0, 40)).slice(0, 8) : [],
+    roles: office ? [office] : Array.isArray(person?.roles) ? person.roles.map((role) => String(role).slice(0, 40)).slice(0, 8) : [],
     phone: String(person?.phone ?? "").slice(0, 30),
     active: person?.active !== false,
-    membership,
-    attendanceConsent: membership === "member" && person?.attendanceConsent === true,
+    membership: storedMembership,
+    attendanceConsent: storedMembership === "member" && person?.attendanceConsent === true,
+    category,
+    office,
+    address: String(person?.address ?? "").trim().slice(0, 120),
+    email: String(person?.email ?? "").trim().slice(0, 120),
+    memo: String(person?.memo ?? "").trim().slice(0, 400),
   };
+}
+
+function categoryOf(person: Person, office: Office | ""): PersonCategory {
+  if (PERSON_CATEGORIES.some((item) => item.id === person?.category)) return person.category as PersonCategory;
+  if (person?.membership === "visitor" || person?.membership === "newcomer") return "unregistered";
+  if (office === "목사" || office === "전도사") return "minister";
+  return "registered";
+}
+
+function officeOf(person: Person): Office | "" {
+  if (OFFICES.includes(person?.office as Office)) return person.office as Office;
+  const text = Array.isArray(person?.roles) ? person.roles.join(" ") : "";
+  return OFFICES.find((office) => text.includes(office)) ?? "";
+}
+
+function normalizeGroups(value: Settings["groups"]): Settings["groups"] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, 30)
+    .map((group) => ({
+      id: String(group?.id || crypto.randomUUID()),
+      name: String(group?.name ?? "").trim().slice(0, 40),
+      personIds: Array.isArray(group?.personIds) ? group.personIds.map((id) => String(id)).slice(0, 80) : [],
+    }))
+    .filter((group) => group.name);
 }
 
 function membershipOf(value: unknown): Membership {
@@ -119,6 +167,26 @@ function normalizeSupplies(value: unknown): Supply[] {
 
 function isSupplyStatus(value: unknown): value is SupplyStatus {
   return value === "have" || value === "need" || value === "requested";
+}
+
+function normalizeVisits(value: unknown): VisitLog[] {
+  if (!Array.isArray(value)) return [];
+  const visits: VisitLog[] = [];
+  for (const item of value) {
+    const record = item as Partial<VisitLog> | null;
+    const email = String(record?.email ?? "").trim().toLowerCase().slice(0, 120);
+    const connectedAt = String(record?.connectedAt ?? "");
+    if (!email || !connectedAt) continue;
+    visits.push({
+      id: String(record?.id || crypto.randomUUID()),
+      email,
+      connectedAt: connectedAt.slice(0, 40),
+      leftAt: record?.leftAt ? String(record.leftAt).slice(0, 40) : null,
+      did: String(record?.did ?? "").replace(/\s+/g, " ").trim().slice(0, 160) || "접속",
+    });
+    if (visits.length >= 80) break;
+  }
+  return visits;
 }
 
 function normalizeActivity(value: unknown): ActivityEntry[] {

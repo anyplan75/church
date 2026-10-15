@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { addRosterPerson, copyServiceNextWeek, deleteService, saveService } from "@/lib/actions";
-import { missingRequired, type CheckContext } from "@/lib/checklist";
+import { START_BLOCKED, settingsReady } from "@/lib/simple";
 import { ITEM_KINDS, SERVICE_TYPES, type ItemKind, type Person, type Reminder, type Service, type Settings, type Song } from "@/lib/types";
 import { assignmentProgress, createItem, kindLabel, reorder, songOptionLabel, templateItems } from "@/lib/worship";
-import { ChecklistPanel } from "./checklist-panel";
 import { StatusBadge } from "./status-badge";
 
 type SaveResult = { ok: true } | { ok: false; message: string };
@@ -107,14 +106,14 @@ export function ServiceEditor({
   const missing = progress.total - progress.assigned;
   const saveLabel = saveState === "saving" ? "저장 중" : saveState === "error" ? saveMessage || "저장하지 못했습니다" : "저장됨";
 
-  const checkContext: CheckContext = { people, songs, settings, reminders };
+  const unlocked = settingsReady(settings);
+  void reminders;
 
   async function beginLive() {
     const current = draftRef.current;
     if (current.items.length === 0) return;
-    const missing = missingRequired(current, checkContext);
-    if (missing.length > 0) {
-      setStartError(`점검을 마쳐 주세요: ${missing.join(", ")}`);
+    if (!unlocked) {
+      setStartError(START_BLOCKED);
       return;
     }
     setStartError("");
@@ -232,7 +231,7 @@ export function ServiceEditor({
             </button>
           ) : null}
           {access.live && draft.status !== "live" && draft.status !== "done" ? (
-            <button type="button" className="btn btn-primary" onClick={() => void beginLive()} disabled={draft.items.length === 0}>
+            <button type="button" className="btn btn-primary" onClick={() => void beginLive()} disabled={draft.items.length === 0 || !unlocked}>
               예배 시작
             </button>
           ) : null}
@@ -246,6 +245,22 @@ export function ServiceEditor({
           </button>
         </div>
       </div>
+      {unlocked ? null : <p className="mt-4 text-sm text-wine">{START_BLOCKED}</p>}
+      <label className="field mt-4 max-w-sm">
+        <span>담당 그룹</span>
+        <select
+          className="select"
+          value={draft.groupId ?? ""}
+          onChange={(event) => update((current) => ({ ...current, groupId: event.target.value || null }))}
+        >
+          <option value="">그룹 없음</option>
+          {(settings.groups ?? []).map((group) => (
+            <option key={group.id} value={group.id}>
+              {group.name}
+            </option>
+          ))}
+        </select>
+      </label>
       {startError ? <p className="mt-4 text-sm text-wine">{startError}</p> : null}
 
       <div className="mt-6 grid gap-3 md:grid-cols-5">
@@ -291,8 +306,6 @@ export function ServiceEditor({
       {missing > 0 ? (
         <p className="mt-4 rounded-2xl bg-[#f8e4e6] px-4 py-3 text-sm text-wine">담당자가 비어 있는 순서가 {missing}개 있습니다.</p>
       ) : null}
-
-      <ChecklistPanel service={draft} context={checkContext} onChange={(checks) => update((current) => ({ ...current, checks }))} />
 
       <section className="mt-8">
         <div className="flex items-center justify-between gap-3">

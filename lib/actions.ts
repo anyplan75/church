@@ -2,12 +2,13 @@ import { serviceSaveBlock } from "./access";
 import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
-import { missingRequired } from "./checklist";
+import { START_BLOCKED, captionFont, categoryMembership, fullscreenStep, settingsReady, setupComplete } from "./simple";
 import { BULLETIN_UPLOAD_BYTES, extractUploadedText } from "./extract-text";
 import { go } from "./page-path";
 import { syncReminders } from "./reminders";
 import { isOverlayPosition } from "./db-shape";
-import type { Db, Membership, Service, ServiceStatus, SongLicense } from "./types";
+import type { Db, Office, PersonCategory, Service, ServiceStatus, SongLicense } from "./types";
+import { OFFICES, PERSON_CATEGORIES } from "./types";
 import {
   addDays,
   clampLiveIndex,
@@ -24,22 +25,21 @@ function refreshService(_id?: string) {
   notifyChurch();
 }
 
-function readyContext(db: Db, service: Service) {
-  return { people: db.people, songs: db.songs, settings: db.settings, reminders: db.reminders };
-}
-
-function liveBlock(db: Db, service: Service): string | null {
-  const missing = missingRequired(service, readyContext(db, service));
-  return missing.length > 0 ? `점검을 마쳐 주세요: ${missing.join(", ")}` : null;
+function liveBlock(db: Db, _service: Service): string | null {
+  return settingsReady(db.settings) ? null : START_BLOCKED;
 }
 
 function cleanText(value: FormDataEntryValue | null, max: number): string {
   return String(value ?? "").trim().slice(0, max);
 }
 
-function membershipOf(value: string): Membership {
-  if (value === "visitor" || value === "newcomer") return value;
-  return "member";
+function categoryOf(value: string): PersonCategory {
+  if (PERSON_CATEGORIES.some((item) => item.id === value)) return value as PersonCategory;
+  return "registered";
+}
+
+function officeOf(value: string): Office | "" {
+  return OFFICES.includes(value as Office) ? (value as Office) : "";
 }
 
 export async function saveService(input: Service): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -238,21 +238,23 @@ export async function createPerson(formData: FormData) {
   await requireMutation("mutate.directory");
   const name = cleanText(formData.get("name"), 40);
   if (!name) go("/people?error=name");
-  const roles = cleanText(formData.get("roles"), 80)
-    .split(",")
-    .map((role) => role.trim())
-    .filter(Boolean)
-    .slice(0, 8);
-  const membership = membershipOf(cleanText(formData.get("membership"), 20));
+  const category = categoryOf(cleanText(formData.get("category"), 20));
+  const office = officeOf(cleanText(formData.get("office"), 20));
+  const membership = categoryMembership(category);
   updateDb((db) => {
     db.people.push({
       id: crypto.randomUUID(),
       name,
-      roles,
+      roles: office ? [office] : [],
       phone: cleanText(formData.get("phone"), 30),
       active: true,
       membership,
       attendanceConsent: false,
+      category,
+      office,
+      address: cleanText(formData.get("address"), 120),
+      email: cleanText(formData.get("email"), 120),
+      memo: cleanText(formData.get("memo"), 400),
     });
   });
   refreshService();
@@ -264,21 +266,23 @@ export async function updatePerson(formData: FormData) {
   const id = cleanText(formData.get("id"), 80);
   const name = cleanText(formData.get("name"), 40);
   if (!name) go("/people?error=name");
-  const roles = cleanText(formData.get("roles"), 80)
-    .split(",")
-    .map((role) => role.trim())
-    .filter(Boolean)
-    .slice(0, 8);
-  const membership = membershipOf(cleanText(formData.get("membership"), 20));
+  const category = categoryOf(cleanText(formData.get("category"), 20));
+  const office = officeOf(cleanText(formData.get("office"), 20));
+  const membership = categoryMembership(category);
   updateDb((db) => {
     const person = db.people.find((item) => item.id === id);
     if (!person) return;
     person.name = name;
-    person.roles = roles;
+    person.roles = office ? [office] : [];
     person.phone = cleanText(formData.get("phone"), 30);
-    person.active = formData.get("active") === "on";
+    person.active = true;
     person.membership = membership;
-    if (membership !== "member" || !person.active) {
+    person.category = category;
+    person.office = office;
+    person.address = cleanText(formData.get("address"), 120);
+    person.email = cleanText(formData.get("email"), 120);
+    person.memo = cleanText(formData.get("memo"), 400);
+    if (membership !== "member") {
       person.attendanceConsent = false;
       db.attendance = db.attendance.filter((mark) => mark.personId !== id);
     }
@@ -379,9 +383,71 @@ export async function updateSettings(formData: FormData) {
       db.settings.backgroundFile = null;
     }
     if (savedName) db.settings.backgroundFile = savedName;
+    db.settings.defaultPlace = cleanText(formData.get("defaultPlace"), 40) || "본당";
     syncReminders(db);
   });
   refreshService();
+  go("/settings?saved=1");
+}
+
+export async function saveLibrary(formData: FormData) {
+  await requireMutation("mutate.admin");
+  updateDb((db) => {
+    db.settings.folders = {
+      bible: cleanText(formData.get("bible"), 80),
+      hymn: cleanText(formData.get("hymn"), 80),
+      praise: cleanText(formData.get("praise"), 80),
+    };
+    db.settings.overlayFont = captionFont(cleanText(formData.get("overlayFont"), 40)).id;
+    db.settings.fullscreenFont = captionFont(cleanText(formData.get("fullscreenFont"), 40)).id;
+    db.settings.fullscreenStep = fullscreenStep(Number(cleanText(formData.get("fullscreenStep"), 2)));
+    const overlayValue = cleanText(formData.get("overlay"), 12);
+    if (isOverlayPosition(overlayValue)) db.settings.overlay = overlayValue;
+    db.settings.backgrounds = [1, 2, 3, 4, 5].map((index) => cleanText(formData.get(`background${index}`), 40) || `배경 ${index}`);
+    db.settings.mainReady = db.settings.mainReady === true && setupComplete(db.settings);
+  });
+  go("/library?saved=1");
+}
+
+export async function saveGroup(formData: FormData) {
+  await requireMutation("mutate.admin");
+  const name = cleanText(formData.get("name"), 40);
+  if (!name) go("/settings?error=group");
+  const personIds = formData.getAll("personId").map(String).filter(Boolean).slice(0, 80);
+  if (personIds.length === 0) go("/settings?error=group");
+  updateDb((db) => {
+    const id = cleanText(formData.get("id"), 80) || crypto.randomUUID();
+    const next = { id, name, personIds };
+    const groups = db.settings.groups ?? [];
+    const index = groups.findIndex((group) => group.id === id);
+    db.settings.groups = index >= 0 ? groups.map((group, item) => (item === index ? next : group)) : [...groups, next];
+    db.settings.mainReady = db.settings.mainReady === true && setupComplete(db.settings);
+  });
+  go("/settings?saved=1");
+}
+
+export async function deleteGroup(formData: FormData) {
+  await requireMutation("mutate.admin");
+  const id = cleanText(formData.get("id"), 80);
+  updateDb((db) => {
+    db.settings.groups = (db.settings.groups ?? []).filter((group) => group.id !== id);
+    for (const service of db.services) {
+      if (service.groupId === id) service.groupId = null;
+    }
+    db.settings.mainReady = false;
+  });
+  go("/settings?saved=1");
+}
+
+export async function finishSetup(formData: FormData) {
+  await requireMutation("mutate.admin");
+  const markReady = formData.get("mainReady") === "on";
+  let ready = false;
+  updateDb((db) => {
+    ready = setupComplete(db.settings);
+    db.settings.mainReady = markReady && ready;
+  });
+  if (markReady && !ready) go("/settings?error=setup");
   go("/settings?saved=1");
 }
 
@@ -391,16 +457,16 @@ export async function importBulletin(formData: FormData) {
   const file = formData.get("file");
   let text = pasted;
   if (file instanceof File && file.size > 0) {
-    if (file.size > BULLETIN_UPLOAD_BYTES) go("/prepare?error=size");
+    if (file.size > BULLETIN_UPLOAD_BYTES) go("/?error=size");
     try {
       const extracted = await extractUploadedText(file.name, Buffer.from(await file.arrayBuffer()));
       text = [pasted.trim(), extracted].filter(Boolean).join("\n");
     } catch (error) {
       const message = error instanceof Error ? error.message : "파일을 읽지 못했습니다.";
-      go(`/prepare?error=file&detail=${encodeURIComponent(message)}`);
+      go(`/?error=file&detail=${encodeURIComponent(message)}`);
     }
   }
-  if (!text.trim()) go("/prepare?error=empty");
+  if (!text.trim()) go("/?error=empty");
   let imported = 0;
   let skipped = 0;
   let lyrics = 0;
@@ -413,8 +479,8 @@ export async function importBulletin(formData: FormData) {
   });
   await flushChurchWrite();
   refreshService();
-  if (imported === 0 && skipped === 0) go("/prepare?error=none");
-  go(`/prepare?imported=${imported}&skipped=${skipped}&lyrics=${lyrics}`);
+  if (imported === 0 && skipped === 0) go("/?error=none");
+  go(`/?imported=${imported}&skipped=${skipped}&lyrics=${lyrics}`);
 }
 
 export async function updateSlideFields(formData: FormData) {

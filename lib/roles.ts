@@ -89,7 +89,9 @@ const GRANTS: Record<Role, readonly Capability[]> = {
 };
 
 const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] = [
-  { test: (pathname) => pathname === "/", caps: ["screen.week"] },
+  { test: (pathname) => pathname === "/", caps: ["screen.bulletin"] },
+  { test: (pathname) => pathname === "/week", caps: ["screen.week"] },
+  { test: (pathname) => pathname === "/library", caps: ["screen.songs"] },
   { test: (pathname) => pathname === "/prepare", caps: ["screen.prepare"] },
   { test: (pathname) => pathname === "/services", caps: ["screen.services"] },
   { test: (pathname) => pathname === "/services/new", caps: ["screen.new"] },
@@ -131,8 +133,9 @@ export function canOpenPath(roles: readonly Role[], pathname: string): boolean {
 }
 
 export function homeFor(roles: readonly Role[]): string {
-  if (can(roles, "screen.week")) return "/";
-  if (can(roles, "screen.prepare")) return "/prepare";
+  if (can(roles, "screen.bulletin")) return "/";
+  if (can(roles, "screen.week")) return "/week";
+  if (can(roles, "screen.prepare")) return "/";
   if (can(roles, "screen.services")) return "/services";
   if (can(roles, "screen.people")) return "/people";
   if (can(roles, "screen.songs")) return "/songs";

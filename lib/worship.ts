@@ -103,6 +103,13 @@ export function addDays(iso: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function sundayOf(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() - date.getUTCDay());
+  return date.toISOString().slice(0, 10);
+}
+
 export function mondayOf(iso: string): string {
   const [year, month, day] = iso.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -185,7 +192,7 @@ export function nextService(services: Service[], today: string): Service | null 
 }
 
 export function weekServices(services: Service[], today: string): Service[] {
-  const start = mondayOf(today);
+  const start = sundayOf(today);
   const end = addDays(start, 6);
   return services
     .filter((service) => service.date >= start && service.date <= end)
@@ -285,6 +292,7 @@ export function normalizeService(input: Service): Service {
     notes: String(input.notes ?? "").slice(0, 2000),
     checks: normalizeChecks(input.checks),
     source: input.source === "bulletin" ? "bulletin" : "manual",
+    groupId: input.groupId || null,
   };
 }
 

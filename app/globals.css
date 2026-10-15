@@ -347,10 +347,19 @@ a:focus-visible {
   z-index: 50;
   color: white;
   font-weight: 700;
-  font-size: clamp(1.35rem, 3vw, 2.3rem);
-  line-height: 1.35;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  line-height: 1.5;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  background: transparent;
   pointer-events: none;
+}
+
+.worship-overlay p {
+  position: relative;
+  z-index: 1;
+  max-width: 90vw;
+  background: transparent;
 }
 
 .worship-overlay::before {

@@ -8,6 +8,7 @@ import { SlideDesk } from "@/components/slide-desk";
 import { saveLiveProgress } from "@/lib/actions";
 import { formatKoreanDate, formatTime } from "@/lib/format";
 import type { Person, Service, Song } from "@/lib/types";
+import { START_BLOCKED } from "@/lib/simple";
 import { clampLiveIndex } from "@/lib/worship";
 
 export function LiveConsole({
@@ -16,12 +17,14 @@ export function LiveConsole({
   songs,
   churchName,
   access,
+  canStart = true,
 }: {
   service: Service;
   people: Person[];
   songs: Song[];
   churchName: string;
   access: { output: boolean; bulletin: boolean; editor: boolean };
+  canStart?: boolean;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(service.status);
@@ -115,10 +118,11 @@ export function LiveConsole({
           <CopyrightNotice />
         </div>
         {status !== "live" && status !== "done" && service.items.length > 0 ? (
-          <button type="button" className="btn btn-light mt-4" onClick={() => void start()}>
+          <button type="button" className="btn btn-light mt-4" onClick={() => void start()} disabled={!canStart}>
             예배 시작
           </button>
         ) : null}
+        {status !== "live" && status !== "done" && !canStart ? <p className="mt-3 text-sm text-[#ffd0d4]">{START_BLOCKED}</p> : null}
         {status === "live" ? <p className="mt-3 text-sm text-[#d9d0c2]">진행 {elapsed}</p> : null}
         {error ? <p className="mt-3 text-[#ffd0d4]">{error}</p> : null}
       </div>

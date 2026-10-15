@@ -297,6 +297,10 @@ function formatItem(label: string, value: string): string | null {
   if (/설교|말씀/.test(name)) return detail ? `설교 ${/목사|권사|장로|집사|전도사/.test(detail) ? detail : detail.replace(/\s+/g, "")}` : "설교";
   if (/봉헌/.test(name)) return detail && /^\d+\s*장/.test(detail) ? `봉헌\n찬송 ${detail}` : detail ? `봉헌 ${detail}` : "봉헌";
   if (/축도/.test(name)) return detail ? `축도 ${detail}` : "축도";
+  if (/^(광고|교회소식)/.test(name)) {
+    if (/\d{2,4}[-\s.]?\d{3,4}[-\s.]?\d{4}/.test(detail)) return null;
+    return detail ? `광고 ${detail}` : "광고";
+  }
   return null;
 }
 

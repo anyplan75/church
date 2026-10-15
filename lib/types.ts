@@ -44,6 +44,18 @@ export const MEMBERSHIPS = [
 
 export type Membership = (typeof MEMBERSHIPS)[number]["id"];
 
+export const PERSON_CATEGORIES = [
+  { id: "minister", label: "사역자" },
+  { id: "registered", label: "등록교인" },
+  { id: "unregistered", label: "미등록교인" },
+] as const;
+
+export type PersonCategory = (typeof PERSON_CATEGORIES)[number]["id"];
+
+export const OFFICES = ["목사", "전도사", "장로", "안수집사", "서리집사", "권사"] as const;
+
+export type Office = (typeof OFFICES)[number];
+
 export type Person = {
   id: string;
   name: string;
@@ -52,6 +64,11 @@ export type Person = {
   active: boolean;
   membership: Membership;
   attendanceConsent: boolean;
+  category?: PersonCategory;
+  office?: Office | "";
+  address?: string;
+  email?: string;
+  memo?: string;
 };
 
 export type SongLicense = "title-only" | "permitted";
@@ -113,15 +130,36 @@ export type Service = {
   notes: string;
   checks: Record<string, boolean>;
   source: "manual" | "bulletin";
+  groupId?: string | null;
 };
 
 export type OverlayPosition = "bottom" | "top" | "left" | "right";
+
+export type PeopleGroup = {
+  id: string;
+  name: string;
+  personIds: string[];
+};
+
+export type LibraryFolders = {
+  bible: string;
+  hymn: string;
+  praise: string;
+};
 
 export type Settings = {
   churchName: string;
   backgroundColor: string;
   backgroundFile: string | null;
   overlay: OverlayPosition;
+  defaultPlace?: string;
+  folders?: LibraryFolders;
+  groups?: PeopleGroup[];
+  mainReady?: boolean;
+  overlayFont?: string;
+  fullscreenFont?: string;
+  fullscreenStep?: number;
+  backgrounds?: string[];
 };
 
 export type AttendanceMark = {
@@ -158,6 +196,14 @@ export type ActivityEntry = {
   action: string;
 };
 
+export type VisitLog = {
+  id: string;
+  email: string;
+  connectedAt: string;
+  leftAt: string | null;
+  did: string;
+};
+
 export type Db = {
   settings: Settings;
   people: Person[];
@@ -168,4 +214,5 @@ export type Db = {
   attendance: AttendanceMark[];
   supplies: Supply[];
   activity: ActivityEntry[];
+  visits: VisitLog[];
 };

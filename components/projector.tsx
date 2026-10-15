@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { readDb } from "@/lib/app-db";
 import { liveView, type LiveView } from "@/lib/live-view";
+import { twoLines } from "@/lib/simple";
 
 export function Projector({ initial }: { initial: LiveView }) {
   const [view, setView] = useState(initial);
@@ -22,25 +23,22 @@ export function Projector({ initial }: { initial: LiveView }) {
   }, [initial.serviceId]);
 
   const slide = view.slide;
+  const lines = twoLines(slide?.heading ?? "", slide?.lines[0] ?? "");
   const style = {
     backgroundColor: view.backgroundColor,
     backgroundImage: view.backgroundUrl ? `url("${view.backgroundUrl}")` : undefined,
+    fontFamily: view.fontFamily,
   };
 
   return (
     <div className="worship-output" style={style}>
-      <div className="worship-stage">
+      <div className="worship-stage" style={{ justifyContent: "flex-start", paddingTop: `${8 + view.vertical * 14}vh` }}>
         {view.status !== "live" ? <p className="worship-kicker">미리보기</p> : null}
         {slide ? (
           <>
             <p className="worship-kicker">{slide.kicker}</p>
-            <h1 className="worship-heading">{slide.heading}</h1>
-            {slide.lines.map((line) => (
-              <p key={line} className="worship-line">
-                {line}
-              </p>
-            ))}
-            {slide.footer ? <p className="worship-footer">{slide.footer}</p> : null}
+            <h1 className="worship-heading">{lines[0]}</h1>
+            {lines[1] ? <p className="worship-line">{lines[1]}</p> : null}
           </>
         ) : (
           <h1 className="worship-heading">순서가 없습니다</h1>

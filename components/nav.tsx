@@ -7,15 +7,12 @@ import { backToChurches } from "@/lib/platform-actions";
 import { can, homeFor, type Capability, type Role } from "@/lib/roles";
 
 const LINKS: { href: string; label: string; capability: Capability }[] = [
-  { href: "/", label: "이번 주", capability: "screen.week" },
-  { href: "/prepare", label: "준비", capability: "screen.prepare" },
+  { href: "/", label: "주보", capability: "screen.bulletin" },
+  { href: "/week", label: "이번 주", capability: "screen.week" },
   { href: "/services", label: "예배", capability: "screen.services" },
-  { href: "/attendance", label: "출결", capability: "screen.attendance" },
-  { href: "/inventory", label: "물품", capability: "screen.inventory" },
   { href: "/people", label: "사람", capability: "screen.people" },
-  { href: "/songs", label: "찬양", capability: "screen.songs" },
+  { href: "/library", label: "라이브러리", capability: "screen.songs" },
   { href: "/settings", label: "설정", capability: "screen.settings" },
-  { href: "/activity", label: "기록", capability: "screen.activity" },
 ];
 
 function isActive(pathname: string, href: string) {

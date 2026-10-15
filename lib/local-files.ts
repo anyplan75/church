@@ -26,17 +26,30 @@ function picker(): ((options?: { mode?: "readwrite" }) => Promise<DirectoryHandl
   return candidate ? candidate.bind(window) : null;
 }
 
-export async function linkLocalFolder(): Promise<boolean> {
+export async function linkLocalFolder(slot = ""): Promise<boolean> {
   const open = picker();
   if (!open) return false;
   const handle = await open({ mode: "readwrite" });
-  await idbSet(HANDLE, handle);
+  await idbSet(slot ? `directory:${slot}` : HANDLE, handle);
   return true;
 }
 
 export async function localFolderLinked(): Promise<boolean> {
   const handle = await directory();
   return Boolean(handle);
+}
+
+export async function findNamedFile(slot: string, label: string): Promise<string | null> {
+  const handle = await directory(slot);
+  if (!handle) return null;
+  const wanted = label.normalize("NFKC").replace(/\s+/g, "").replace(/\.txt$/i, "").toLowerCase();
+  if (!wanted) return null;
+  for await (const entry of handle.values()) {
+    if (entry.kind !== "file") continue;
+    const stem = entry.name.replace(/\.[^.]+$/, "").normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+    if (stem === wanted) return entry.name;
+  }
+  return null;
 }
 
 export async function findLocalText(query: LibraryQuery): Promise<{ fileName: string; text: string } | null> {
@@ -75,8 +88,8 @@ function confirmKey(query: LibraryQuery): string {
   return `text:${query.kind}:${query.hymnNumber}:${query.scripture}:${query.title}`;
 }
 
-async function directory(): Promise<DirectoryHandle | null> {
-  const handle = await idbGet<DirectoryHandle>(HANDLE);
+async function directory(slot = ""): Promise<DirectoryHandle | null> {
+  const handle = await idbGet<DirectoryHandle>(slot ? `directory:${slot}` : HANDLE);
   if (!handle) return null;
   const mode = { mode: "readwrite" as const };
   const state = handle.queryPermission ? await handle.queryPermission(mode) : "granted";

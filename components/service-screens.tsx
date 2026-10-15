@@ -16,6 +16,7 @@ import { updateDb } from "@/lib/app-db";
 import { COPYRIGHT_NOTE } from "@/lib/checklist";
 import { formatKoreanDate, formatTime } from "@/lib/format";
 import { liveView } from "@/lib/live-view";
+import { settingsReady } from "@/lib/simple";
 import { can } from "@/lib/roles";
 import { syncReminders } from "@/lib/reminders";
 import { slidesFor } from "@/lib/slides";
@@ -67,6 +68,7 @@ export function LiveScreen({ id }: { id?: string }) {
       people={db.people}
       songs={db.songs}
       churchName={db.settings.churchName}
+      canStart={settingsReady(db.settings)}
       access={{
         output: can(user.roles, "screen.output"),
         bulletin: can(user.roles, "screen.bulletin"),
