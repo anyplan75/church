@@ -1,7 +1,7 @@
 import type { Person } from "./types";
 
-const TITLES = ["전도사", "강도사", "목사", "장로", "권사", "집사", "성도", "사모"] as const;
-const TITLE_PATTERN = "전도사|강도사|목사|장로|권사|집사|성도|사모";
+const TITLES = ["안수집사", "서리집사", "전도사", "강도사", "목사", "장로", "권사", "집사", "성도", "사모"] as const;
+const TITLE_PATTERN = "안수집사|서리집사|전도사|강도사|목사|장로|권사|집사|성도|사모";
 const LABEL = /^(묵도|사도신경|신앙고백|찬송|찬양|통성기도|대표기도|기도|성경봉독|성가대|성가|설교|말씀|봉헌|광고|축도)\s*/;
 const NAME_ENDINGS = /(?:에서|으로|로서|에게|부터|까지|하는|하며|하여|하고|하다|하자|이다|입니다|하라)$/;
 
@@ -25,6 +25,12 @@ const BLOCKED = new Set([
   "다함께",
   "회중",
   "인도",
+  "인도자",
+  "다같이",
+  "찬양단",
+  "중창단",
+  "실내악단",
+  "안수",
   "반주",
   "헌금",
   "특별",
@@ -181,7 +187,8 @@ function unknownPersonName(line: string): string {
   if (/^[가-힣]{2,5}$/.test(body) && isLikelyPersonalName(body)) return body;
   const tokens = body.split(" ");
   const last = tokens[tokens.length - 1] ?? "";
-  if (tokens.length >= 2 && /^[가-힣]{3,4}$/.test(last) && isLikelyPersonalName(last)) return last;
+  const prev = tokens[tokens.length - 2] ?? "";
+  if (tokens.length >= 2 && /^[가-힣]{2,4}$/.test(last) && isLikelyPersonalName(last) && /(?:에서|에게)$/.test(prev)) return last;
   const first = tokens[0] ?? "";
   if (tokens.length >= 2 && /^[가-힣]{2,5}$/.test(first) && isLikelyPersonalName(first) && looksLikeScripture(tokens.slice(1).join(" "))) {
     return first;

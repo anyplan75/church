@@ -9,6 +9,7 @@ import { syncReminders } from "./reminders";
 import { isOverlayPosition } from "./db-shape";
 import type { Db, Office, PersonCategory, Service, ServiceStatus, SongLicense } from "./types";
 import { OFFICES, PERSON_CATEGORIES } from "./types";
+import { isItemPhoto } from "./supplies";
 import {
   addDays,
   clampLiveIndex,
@@ -31,6 +32,11 @@ function liveBlock(db: Db, _service: Service): string | null {
 
 function cleanText(value: FormDataEntryValue | null, max: number): string {
   return String(value ?? "").trim().slice(0, max);
+}
+
+function photoOf(value: FormDataEntryValue | null): string {
+  const photo = String(value ?? "");
+  return isItemPhoto(photo) ? photo : "";
 }
 
 function categoryOf(value: string): PersonCategory {
@@ -255,6 +261,7 @@ export async function createPerson(formData: FormData) {
       address: cleanText(formData.get("address"), 120),
       email: cleanText(formData.get("email"), 120),
       memo: cleanText(formData.get("memo"), 400),
+      photo: photoOf(formData.get("photo")),
     });
   });
   refreshService();
@@ -282,6 +289,8 @@ export async function updatePerson(formData: FormData) {
     person.address = cleanText(formData.get("address"), 120);
     person.email = cleanText(formData.get("email"), 120);
     person.memo = cleanText(formData.get("memo"), 400);
+    const photo = photoOf(formData.get("photo"));
+    if (photo) person.photo = photo;
     if (membership !== "member") {
       person.attendanceConsent = false;
       db.attendance = db.attendance.filter((mark) => mark.personId !== id);

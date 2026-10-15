@@ -342,79 +342,122 @@ a:focus-visible {
   opacity: 0.8;
 }
 
-.worship-overlay {
-  position: fixed;
+.worship-shade {
+  position: absolute;
+  inset: 0;
   z-index: 50;
-  color: white;
+  display: flex;
+  pointer-events: none;
+  overflow: hidden;
+  color: #fff;
   font-weight: 700;
-  font-size: clamp(1.35rem, 3vw, 2rem);
   line-height: 1.5;
   text-align: center;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
   background: transparent;
-  pointer-events: none;
+  --shade-a: 0.7;
 }
 
-.worship-overlay p {
+.worship-shade p {
   position: relative;
   z-index: 1;
-  max-width: 90vw;
+  max-width: 90%;
+  margin: 0;
   background: transparent;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  font-size: clamp(1.35rem, 3vw, 2rem);
 }
 
-.worship-overlay::before {
+.worship-shade::before {
   content: "";
   position: absolute;
-  z-index: -1;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    var(--shade-dir, to top),
+    rgba(0, 0, 0, var(--shade-a)) 0%,
+    rgba(0, 0, 0, calc(var(--shade-a) * 0.9)) 10%,
+    rgba(0, 0, 0, calc(var(--shade-a) * 0.8)) 20%,
+    rgba(0, 0, 0, calc(var(--shade-a) * 0.7)) 30%,
+    rgba(0, 0, 0, calc(var(--shade-a) * 0.6)) 40%,
+    rgba(0, 0, 0, calc(var(--shade-a) * 0.5)) 50%,
+    rgba(0, 0, 0, calc(var(--shade-a) * 0.4)) 60%,
+    rgba(0, 0, 0, calc(var(--shade-a) * 0.3)) 70%,
+    rgba(0, 0, 0, calc(var(--shade-a) * 0.2)) 80%,
+    rgba(0, 0, 0, calc(var(--shade-a) * 0.1)) 90%,
+    rgba(0, 0, 0, 0) 100%
+  );
 }
 
-.worship-overlay.layout-bottom {
-  left: 6vw;
-  right: 6vw;
-  bottom: 6vh;
+.worship-shade.layout-bottom {
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 3% 2%;
 }
 
-.worship-overlay.layout-bottom::before {
-  left: -4vw;
-  right: -4vw;
-  bottom: -6vh;
-  height: 24vh;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+.worship-shade.layout-bottom::before {
+  --shade-dir: to top;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 16.7%;
 }
 
-.worship-overlay.layout-top {
-  left: 6vw;
-  right: 6vw;
-  top: 6vh;
+.worship-shade.layout-top {
+  justify-content: flex-start;
+  align-items: center;
+  padding: 2% 3% 0;
 }
 
-.worship-overlay.layout-top::before {
-  left: -4vw;
-  right: -4vw;
-  top: -6vh;
-  height: 22vh;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+.worship-shade.layout-top::before {
+  --shade-dir: to bottom;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 16.7%;
 }
 
-.worship-overlay.layout-left,
-.worship-overlay.layout-right {
-  top: 18vh;
-  width: min(28vw, 24rem);
+.worship-shade.layout-left {
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 4% 0 3% 2%;
+  text-align: left;
 }
 
-.worship-overlay.layout-left {
-  left: 4vw;
+.worship-shade.layout-left::before {
+  --shade-dir: to right;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
 }
 
-.worship-overlay.layout-right {
-  right: 4vw;
+.worship-shade.layout-right {
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding: 4% 2% 3% 0;
+  text-align: right;
 }
 
-.worship-overlay.layout-left::before,
-.worship-overlay.layout-right::before {
-  inset: -3vh -2vw;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.15));
-  border-radius: 0.8rem;
+.worship-shade.layout-right::before {
+  --shade-dir: to left;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 50%;
+}
+
+.caption-frame {
+  position: relative;
+  height: 12rem;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 40%),
+    #1a1c1f;
+}
+
+.caption-frame .worship-shade p {
+  font-size: 1.05rem;
 }
 
 @media print {

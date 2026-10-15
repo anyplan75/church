@@ -5,7 +5,7 @@ import { readDb } from "@/lib/app-db";
 import { liveView, type LiveView } from "@/lib/live-view";
 import { twoLines } from "@/lib/simple";
 
-export function Projector({ initial }: { initial: LiveView }) {
+export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?: "overlay" | "main" }) {
   const [view, setView] = useState(initial);
 
   useEffect(() => {
@@ -30,6 +30,18 @@ export function Projector({ initial }: { initial: LiveView }) {
     fontFamily: view.fontFamily,
   };
 
+  const caption = slide?.overlay || lines.filter(Boolean).join(" ");
+
+  if (mode === "overlay") {
+    return (
+      <div className="worship-output" style={{ background: "transparent" }}>
+        <div className={`worship-shade layout-${view.overlay}`} style={{ fontFamily: view.overlayFontFamily }}>
+          <p>{caption || "자막"}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="worship-output" style={style}>
       <div className="worship-stage" style={{ justifyContent: "flex-start", paddingTop: `${8 + view.vertical * 14}vh` }}>
@@ -44,11 +56,6 @@ export function Projector({ initial }: { initial: LiveView }) {
           <h1 className="worship-heading">순서가 없습니다</h1>
         )}
       </div>
-      {slide?.overlay ? (
-        <div className={`worship-overlay layout-${view.overlay}`}>
-          <p>{slide.overlay}</p>
-        </div>
-      ) : null}
     </div>
   );
 }

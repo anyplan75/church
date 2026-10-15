@@ -15,7 +15,7 @@ function decodeHwpText(buf: Buffer): string {
         continue;
       }
       if (code === 10 || code === 13) {
-        text += " ";
+        text += "\n";
         index += 2;
         continue;
       }
@@ -40,6 +40,11 @@ export function worshipLinesFromHwpBody(body: Buffer): string {
   const tables = readTables(body);
   const issue = findIssueDate(tables);
   const lines = tables.flatMap((table) => linesFromTable(table, issue));
+  const news = newsFromTables(tables);
+  if (news.length > 0) {
+    lines.push("교회소식");
+    for (const item of news) lines.push(`- ${item}`);
+  }
   const text = lines.map((line) => line.trim()).filter(Boolean).join("\n").trim();
   if (!/예배|기도회/.test(text)) return "";
   return text;
@@ -67,8 +72,8 @@ function readTables(body: Buffer): Cell[][] {
         };
       }
       if (child.tag === PARA_TEXT && current) {
-        const text = decodeHwpText(child.payload).replace(/\s+/g, " ").trim();
-        if (text) current.text = current.text ? `${current.text} ${text}` : text;
+        const text = decodeHwpText(child.payload).replace(/[^\S\n]+/g, " ").trim();
+        if (text) current.text = current.text ? `${current.text}\n${text}` : text;
       }
     }
     if (current?.text) cells.push(current);
@@ -280,6 +285,10 @@ function headerKind(text: string): HeaderKind | null {
   return null;
 }
 
+export function worshipItemLine(label: string, value: string): string | null {
+  return formatItem(label, value);
+}
+
 function formatItem(label: string, value: string): string | null {
   const name = label.replace(/^\*\s*/, "").replace(/\s+/g, "");
   const detail = normalizeRoles(stripPage(value)).replace(/\s+/g, " ").trim();
@@ -294,7 +303,7 @@ function formatItem(label: string, value: string): string | null {
   if (/대표기도/.test(name)) return detail ? `대표기도 ${detail}` : "대표기도";
   if (/^기도/.test(name)) return detail ? `기도 ${detail}` : "기도";
   if (/성경|봉독|부름/.test(name)) return detail ? `성경봉독 ${detail}` : null;
-  if (/설교|말씀/.test(name)) return detail ? `설교 ${/목사|권사|장로|집사|전도사/.test(detail) ? detail : detail.replace(/\s+/g, "")}` : "설교";
+  if (/설교|말씀/.test(name)) return detail ? `설교 ${detail}` : "설교";
   if (/봉헌/.test(name)) return detail && /^\d+\s*장/.test(detail) ? `봉헌\n찬송 ${detail}` : detail ? `봉헌 ${detail}` : "봉헌";
   if (/축도/.test(name)) return detail ? `축도 ${detail}` : "축도";
   if (/^(광고|교회소식)/.test(name)) {
@@ -350,4 +359,78 @@ function isoDate(year: number, month: number, day: number): string {
 function utcWeekday(iso: string): number {
   const [year, month, day] = iso.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+const NEWS_COLUMN = new Set(["연번", "등록일", "이름", "성별", "인도자", "기관", "구역"]);
+
+export function newsFromTables(tables: Cell[][]): string[] {
+  const candidates = tables.filter((table) => !isOrderTable(table) && !isOverviewTable(table) && table.some((cell) => /^[✜❏]/.test(cell.text.trim())));
+  if (candidates.length === 0) return [];
+  const best = candidates.slice().sort((left, right) => newsScore(right) - newsScore(left))[0];
+  return bulletsFromCells(best.map((cell) => cell.text).filter((text) => !text.trim().startsWith("<")));
+}
+
+function isOverviewTable(table: Cell[]): boolean {
+  return table.some((cell) => /주일찬양예배/.test(cell.text) && /교회소식|새벽기도회/.test(cell.text));
+}
+
+function isOrderTable(table: Cell[]): boolean {
+  return table.some((cell) => {
+    if (headerKind(cell.text)) return true;
+    const compact = cell.text.replace(/\s+/g, "");
+    return compact.length <= 40 && /주일찬양예배|새벽기도회|수요기도회/.test(compact);
+  });
+}
+
+function newsScore(table: Cell[]): number {
+  return table.reduce((sum, cell) => sum + (cell.text.match(/[✜❏]/g)?.length ?? 0), 0);
+}
+
+export function bulletsFromCells(texts: string[]): string[] {
+  const chunks: string[] = [];
+  for (const text of texts) {
+    const lines = text.split(/\n/).map((line) => line.trim()).filter(Boolean);
+    let current = "";
+    const flush = () => {
+      pushChunk(chunks, current);
+      current = "";
+    };
+    for (const line of lines) {
+      if (isSensitiveLine(line) || isScriptureQuote(line) || NEWS_COLUMN.has(line.replace(/\s+/g, ""))) continue;
+      if (startsNewsItem(line) && current) flush();
+      current = current ? `${current} ${line}` : line;
+    }
+    flush();
+  }
+  const seen = new Set<string>();
+  return chunks.filter((chunk) => {
+    const key = chunk.replace(/\s+/g, "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function pushChunk(chunks: string[], value: string) {
+  let rest = value.replace(/\s+/g, " ").trim();
+  while (rest.length > 500) {
+    let cut = rest.lastIndexOf(" ", 500);
+    if (cut < 200) cut = 500;
+    chunks.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest.length >= 2) chunks.push(rest);
+}
+
+function isScriptureQuote(text: string): boolean {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return !/[✜❏•]/.test(clean) && /[가-힣]\s*\d+\s*:\s*\d+/.test(clean) && clean.length < 180;
+}
+
+function startsNewsItem(line: string): boolean {
+  return /^[✜❏•▪●]/.test(line) || /^\d+\s*[.)]/.test(line);
+}
+
+function isSensitiveLine(text: string): boolean {
+  return /\d{2,4}[)\-\s.]?\d{3,4}[-\s.]\d{4}/.test(text) || /TEL|FAX|전화|계좌/i.test(text);
 }

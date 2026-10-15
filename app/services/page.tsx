@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useChurch } from "@/components/church-state";
 import { StatusBadge } from "@/components/status-badge";
 import { formatKoreanDate, formatTime } from "@/lib/format";
+import { OutputLinks } from "@/components/output-links";
 import { can, serviceDestinations, type Role } from "@/lib/roles";
 import { assignmentProgress, preacherName, splitServices, todayISO } from "@/lib/worship";
 import type { Person, Service } from "@/lib/types";
@@ -76,9 +77,16 @@ function ServiceSection({
           );
           if (can(roles, "screen.editor")) {
             return (
-              <Link key={service.id} href={`/services/${service.id}`} className="card block p-5 hover:border-pine/30">
-                {body}
-              </Link>
+              <article key={service.id} className="card p-5">
+                <Link href={`/services/${service.id}`} className="block hover:text-pine">
+                  {body}
+                </Link>
+                {can(roles, "screen.output") ? (
+                  <div className="mt-4">
+                    <OutputLinks id={service.id} className="btn btn-quiet btn-small" />
+                  </div>
+                ) : null}
+              </article>
             );
           }
           return (
@@ -87,7 +95,7 @@ function ServiceSection({
               {links.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {links.map((link) => (
-                    <Link key={link.href} href={link.href} className="btn btn-quiet btn-small">
+                    <Link key={link.href} href={link.href} target={link.href.includes("/output") ? "_blank" : undefined} className="btn btn-quiet btn-small">
                       {link.label}
                     </Link>
                   ))}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { LiveConsole } from "@/components/live-console";
 import { PrintButton } from "@/components/print-button";
 import { Projector } from "@/components/projector";
@@ -10,6 +10,7 @@ import { ServiceEditor } from "@/components/service-editor";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch } from "@/components/church-state";
 import { CopyrightNotice } from "@/components/copyright-notice";
+import { OutputLinks } from "@/components/output-links";
 import { LocalTextPanel } from "@/components/local-text-panel";
 import { updateSlideFields } from "@/lib/actions";
 import { updateDb } from "@/lib/app-db";
@@ -81,10 +82,20 @@ export function LiveScreen({ id }: { id?: string }) {
 export function OutputScreen({ id }: { id?: string }) {
   const serviceId = useServiceId(id);
   const { ready, db } = useChurch();
+  const mode = useOutputMode();
   if (!ready || !db) return null;
   const view = liveView(db, serviceId);
   if (!view) return <Missing />;
-  return <Projector initial={view} />;
+  return <Projector initial={view} mode={mode} />;
+}
+
+function useOutputMode(): "overlay" | "main" {
+  const [mode, setMode] = useState<"overlay" | "main">("main");
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get("mode");
+    setMode(value === "overlay" ? "overlay" : "main");
+  }, []);
+  return mode;
 }
 
 export function BulletinScreen({ id }: { id?: string }) {
@@ -167,9 +178,7 @@ export function SlidesScreen({ id }: { id?: string }) {
           <h1 className="font-serif text-4xl">송출 슬라이드</h1>
           <p className="mt-2 text-muted">{service.title}</p>
         </div>
-        <Link href={`/services/${service.id}/output`} target="_blank" className="btn btn-primary">
-          송출 화면
-        </Link>
+        <OutputLinks id={service.id} className="btn btn-primary" />
       </div>
       <div className="mt-4 max-w-3xl">
         <CopyrightNotice />

@@ -7,6 +7,7 @@ import { addRosterPerson, copyServiceNextWeek, deleteService, saveService } from
 import { START_BLOCKED, settingsReady } from "@/lib/simple";
 import { ITEM_KINDS, SERVICE_TYPES, type ItemKind, type Person, type Reminder, type Service, type Settings, type Song } from "@/lib/types";
 import { assignmentProgress, createItem, kindLabel, reorder, songOptionLabel, templateItems } from "@/lib/worship";
+import { OutputLinks } from "./output-links";
 import { StatusBadge } from "./status-badge";
 
 type SaveResult = { ok: true } | { ok: false; message: string };
@@ -215,11 +216,7 @@ export function ServiceEditor({
               슬라이드
             </Link>
           ) : null}
-          {access.output ? (
-            <Link href={`/services/${draft.id}/output`} target="_blank" className="btn btn-quiet">
-              송출 화면
-            </Link>
-          ) : null}
+          {access.output ? <OutputLinks id={draft.id} /> : null}
           {draft.status === "planning" ? (
             <button type="button" className="btn btn-quiet" onClick={() => void markReady()}>
               준비 완료
