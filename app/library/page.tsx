@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { saveLibrary } from "@/lib/actions";
-import { findNamedFile, linkLocalFolder } from "@/lib/local-files";
+import { connectFolder, findNamedFile, readFolderView } from "@/lib/local-files";
+import { folderStatusText, LIBRARY_RULES, type FolderView } from "@/lib/local-library";
 import { CAPTION_FONTS, captionFont, compactLabel, fullscreenStep } from "@/lib/simple";
 
 const KINDS = [
-  { id: "bible", label: "성경", hint: "창세기.txt처럼 책 이름 파일을 읽습니다.", sample: "창세기" },
-  { id: "hymn", label: "찬송가", hint: "찬송가1장으로 찾습니다. 띄어쓰기는 달라도 됩니다.", sample: "찬송가1장" },
-  { id: "praise", label: "찬양", hint: "제목으로 찾습니다. 띄어쓰기는 달라도 됩니다.", sample: "찬양 제목" },
+  { id: "bible", label: "성경", hint: LIBRARY_RULES[0], sample: "창세기" },
+  { id: "hymn", label: "찬송가", hint: LIBRARY_RULES[1], sample: "찬송가1장" },
+  { id: "praise", label: "찬양", hint: LIBRARY_RULES[2], sample: "찬양 제목" },
 ] as const;
 
 const OVERLAYS = [
@@ -27,11 +28,22 @@ export default function LibraryPage() {
   const query = useClientQuery();
   const [notice, setNotice] = useState("");
   const [hit, setHit] = useState("");
+  const [foldersView, setFoldersView] = useState<Partial<Record<(typeof KINDS)[number]["id"], FolderView>>>({});
   const [overlay, setOverlay] = useState("bottom");
   const [overlayFontId, setOverlayFontId] = useState("noto-sans-kr");
   const [fullFontId, setFullFontId] = useState("noto-sans-kr");
   const [step, setStep] = useState(2);
   const [primed, setPrimed] = useState(false);
+  useEffect(() => {
+    let cancel = false;
+    void Promise.all(KINDS.map((kind) => readFolderView(kind.id))).then((views) => {
+      if (cancel) return;
+      setFoldersView(Object.fromEntries(KINDS.map((kind, index) => [kind.id, views[index]])));
+    });
+    return () => {
+      cancel = true;
+    };
+  }, []);
   useEffect(() => {
     if (!db || primed) return;
     setOverlay(db.settings.overlay);
@@ -46,10 +58,10 @@ export default function LibraryPage() {
   const backgrounds = settings.backgrounds ?? ["배경 1", "배경 2", "배경 3", "배경 4", "배경 5"];
   const previewFont = captionFont(fullFontId).family;
 
-  async function connect(slot: string) {
+  async function connect(slot: (typeof KINDS)[number]["id"]) {
     setNotice("");
-    const ok = await linkLocalFolder(slot);
-    setNotice(ok ? "이 컴퓨터의 폴더를 연결했습니다. 파일 내용은 서버에 올리지 않습니다." : "이 브라우저에서는 폴더를 연결할 수 없습니다.");
+    const view = await connectFolder(slot);
+    setFoldersView((current) => ({ ...current, [slot]: view }));
   }
 
   async function search(slot: string, label: string) {
@@ -68,6 +80,14 @@ export default function LibraryPage() {
     <div className="page">
       <h1 className="font-serif text-4xl">라이브러리</h1>
       <p className="mt-2 text-muted">성경, 찬송가, 찬양 폴더를 각각 지정합니다. 본문은 이 컴퓨터의 파일에서만 읽고 앱에는 저장하지 않습니다.</p>
+      <section className="card mt-6 p-5">
+        <h2 className="font-serif text-2xl">찾는 규칙</h2>
+        <ul className="mt-3 space-y-1 text-sm leading-6">
+          {LIBRARY_RULES.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
+      </section>
       {query.saved ? <p className="mt-4 text-sm text-pine">라이브러리 설정을 저장했습니다.</p> : null}
       {notice ? <p className="mt-4 text-sm text-muted">{notice}</p> : null}
       {hit ? <p className="mt-2 text-sm text-pine">{hit}</p> : null}
@@ -86,6 +106,9 @@ export default function LibraryPage() {
                 이 컴퓨터에서 폴더 연결
               </button>
             </div>
+            <p className="text-sm text-ink" data-folder-status={kind.id}>
+              {foldersView[kind.id] ? folderStatusText(foldersView[kind.id]!) : "폴더 확인 중"}
+            </p>
             <LibrarySearch sample={kind.sample} onSearch={(label) => void search(kind.id, label)} />
           </section>
         ))}

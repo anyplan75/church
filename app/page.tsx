@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BulletinServiceBody } from "@/components/bulletin-files";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { importBulletin } from "@/lib/actions";
 import { BULLETIN_UPLOAD_BYTES, bulletinAccept, bulletinFormatNote } from "@/lib/extract-text";
 import { formatKoreanDate, formatMonthDay, formatTime } from "@/lib/format";
-import { bulletinWeeks, serviceText } from "@/lib/simple";
+import { bulletinWeeks } from "@/lib/simple";
 import { sundayOf, todayISO } from "@/lib/worship";
 
 export default function BulletinPage() {
@@ -78,12 +79,13 @@ export default function BulletinPage() {
         {selected ? (
           <div className="mt-4 space-y-4" role="tabpanel">
             <p className="text-sm text-muted">{formatKoreanDate(selected.sunday)}부터 토요일까지</p>
+            <p className="mt-1 text-sm text-muted">성경·찬송·찬양 줄은 이 컴퓨터에 연결한 폴더의 txt와 맞춥니다. 맞으면 파일 이름과 첫 줄만 보입니다.</p>
             {selected.services.map((service) => (
               <article key={service.id} className="card p-4">
                 <h3 className="font-medium">
                   {service.title} · {formatKoreanDate(service.date)} {formatTime(service.time)}
                 </h3>
-                <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-ink">{serviceText(service, db.songs, db.people) || "예배 순서가 없습니다."}</pre>
+                <BulletinServiceBody service={service} songs={db.songs} people={db.people} />
               </article>
             ))}
           </div>

@@ -1,4 +1,4 @@
-import { fileMatchesQuery, splitSlides, type LibraryQuery } from "./local-library";
+import { fileMatchesQuery, previewLine, splitSlides, type FolderView, type LibraryQuery } from "./local-library";
 
 const DB_NAME = "church-local-texts";
 const HANDLE = "directory";
@@ -6,6 +6,7 @@ const HANDLE = "directory";
 type Confirmed = { text: string };
 
 type DirectoryHandle = {
+  name?: string;
   queryPermission?: (options: { mode: "readwrite" }) => Promise<PermissionState>;
   requestPermission?: (options: { mode: "readwrite" }) => Promise<PermissionState>;
   getFileHandle: (name: string, options?: { create?: boolean }) => Promise<FileHandle>;
@@ -26,12 +27,36 @@ function picker(): ((options?: { mode?: "readwrite" }) => Promise<DirectoryHandl
   return candidate ? candidate.bind(window) : null;
 }
 
+const IDLE_FOLDER: FolderView = { state: "idle", folderName: "", txtCount: 0, names: [] };
+
 export async function linkLocalFolder(slot = ""): Promise<boolean> {
+  const view = await connectFolder(slot);
+  return view.state === "connected";
+}
+
+export async function connectFolder(slot = ""): Promise<FolderView> {
   const open = picker();
-  if (!open) return false;
-  const handle = await open({ mode: "readwrite" });
-  await idbSet(slot ? `directory:${slot}` : HANDLE, handle);
-  return true;
+  if (!open) return { ...IDLE_FOLDER, state: "unsupported" };
+  try {
+    const handle = await open({ mode: "readwrite" });
+    await idbSet(handleKey(slot), handle);
+    return await summarize(handle);
+  } catch {
+    return readFolderView(slot);
+  }
+}
+
+export async function readFolderView(slot = ""): Promise<FolderView> {
+  try {
+    const handle = await idbGet<DirectoryHandle>(handleKey(slot));
+    if (!handle) return IDLE_FOLDER;
+    const folderName = handle.name ?? "";
+    const state = await permission(handle, false);
+    if (state !== "granted") return { state: "reconnect", folderName, txtCount: 0, names: [] };
+    return await summarize(handle);
+  } catch {
+    return { state: "reconnect", folderName: "", txtCount: 0, names: [] };
+  }
 }
 
 export async function localFolderLinked(): Promise<boolean> {
@@ -53,7 +78,7 @@ export async function findNamedFile(slot: string, label: string): Promise<string
 }
 
 export async function findLocalText(query: LibraryQuery): Promise<{ fileName: string; text: string } | null> {
-  const handle = await directory();
+  const handle = await resolveHandle(query.kind, true);
   if (!handle) return null;
   for await (const entry of handle.values()) {
     if (entry.kind !== "file" || !fileMatchesQuery(entry.name, query) || !entry.getFile) continue;
@@ -64,8 +89,20 @@ export async function findLocalText(query: LibraryQuery): Promise<{ fileName: st
   return null;
 }
 
-export async function saveLocalText(fileName: string, body: string): Promise<string | null> {
-  const handle = await directory();
+export async function peekLocalMatch(query: LibraryQuery): Promise<{ fileName: string; preview: string } | null> {
+  const handle = await resolveHandle(query.kind, false);
+  if (!handle) return null;
+  for await (const entry of handle.values()) {
+    if (entry.kind !== "file" || !fileMatchesQuery(entry.name, query) || !entry.getFile) continue;
+    const file = await entry.getFile();
+    const preview = previewLine(await file.slice(0, 2000).text());
+    return { fileName: entry.name, preview };
+  }
+  return null;
+}
+
+export async function saveLocalText(fileName: string, body: string, slot = ""): Promise<string | null> {
+  const handle = await resolveHandle(slot, true);
   if (!handle) return null;
   const file = await handle.getFileHandle(fileName, { create: true });
   const writable = await file.createWritable();
@@ -88,14 +125,39 @@ function confirmKey(query: LibraryQuery): string {
   return `text:${query.kind}:${query.hymnNumber}:${query.scripture}:${query.title}`;
 }
 
+function handleKey(slot: string): string {
+  return slot ? `directory:${slot}` : HANDLE;
+}
+
 async function directory(slot = ""): Promise<DirectoryHandle | null> {
-  const handle = await idbGet<DirectoryHandle>(slot ? `directory:${slot}` : HANDLE);
-  if (!handle) return null;
+  return resolveHandle(slot, true);
+}
+
+async function resolveHandle(slot: string, prompt: boolean): Promise<DirectoryHandle | null> {
+  if (slot) {
+    const keyed = await idbGet<DirectoryHandle>(handleKey(slot));
+    if (keyed) return (await permission(keyed, prompt)) === "granted" ? keyed : null;
+  }
+  const fallback = await idbGet<DirectoryHandle>(HANDLE);
+  if (!fallback) return null;
+  return (await permission(fallback, prompt)) === "granted" ? fallback : null;
+}
+
+async function permission(handle: DirectoryHandle, prompt: boolean): Promise<PermissionState> {
   const mode = { mode: "readwrite" as const };
   const state = handle.queryPermission ? await handle.queryPermission(mode) : "granted";
-  if (state === "granted") return handle;
-  const next = handle.requestPermission ? await handle.requestPermission(mode) : "denied";
-  return next === "granted" ? handle : null;
+  if (state === "granted" || !prompt) return state;
+  return handle.requestPermission ? await handle.requestPermission(mode) : "denied";
+}
+
+async function summarize(handle: DirectoryHandle): Promise<FolderView> {
+  const names: string[] = [];
+  for await (const entry of handle.values()) {
+    if (entry.kind !== "file" || !entry.name.toLowerCase().endsWith(".txt")) continue;
+    names.push(entry.name);
+  }
+  names.sort((a, b) => a.localeCompare(b, "ko"));
+  return { state: "connected", folderName: handle.name ?? "", txtCount: names.length, names: names.slice(0, 5) };
 }
 
 function idb(): Promise<IDBDatabase> {

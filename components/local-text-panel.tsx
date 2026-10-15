@@ -59,7 +59,7 @@ export function LocalTextPanel({ item, song }: { item: WorshipItem; song?: Song 
 
   async function save() {
     const body = textFileBody(query!, draft);
-    const saved = await saveLocalText(preferredFileName(query!), body);
+    const saved = await saveLocalText(preferredFileName(query!), body, query!.kind);
     if (!saved) {
       setMessage("이 컴퓨터에 저장하지 못했습니다.");
       return;

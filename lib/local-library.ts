@@ -16,6 +16,19 @@ export type LibraryTemplate = {
   bodyLabel: string;
 };
 
+export type FolderView = {
+  state: "idle" | "unsupported" | "reconnect" | "connected";
+  folderName: string;
+  txtCount: number;
+  names: string[];
+};
+
+export const LIBRARY_RULES = [
+  "성경은 창세기.txt 같은 책 파일에서 주보의 장절을 읽습니다.",
+  "찬송은 찬송가N장으로 찾습니다.",
+  "찬양은 제목이고 띄어쓰기는 무시합니다.",
+] as const;
+
 const SONG_KINDS = new Set<ItemKind>(["hymn", "praise", "choir"]);
 
 export function libraryQuery(item: Pick<WorshipItem, "kind" | "title" | "scripture">, song?: Pick<Song, "title" | "hymnNumber"> | null): LibraryQuery | null {
@@ -25,10 +38,42 @@ export function libraryQuery(item: Pick<WorshipItem, "kind" | "title" | "scriptu
   if (item.kind === "praise" || item.kind === "choir") {
     return { kind: "praise", title: (song?.title || item.title).trim(), hymnNumber: "", scripture: "" };
   }
-  if ((item.kind === "scripture" || item.kind === "sermon") && scriptureKey(item.scripture)) {
-    return { kind: "bible", title: item.title, hymnNumber: "", scripture: item.scripture.trim() };
+  const scripture = item.scripture.trim();
+  if ((item.kind === "scripture" || item.kind === "sermon") && (scriptureKey(scripture) || bibleBook(scripture))) {
+    return { kind: "bible", title: item.title, hymnNumber: "", scripture };
   }
   return null;
+}
+
+export function bibleBook(scripture: string): string {
+  const match = scripture.trim().match(/^([가-힣A-Za-z]+)(?=\s*\d)/);
+  return match?.[1] ?? "";
+}
+
+export function searchedLabel(query: LibraryQuery): string {
+  if (query.kind === "hymn") return query.hymnNumber ? `찬송가${query.hymnNumber}장` : "찬송";
+  if (query.kind === "bible") {
+    const book = bibleBook(query.scripture);
+    return book ? `${book}.txt` : "성경";
+  }
+  return query.title.normalize("NFKC").replace(/\s+/g, "") || "찬양";
+}
+
+export function previewLine(text: string): string {
+  const line = text.replace(/\r/g, "").split("\n").map((item) => item.trim()).find(Boolean) ?? "";
+  if (line.length <= 80) return line;
+  return `${line.slice(0, 80)}…`;
+}
+
+export function folderStatusText(view: FolderView): string {
+  if (view.state === "unsupported") return "이 브라우저에서는 폴더를 연결할 수 없습니다.";
+  if (view.state === "reconnect") {
+    return view.folderName ? `${view.folderName} 폴더 권한이 없습니다. 다시 연결해 주세요.` : "폴더 권한이 없습니다. 다시 연결해 주세요.";
+  }
+  if (view.state !== "connected") return "아직 연결하지 않았습니다.";
+  const folderName = view.folderName || "폴더";
+  if (view.txtCount === 0) return `연결됨 · ${folderName} · txt 파일이 없습니다.`;
+  return `연결됨 · ${folderName} · txt ${view.txtCount}개 · ${view.names.join(", ")}`;
 }
 
 export function scriptureKey(scripture: string): string {
@@ -44,7 +89,7 @@ export function wantedFileNames(query: LibraryQuery): string[] {
   }
   if (query.kind === "bible") {
     const key = scriptureKey(query.scripture);
-    const book = query.scripture.trim().match(/^([가-힣]+)/)?.[1] ?? "";
+    const book = bibleBook(query.scripture);
     return [book ? `${book}.txt` : "", key ? `bible-${key}.txt` : "", key ? `${key}.txt` : ""].filter(Boolean);
   }
   const slug = compact(query.title);
@@ -60,8 +105,8 @@ export function fileMatchesQuery(fileName: string, query: LibraryQuery): boolean
   const folded = stem.normalize("NFKC").replace(/\s+/g, "");
   if (query.kind === "hymn" && query.hymnNumber && folded === `찬송가${query.hymnNumber}장`) return true;
   if (query.kind === "bible") {
-    const book = query.scripture.trim().match(/^([가-힣]+)/)?.[1] ?? "";
-    if (book && folded === book) return true;
+    const book = bibleBook(query.scripture).normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+    if (book && folded.toLowerCase() === book) return true;
   }
   if (query.kind === "praise") {
     const title = query.title.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
