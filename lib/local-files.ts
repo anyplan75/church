@@ -1,4 +1,4 @@
-import { fileMatchesQuery, fileSlides, previewLine, splitSlides, type FolderView, type LibraryQuery } from "./local-library";
+import { fileMatchesQuery, fileSlides, nameContains, previewLine, splitSlides, type FolderView, type LibraryQuery } from "./local-library";
 
 const DB_NAME = "church-local-texts";
 const HANDLE = "directory";
@@ -67,12 +67,11 @@ export async function localFolderLinked(): Promise<boolean> {
 export async function findNamedFile(slot: string, label: string): Promise<string | null> {
   const handle = await directory(slot);
   if (!handle) return null;
-  const wanted = label.normalize("NFKC").replace(/\s+/g, "").replace(/\.txt$/i, "").toLowerCase();
+  const wanted = label.normalize("NFKC").replace(/\s+/g, "").replace(/\.txt$/i, "");
   if (!wanted) return null;
   for await (const entry of handle.values()) {
-    if (entry.kind !== "file") continue;
-    const stem = entry.name.replace(/\.[^.]+$/, "").normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-    if (stem === wanted) return entry.name;
+    if (entry.kind !== "file" || !entry.name.toLowerCase().endsWith(".txt")) continue;
+    if (nameContains(entry.name, wanted)) return entry.name;
   }
   return null;
 }
