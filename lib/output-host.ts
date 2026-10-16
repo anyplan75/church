@@ -1,5 +1,6 @@
 export const OUTPUT_HOST_KEY = "church-output-host";
 export const THIS_COMPUTER_KEY = "church-this-computer";
+export const OPERATOR_SERVICE_KEY = "church-output-service";
 
 const OCTET = "(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
 const IPV4 = new RegExp(`^${OCTET}\\.${OCTET}\\.${OCTET}\\.${OCTET}$`);
@@ -87,6 +88,18 @@ export function thisComputer(): string {
 
 export function outputSignalHost(settingsHost: unknown, storedHost: unknown, computerHost: unknown): string {
   return cleanHost(settingsHost) || cleanHost(storedHost) || cleanHost(computerHost);
+}
+
+export function cleanServiceId(value: unknown): string {
+  const id = String(value ?? "").trim();
+  return /^[A-Za-z0-9-]{1,80}$/.test(id) ? id : "";
+}
+
+export function savedOutputTarget(settingsHost: unknown, storedHost: unknown, storedService: unknown): { host: string; serviceId: string } | null {
+  const host = outputSignalHost(settingsHost, storedHost, "");
+  const serviceId = cleanServiceId(storedService);
+  if (!host || !serviceId) return null;
+  return { host, serviceId };
 }
 
 export function detectPrivateAddress(): Promise<string> {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cleanHost, directCandidate, directDescription, hostEntry, hostKey, isPrivateIpv4, numericAddressFromCandidate, outputSignalHost } from "./output-host.ts";
+import { normalizeDb } from "./db-shape.ts";
+import { cleanHost, directCandidate, directDescription, hostEntry, hostKey, isPrivateIpv4, numericAddressFromCandidate, outputSignalHost, savedOutputTarget } from "./output-host.ts";
 
 describe("송출 컴퓨터 주소", () => {
   it("IP 주소만 받는다", () => {
@@ -46,6 +47,18 @@ describe("송출 컴퓨터 주소", () => {
     assert.deepEqual(hostEntry("192.168.0.10"), { host: "192.168.0.10", problem: "" });
     assert.equal(hostEntry("").problem, "");
     assert.equal(hostEntry("송출컴퓨터").problem, "invalid");
+  });
+
+  it("껐다 켜도 설정에 저장한 IP로 다시 연결한다", () => {
+    const db = normalizeDb({
+      settings: { churchName: "교회", backgroundColor: "#1b3a32", backgroundFile: null, overlay: "bottom", outputHost: "192.168.0.10" },
+    });
+    assert.equal(db.settings.outputHost, "192.168.0.10");
+    assert.equal(normalizeDb(db).settings.outputHost, "192.168.0.10");
+    assert.deepEqual(savedOutputTarget(db.settings.outputHost, "", "service-1"), { host: "192.168.0.10", serviceId: "service-1" });
+    assert.deepEqual(savedOutputTarget("", "192.168.0.10", "service-1"), { host: "192.168.0.10", serviceId: "service-1" });
+    assert.equal(savedOutputTarget("192.168.0.10", "", ""), null);
+    assert.equal(outputSignalHost(db.settings.outputHost, "", ""), "192.168.0.10");
   });
 
   it("설정에 넣은 송출 컴퓨터 IP를 자기 칸보다 먼저 쓴다", () => {
