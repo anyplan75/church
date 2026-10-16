@@ -309,6 +309,30 @@ a:focus-visible {
   background-size: cover;
 }
 
+.output-address {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.9rem;
+  z-index: 70;
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  color: #f7f3ea;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: auto;
+}
+
+.output-address input {
+  width: 9.5rem;
+  margin-left: 0.4rem;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(247, 243, 234, 0.75);
+}
+
 .worship-stage {
   min-height: 100vh;
   display: flex;
