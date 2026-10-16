@@ -1,0 +1,195 @@
+{
+  "rules": {
+    "live-interpret": {
+      "admin": {
+        "uid": {
+          ".read": true,
+          ".write": "!data.exists() && auth != null && newData.isString() && newData.val() === auth.uid"
+        }
+      },
+      "platform": {
+        "openaiKey": {
+          ".read": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || root.child('live-interpret/accounts').child(auth.uid).exists())",
+          ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()"
+        }
+      },
+      "accounts": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid === $uid || auth.uid === root.child('live-interpret/admin/uid').val())",
+          ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()",
+          "churchId": {
+            ".validate": "newData.isString() && newData.val().length > 0"
+          }
+        }
+      },
+      "churchIndex": {
+        ".read": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()",
+        ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()"
+      },
+      "deposits": {
+        "$depositId": {
+          ".read": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()",
+          ".write": false
+        }
+      },
+      "phoneLinks": {
+        "$token": {
+          ".read": "$token.matches(/^[a-f0-9]{32}$/)",
+          "peers": {
+            "$peerId": {
+              ".validate": "$token.matches(/^[a-f0-9]{32}$/) && $peerId.matches(/^[A-Za-z0-9_-]{8,64}$/)",
+              "offer": {
+                ".write": "!data.exists() && newData.hasChildren(['type', 'sdp']) && newData.child('type').val() === 'offer' && newData.child('sdp').isString() && newData.child('sdp').val().length > 0 && newData.child('sdp').val().length <= 12000",
+                ".validate": "newData.hasChildren(['type', 'sdp']) && newData.child('type').val() === 'offer' && newData.child('sdp').isString() && newData.child('sdp').val().length > 0 && newData.child('sdp').val().length <= 12000"
+              },
+              "answer": {
+                ".write": "!data.exists() && newData.hasChildren(['type', 'sdp']) && newData.child('type').val() === 'answer' && newData.child('sdp').isString() && newData.child('sdp').val().length > 0 && newData.child('sdp').val().length <= 12000",
+                ".validate": "newData.hasChildren(['type', 'sdp']) && newData.child('type').val() === 'answer' && newData.child('sdp').isString() && newData.child('sdp').val().length > 0 && newData.child('sdp').val().length <= 12000"
+              },
+              "phoneIce": {
+                "$iceId": {
+                  ".write": "!data.exists() && $iceId.matches(/^[A-Za-z0-9_-]{8,32}$/) && newData.isString() && newData.val().length > 0 && newData.val().length <= 2000",
+                  ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 2000"
+                }
+              },
+              "macIce": {
+                "$iceId": {
+                  ".write": "!data.exists() && $iceId.matches(/^[A-Za-z0-9_-]{8,32}$/) && newData.isString() && newData.val().length > 0 && newData.val().length <= 2000",
+                  ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 2000"
+                }
+              }
+            }
+          }
+        }
+      },
+      "churches": {
+        "$churchId": {
+          ".read": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())",
+          "name": {
+            ".read": true,
+            ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()"
+          },
+          "active": {
+            ".read": true,
+            ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()"
+          },
+          "createdAt": {
+            ".read": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()",
+            ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()"
+          },
+          "region": {
+            ".read": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()",
+            ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()",
+            ".validate": "newData.isString() && (newData.val() == '서울' || newData.val() == '부산' || newData.val() == '대구' || newData.val() == '인천' || newData.val() == '광주' || newData.val() == '대전' || newData.val() == '울산' || newData.val() == '세종' || newData.val() == '경기' || newData.val() == '강원' || newData.val() == '충북' || newData.val() == '충남' || newData.val() == '전북' || newData.val() == '전남' || newData.val() == '경북' || newData.val() == '경남' || newData.val() == '제주')"
+          },
+          "glossary": {
+            ".read": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())",
+            ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()"
+          },
+          "model": {
+            ".read": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())",
+            ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()"
+          },
+          "account": {
+            ".read": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())",
+            ".write": "auth != null && auth.uid === root.child('live-interpret/admin/uid').val()"
+          },
+          "preachers": {
+            ".read": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())",
+            ".write": "auth != null && auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val()"
+          },
+          "sessionIndex": {
+            ".read": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())",
+            ".write": "auth != null && auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val() && root.child('live-interpret/churches').child($churchId).child('active').val() !== false"
+          },
+          "sessions": {
+            ".read": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())",
+            ".write": "auth != null && auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val() && root.child('live-interpret/churches').child($churchId).child('active').val() !== false",
+            "$folder": {
+              "bulletin": {
+                ".write": "auth != null && auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val() && root.child('live-interpret/churches').child($churchId).child('active').val() !== false"
+              }
+            }
+          },
+          "billing": {
+            "balance": {
+              ".write": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())",
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.parent().child('lastEntryId').isString() && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).exists() && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() == newData.val() - (data.exists() ? data.val() : 0) && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('balanceAfter').val() == newData.val() && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('amountKrw').val() == newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() && ((auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val() && data.exists() && newData.val() < data.val() && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() < 0) || (auth.uid === root.child('live-interpret/admin/uid').val() && newData.val() > (data.exists() ? data.val() : 0) && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() > 0))"
+            },
+            "lastEntryId": {
+              ".write": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())",
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 128 && newData.parent().child('ledger').child(newData.val()).exists()"
+            },
+            "ledger": {
+              "$entryId": {
+                ".write": "auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val()) && !data.exists() && $entryId === newData.parent().parent().child('lastEntryId').val()",
+                ".validate": "newData.hasChildren(['deltaKrw', 'amountKrw', 'balanceAfter', 'at', 'type', 'who']) && newData.child('deltaKrw').isNumber() && newData.child('amountKrw').val() == newData.child('deltaKrw').val() && newData.child('balanceAfter').isNumber() && newData.child('balanceAfter').val() == newData.parent().parent().child('balance').val() && newData.child('at').isNumber() && newData.child('type').isString() && (newData.child('type').val() == 'charge' || newData.child('type').val() == 'deposit' || newData.child('type').val() == 'manual') && newData.child('who').isString() && !newData.child('text').exists() && !newData.child('rate').exists()"
+              }
+            },
+            "prepaid": {
+              ".write": "auth != null && auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val() && root.child('live-interpret/churches').child($churchId).child('active').val() !== false",
+              ".validate": "newData.hasChildren(['remainingSeconds', 'languageKey', 'kind', 'amountKrw', 'extraCount', 'updatedAt']) && newData.child('remainingSeconds').isNumber() && newData.child('remainingSeconds').val() >= 0 && newData.child('remainingSeconds').val() <= 3600 && newData.child('languageKey').isString() && newData.child('languageKey').val().matches(/^[A-Za-z]{2,3}(-[A-Za-z]{2})?(,[A-Za-z]{2,3}(-[A-Za-z]{2})?){0,23}$/) && newData.child('kind').isString() && (newData.child('kind').val() == 'hour' || newData.child('kind').val() == 'half') && newData.child('amountKrw').isNumber() && newData.child('amountKrw').val() >= 0 && newData.child('extraCount').isNumber() && newData.child('extraCount').val() >= 0 && newData.child('extraCount').val() <= 24 && newData.child('updatedAt').isNumber() && !newData.child('text').exists() && !newData.child('rate').exists() && ((data.exists() && newData.child('remainingSeconds').val() <= data.child('remainingSeconds').val() && newData.child('kind').val() == data.child('kind').val() && newData.child('amountKrw').val() == data.child('amountKrw').val() && newData.child('languageKey').val() == data.child('languageKey').val() && newData.child('extraCount').val() == data.child('extraCount').val()) || (newData.parent().child('lastEntryId').isString() && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').isNumber() && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() < 0 && newData.parent().child('balance').isNumber() && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('balanceAfter').val() == newData.parent().child('balance').val() && newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() == newData.parent().child('balance').val() - (data.parent().child('balance').exists() ? data.parent().child('balance').val() : 0) && ((newData.child('kind').val() == 'hour' && newData.child('remainingSeconds').val() == 3600 && newData.child('amountKrw').val() == -1 * newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() && newData.child('amountKrw').val() == 15000 + 5000 * newData.child('extraCount').val()) || (newData.child('kind').val() == 'half' && newData.child('remainingSeconds').val() == 1800 && newData.child('amountKrw').val() == -1 * newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() && newData.child('amountKrw').val() == 7500 + 2500 * newData.child('extraCount').val()) || (data.exists() && newData.child('remainingSeconds').val() == data.child('remainingSeconds').val() && newData.child('remainingSeconds').val() > 0 && newData.child('kind').val() == data.child('kind').val() && newData.child('languageKey').val() != data.child('languageKey').val() && newData.child('extraCount').val() == data.child('extraCount').val() + (-1 * newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() / 5000) && newData.child('amountKrw').val() == data.child('amountKrw').val() + (-1 * newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val()) && (-1 * newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val()) % 5000 == 0 && -1 * newData.parent().child('ledger').child(newData.parent().child('lastEntryId').val()).child('deltaKrw').val() >= 5000))))"
+            }
+          },
+          "live": {
+            "settings": {
+              ".read": "root.child('live-interpret/churches').child($churchId).child('active').val() !== false || (auth != null && (auth.uid === root.child('live-interpret/admin/uid').val() || auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val()))",
+              ".write": "(auth != null && auth.uid === root.child('live-interpret/admin/uid').val() && !data.exists()) || (auth != null && auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val())"
+            },
+            "subtitles": {
+              ".read": "root.child('live-interpret/churches').child($churchId).child('active').val() !== false",
+              ".write": "auth != null && auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val() && root.child('live-interpret/churches').child($churchId).child('active').val() !== false"
+            },
+            "usage": {
+              ".write": "auth != null && auth.uid === root.child('live-interpret/churches').child($churchId).child('account/uid').val() && root.child('live-interpret/churches').child($churchId).child('active').val() !== false",
+              ".validate": "newData.hasChildren(['audioSeconds', 'churchKrw', 'apiKrw', 'updatedAt']) && newData.child('audioSeconds').isNumber() && newData.child('churchKrw').isNumber() && newData.child('apiKrw').isNumber() && newData.child('updatedAt').isNumber() && (!newData.child('chars').exists() || newData.child('chars').hasChildren()) && !newData.child('text').exists() && !newData.child('transcript').exists() && !newData.child('rate').exists()",
+              "chars": {
+                "$lang": {
+                  ".validate": "newData.isNumber()"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "church": {
+      "platform": {
+        "adminUid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.token.email == 'anyplan@me.com' && newData.val() == auth.uid && (!data.exists() || data.val() == auth.uid)"
+        }
+      },
+      "churchIndex": {
+        ".read": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val())",
+        ".write": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val())"
+      },
+      "accounts": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid == $uid || (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || root.child('church/accounts').child(auth.uid).child('churchId').val() == data.child('churchId').val())",
+          ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && newData.child('churchId').val() == root.child('church/accounts').child(auth.uid).child('churchId').val()))"
+        }
+      },
+      "churches": {
+        ".read": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val())",
+        "$churchId": {
+          ".read": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId)",
+          "meta": {
+            ".write": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val())"
+          },
+          "data": {
+            ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && (root.child('church/accounts').child(auth.uid).child('roles/prepare').val() == true || root.child('church/accounts').child(auth.uid).child('roles/run').val() == true || root.child('church/accounts').child(auth.uid).child('roles/output').val() == true || root.child('church/accounts').child(auth.uid).child('roles/directory').val() == true || root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true)))"
+          },
+          "files": {
+            ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true))"
+          },
+          "members": {
+            "$uid": {
+              ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && newData.child('churchId').val() == $churchId))"
+            }
+          }
+        }
+      }
+    }
+  }
+}
