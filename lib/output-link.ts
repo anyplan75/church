@@ -1,6 +1,6 @@
-import { patchOutputDirect, readDb, readOutputDirect } from "./app-db";
-import { cueLines, readSlideMessage, slideMessage } from "./output-cue";
-import { currentOutputHost, directCandidate, directDescription, thisComputer } from "./output-host";
+import { churchSnapshot, patchOutputDirect, readDb, readOutputDirect } from "./app-db";
+import { cueLines, readSlideMessage, slideMessage, type OutputLinkStatus } from "./output-cue";
+import { currentOutputHost, detectPrivateAddress, directCandidate, directDescription, isPrivateIpv4, OUTPUT_HOST_KEY, outputSignalHost, readStoredHost, thisComputer } from "./output-host";
 
 const ICE: RTCConfiguration = { iceServers: [] };
 const MODES = ["overlay", "main"] as const;
@@ -20,6 +20,7 @@ type Slot = {
   channel: RTCDataChannel;
   localSdp: string;
   posted: boolean;
+  offerAimed: boolean;
   answered: boolean;
   appliedAnswer: string;
   rejected: string;
@@ -40,6 +41,8 @@ let operatorTimer = 0;
 let operatorBusy = false;
 let linkGeneration = 0;
 let warned = "";
+let operatorLan = "";
+let operatorLanTried = false;
 
 function warnOnce(error: unknown) {
   const message = error instanceof Error ? error.message : "fail";
@@ -71,6 +74,7 @@ export function startOperatorLink(serviceId: string): () => void {
   rememberOperatorService(serviceId);
   if (typeof RTCPeerConnection === "undefined") return () => undefined;
   if (same) return () => undefined;
+  rememberOperatorLan();
   for (const slot of slots.values()) closeSlot(slot);
   slots.clear();
   const generation = ++linkGeneration;
@@ -128,7 +132,7 @@ export function startViewerLink(
   serviceId: string,
   mode: Mode,
   onLines: (lines: string[]) => void,
-  onStatus?: (status: "waiting" | "retry" | "direct") => void,
+  onStatus?: (status: OutputLinkStatus) => void,
 ): () => void {
   if (typeof RTCPeerConnection === "undefined") return () => undefined;
   let host = "";
@@ -144,10 +148,16 @@ export function startViewerLink(
   let opened = false;
   let viewGeneration = 0;
   let iceTimer = 0;
+  let reported: OutputLinkStatus = "waiting";
+  const report = (status: OutputLinkStatus) => {
+    if (reported === status) return;
+    reported = status;
+    onStatus?.(status);
+  };
   const markOpen = (generation: number) => () => {
     if (generation !== viewGeneration) return;
     opened = true;
-    onStatus?.("direct");
+    report("direct");
   };
   let pc = openViewer(serviceId, onLines, markOpen(viewGeneration));
 
@@ -197,19 +207,28 @@ export function startViewerLink(
 
   async function tick() {
     if (stop || busy) return;
-    const nextHost = thisComputer();
-    if (!nextHost) return;
+    const nextHost = viewerSignalHost();
+    if (!nextHost) {
+      report("no-ip");
+      return;
+    }
+    if (reported === "no-ip") report("waiting");
     busy = true;
     try {
       if (host && host !== nextHost) replacePc();
       host = nextHost;
       if (stop) return;
       if (down()) {
-        if (opened) onStatus?.("retry");
+        report(opened ? "retry" : answeredSdp ? "unreachable" : "waiting");
         replacePc();
       }
       const room = await readOutputDirect(host, mode);
-      if (stop || room === undefined) return;
+      if (stop) return;
+      if (room === undefined) {
+        report("no-signal");
+        return;
+      }
+      if (reported === "no-signal") report("waiting");
       const record = asRoom(room);
       const offer = sessionDesc(record.offer, "offer");
       if (offer?.sdp && offer.sdp !== answeredSdp) {
@@ -233,6 +252,7 @@ export function startViewerLink(
           answer: { type: "answer", sdp: localAnswer },
           answerIce: localIce.slice(-12),
         });
+        if (!posted) report("no-signal");
       }
       for (const item of iceList(record.offerIce)) {
         const key = item.candidate ?? "";
@@ -244,13 +264,13 @@ export function startViewerLink(
     } catch (error) {
       posted = false;
       warnOnce(error);
-      if (opened) onStatus?.("retry");
+      report(opened ? "retry" : "no-signal");
     } finally {
       busy = false;
     }
   }
 
-  onStatus?.("waiting");
+  report("waiting");
   void tick();
   const timer = window.setInterval(() => void tick(), 400);
   return () => {
@@ -365,13 +385,19 @@ async function publishLocalOffer(slot: Slot, host: string, mode: Mode, generatio
     slot.posted = false;
   }
   if (!slot.localSdp || generation !== linkGeneration) return false;
+  if (slot.posted && operatorLan && !slot.offerAimed && slot.channel.readyState !== "open") {
+    slot.offerAimed = await patchOutputDirect(host, mode, { offerIce: aimedLocalIce(slot, operatorLan) });
+  }
   if (!slot.posted) {
+    const lan = operatorLan;
     slot.posted = await patchOutputDirect(host, mode, {
       offer: { type: "offer", sdp: slot.localSdp },
-      offerIce: slot.localIce.slice(-12),
+      offerIce: aimedLocalIce(slot, lan),
       answer: null,
       answerIce: null,
     });
+    slot.offerAimed = Boolean(lan) && slot.posted;
+    if (!slot.posted) return false;
   }
   return true;
 }
@@ -386,6 +412,7 @@ function createSlot(serviceId: string, host: string, mode: Mode): Slot {
     channel,
     localSdp: "",
     posted: false,
+    offerAimed: false,
     answered: false,
     appliedAnswer: "",
     rejected: "",
@@ -405,7 +432,7 @@ function createSlot(serviceId: string, host: string, mode: Mode): Slot {
     window.clearTimeout(slot.iceTimer);
     slot.iceTimer = window.setTimeout(() => {
       if (!slot.localSdp) return;
-      void patchOutputDirect(host, mode, { offerIce: slot.localIce.slice(-12) }).catch(() => undefined);
+      void patchOutputDirect(host, mode, { offerIce: aimedLocalIce(slot, operatorLan) }).catch(() => undefined);
     }, 80);
   };
   return slot;
@@ -434,6 +461,25 @@ function sendLatest(serviceId: string) {
     if (slot.channel.readyState !== "open" || slot.channel.bufferedAmount > 8000) continue;
     slot.channel.send(payload);
   }
+}
+
+function viewerSignalHost(): string {
+  const live = churchSnapshot().db;
+  return outputSignalHost(live?.settings.outputHost, readStoredHost(OUTPUT_HOST_KEY), thisComputer());
+}
+
+function rememberOperatorLan() {
+  if (operatorLanTried || typeof RTCPeerConnection === "undefined") return;
+  operatorLanTried = true;
+  void detectPrivateAddress().then((found) => {
+    if (isPrivateIpv4(found)) operatorLan = found;
+  });
+}
+
+function aimedLocalIce(slot: Slot, lan: string): RTCIceCandidateInit[] {
+  const recent = slot.localIce.slice(-8);
+  if (!lan) return recent;
+  return [...recent, ...recent.map((item) => aimCandidate(item, lan))].slice(-16);
 }
 
 function aimCandidate(item: RTCIceCandidateInit, host: string): RTCIceCandidateInit {

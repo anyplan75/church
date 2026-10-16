@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cleanHost, directCandidate, directDescription, hostEntry, hostKey, isPrivateIpv4, numericAddressFromCandidate } from "./output-host.ts";
+import { cleanHost, directCandidate, directDescription, hostEntry, hostKey, isPrivateIpv4, numericAddressFromCandidate, outputSignalHost } from "./output-host.ts";
 
 describe("송출 컴퓨터 주소", () => {
   it("IP 주소만 받는다", () => {
@@ -46,5 +46,12 @@ describe("송출 컴퓨터 주소", () => {
     assert.deepEqual(hostEntry("192.168.0.10"), { host: "192.168.0.10", problem: "" });
     assert.equal(hostEntry("").problem, "");
     assert.equal(hostEntry("송출컴퓨터").problem, "invalid");
+  });
+
+  it("설정에 넣은 송출 컴퓨터 IP를 자기 칸보다 먼저 쓴다", () => {
+    assert.equal(outputSignalHost("192.168.0.10", "10.0.0.2", "10.1.1.1"), "192.168.0.10");
+    assert.equal(outputSignalHost("", "10.0.0.2", "10.1.1.1"), "10.0.0.2");
+    assert.equal(outputSignalHost("https://eunhye-church.surge.sh/output", "", "192.168.0.10"), "192.168.0.10");
+    assert.equal(outputSignalHost("", "", ""), "");
   });
 });

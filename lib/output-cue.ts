@@ -35,9 +35,14 @@ export function publishCue(serviceId: string, lines: string[]) {
   channel.close();
 }
 
-export function outputHoldText(status: "waiting" | "retry" | "direct"): string {
+export type OutputLinkStatus = "waiting" | "retry" | "direct" | "no-ip" | "no-signal" | "unreachable";
+
+export function outputHoldText(status: OutputLinkStatus): string {
   if (status === "direct") return "연결되었습니다.";
   if (status === "retry") return "다시 연결합니다.";
+  if (status === "no-ip") return "설정에 송출 컴퓨터 IP가 없습니다.";
+  if (status === "no-signal") return "직접 연결 신호를 보내지 못했습니다.";
+  if (status === "unreachable") return "송출 컴퓨터 IP로 연결하지 못했습니다.";
   return "조작 화면과 직접 연결 중입니다.";
 }
 

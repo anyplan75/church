@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { readDb, refreshChurchNow } from "@/lib/app-db";
 import { liveView, type LiveView } from "@/lib/live-view";
-import { outputHoldText } from "@/lib/output-cue";
+import { outputHoldText, type OutputLinkStatus } from "@/lib/output-cue";
 import { detectPrivateAddress, saveThisComputer, thisComputer } from "@/lib/output-host";
 import { startViewerLink } from "@/lib/output-link";
 
 export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?: "overlay" | "main" | "" }) {
   const [view, setView] = useState(initial);
   const [cue, setCue] = useState<string[] | null>(null);
-  const [link, setLink] = useState("waiting");
+  const [link, setLink] = useState<OutputLinkStatus>("waiting");
   const shown = mode === "overlay" ? "overlay" : "main";
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?
   }, [initial.serviceId]);
 
   const lines = cue ?? [];
-  const hold = lines.length === 0 ? outputHoldText(link === "direct" ? "direct" : link === "retry" ? "retry" : "waiting") : "";
+  const hold = lines.length === 0 ? outputHoldText(link) : "";
   const style = {
     backgroundColor: view.backgroundColor,
     backgroundImage: view.backgroundUrl ? `url("${view.backgroundUrl}")` : undefined,

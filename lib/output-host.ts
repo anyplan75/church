@@ -85,6 +85,10 @@ export function thisComputer(): string {
   return readStoredHost(THIS_COMPUTER_KEY);
 }
 
+export function outputSignalHost(settingsHost: unknown, storedHost: unknown, computerHost: unknown): string {
+  return cleanHost(settingsHost) || cleanHost(storedHost) || cleanHost(computerHost);
+}
+
 export function detectPrivateAddress(): Promise<string> {
   if (typeof RTCPeerConnection === "undefined") return Promise.resolve("");
   return new Promise((resolve) => {
@@ -101,8 +105,22 @@ export function detectPrivateAddress(): Promise<string> {
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
-      pc.close();
-      resolve(found);
+      void pc
+        .getStats()
+        .then((stats) => {
+          stats.forEach((report) => {
+            const record = report as { address?: unknown; relatedAddress?: unknown };
+            const address = cleanHost(record.address);
+            const related = cleanHost(record.relatedAddress);
+            if (!found && isPrivateIpv4(address)) found = address;
+            if (!found && isPrivateIpv4(related)) found = related;
+          });
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          pc.close();
+          resolve(found);
+        });
     };
     const timer = window.setTimeout(finish, 2500);
     pc.onicecandidate = (event) => {

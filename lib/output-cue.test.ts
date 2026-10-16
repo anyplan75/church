@@ -32,5 +32,15 @@ describe("송출 두 줄", () => {
     assert.equal(linked.includes("연결되었습니다"), true);
     assert.equal(linked.includes("끊"), false);
     assert.equal(linked.includes("미리보기"), false);
+    for (const status of ["no-ip", "no-signal", "unreachable"] as const) {
+      const reason = outputHoldText(status);
+      assert.equal(reason.includes("미리보기"), false);
+      assert.equal(reason.includes("끊"), false);
+      assert.equal(reason.split("\n").length, 1);
+      assert.equal(reason.length > 0, true);
+    }
+    assert.equal(outputHoldText("no-ip").includes("설정에 송출 컴퓨터 IP"), true);
+    assert.equal(outputHoldText("no-signal").includes("신호를 보내지 못했습니다"), true);
+    assert.equal(outputHoldText("unreachable").includes("송출 컴퓨터 IP로 연결하지 못했습니다"), true);
   });
 });
