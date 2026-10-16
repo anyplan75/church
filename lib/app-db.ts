@@ -85,6 +85,7 @@ let files = new Map<string, string>();
 let ready = false;
 let error = "";
 let booting: Promise<void> | null = null;
+let loadGeneration = 0;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let writeChain: Promise<void> = Promise.resolve();
 let writing = false;
@@ -120,26 +121,50 @@ export async function bootChurch() {
 }
 
 async function load() {
+  const generation = ++loadGeneration;
   forgetBrowserData();
   session = readStoredSession();
-  if (session) {
-    const refreshed = await firebaseRefresh(session.refreshToken).catch(() => null);
-    if (!refreshed) session = null;
-    else {
-      session = {
-        ...session,
-        accountId: refreshed.localId || session.accountId,
-        email: emailFromIdToken(refreshed.idToken) || refreshed.email || session.email,
-        idToken: refreshed.idToken,
-        refreshToken: refreshed.refreshToken,
-        expiresAt: refreshed.expiresAt,
-      };
+  try {
+    if (session) {
+      const refreshed = await refreshShared(session.refreshToken);
+      if (generation !== loadGeneration) return;
+      if (!refreshed) clearSession();
+      else {
+        session = {
+          ...session,
+          accountId: refreshed.localId || session.accountId,
+          email: emailFromIdToken(refreshed.idToken) || refreshed.email || session.email,
+          idToken: refreshed.idToken,
+          refreshToken: refreshed.refreshToken,
+          expiresAt: refreshed.expiresAt,
+        };
+        const adopted = await adoptSession(session);
+        if (generation !== loadGeneration) return;
+        if (!adopted) clearSession();
+      }
     }
+    if (generation !== loadGeneration) return;
+    ready = true;
+    emit();
+    startPoll();
+  } catch (reason) {
+    if (generation !== loadGeneration) return;
+    if (reason instanceof DatabasePermissionError) {
+      clearSession();
+      ready = true;
+      emit();
+      startPoll();
+      return;
+    }
+    ready = false;
+    error = "다시 연결합니다.";
+    emit();
+    window.setTimeout(() => {
+      if (generation !== loadGeneration) return;
+      booting = null;
+      void load();
+    }, 800);
   }
-  if (session) await adoptSession(session).catch(() => clearSession());
-  ready = true;
-  emit();
-  if (!pollTimer && typeof window !== "undefined") pollTimer = setInterval(() => void refreshRemote(), 4000);
 }
 
 function forgetBrowserData() {
@@ -588,12 +613,68 @@ async function refreshRemote() {
 
 async function currentToken(): Promise<string> {
   if (!session) throw new Error("auth");
-  if (session.expiresAt > Date.now() + 60_000) return session.idToken;
-  const refreshed = await firebaseRefresh(session.refreshToken);
+  if (session.expiresAt > Date.now() + 60_000 && session.idToken) return session.idToken;
+  const refreshed = await refreshShared(session.refreshToken);
   if (!refreshed) throw new Error("auth");
-  session = { ...session, idToken: refreshed.idToken, refreshToken: refreshed.refreshToken, expiresAt: refreshed.expiresAt };
+  if (!session) throw new Error("auth");
+  session = {
+    ...session,
+    accountId: refreshed.localId || session.accountId,
+    email: emailFromIdToken(refreshed.idToken) || refreshed.email || session.email,
+    idToken: refreshed.idToken,
+    refreshToken: refreshed.refreshToken,
+    expiresAt: refreshed.expiresAt,
+  };
   persistSession();
   return session.idToken;
+}
+
+async function refreshShared(refreshToken: string): Promise<FirebaseSession | null> {
+  const run = async () => {
+    const stored = readStoredSession();
+    const memory = session && session.idToken && session.expiresAt > Date.now() + 60_000 ? session : null;
+    const storedFresh = stored && stored.idToken && stored.expiresAt > Date.now() + 60_000 ? stored : null;
+    const fresh = memory || storedFresh;
+    if (fresh?.idToken) {
+      return {
+        localId: fresh.accountId,
+        email: fresh.email,
+        idToken: fresh.idToken,
+        refreshToken: fresh.refreshToken,
+        expiresAt: fresh.expiresAt,
+      };
+    }
+    const token = stored?.refreshToken || refreshToken;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const refreshed = await firebaseRefresh(token);
+        if (!refreshed) return null;
+        if (session) {
+          session = {
+            ...session,
+            accountId: refreshed.localId || session.accountId,
+            email: emailFromIdToken(refreshed.idToken) || refreshed.email || session.email,
+            idToken: refreshed.idToken,
+            refreshToken: refreshed.refreshToken,
+            expiresAt: refreshed.expiresAt,
+          };
+          persistSession();
+        }
+        return refreshed;
+      } catch (reason) {
+        lastError = reason;
+        await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("Failed to fetch");
+  };
+  if (typeof navigator !== "undefined" && navigator.locks) return navigator.locks.request("church-token-refresh", run);
+  return run();
+}
+
+function startPoll() {
+  if (!pollTimer && typeof window !== "undefined") pollTimer = setInterval(() => void refreshRemote(), 4000);
 }
 
 function sessionFromAuth(remote: FirebaseSession, kind: "platform" | "church", churchId: string | null, roles: Role[]): Session {
@@ -621,6 +702,8 @@ function persistSession() {
     accountId: session.accountId,
     email: session.email,
     refreshToken: session.refreshToken,
+    idToken: session.idToken,
+    expiresAt: session.expiresAt,
     kind: session.kind,
     churchId: session.churchId,
   };
@@ -638,8 +721,8 @@ function readStoredSession(): Session | null {
       email: parsed.email,
       roles: [],
       refreshToken: parsed.refreshToken,
-      idToken: "",
-      expiresAt: 0,
+      idToken: typeof parsed.idToken === "string" ? parsed.idToken : "",
+      expiresAt: Number(parsed.expiresAt) || 0,
       kind: parsed.kind,
       churchId: parsed.churchId || null,
     };

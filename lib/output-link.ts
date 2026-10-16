@@ -1,7 +1,9 @@
 import { clearOutputRoom, patchOutputRoom, readOutputRoom } from "./app-db";
 import { cueLines, publishCue, readSlideMessage, slideMessage } from "./output-cue";
 
-const ICE: RTCConfiguration = { iceServers: [] };
+const ICE: RTCConfiguration = {
+  iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }],
+};
 const VIEWER_ID = /^v[a-z0-9]{6,12}$/;
 
 type Room = {
@@ -14,6 +16,8 @@ type OperatorPeer = {
   channel: RTCDataChannel;
   offered: boolean;
   answered: boolean;
+  started: number;
+  rejected: string;
   localIce: RTCIceCandidateInit[];
   seenRemote: Set<string>;
   queuedRemote: RTCIceCandidateInit[];
@@ -38,10 +42,7 @@ export function publishLinesNow(serviceId: string, lines: string[]) {
   latest = { serviceId, lines: cue };
   publishCue(serviceId, cue);
   if (typeof RTCPeerConnection === "undefined") return;
-  const payload = slideMessage(serviceId, cue);
-  for (const peer of peers.values()) {
-    if (peer.channel.readyState === "open") peer.channel.send(payload);
-  }
+  sendLatest(serviceId);
 }
 
 export function startOperatorLink(serviceId: string): () => void {
@@ -159,9 +160,13 @@ export function startViewerLink(serviceId: string, onLines: (lines: string[]) =>
 function openViewer(serviceId: string, onLines: (lines: string[]) => void): RTCPeerConnection {
   const pc = new RTCPeerConnection(ICE);
   pc.ondatachannel = (event) => {
-    event.channel.onmessage = (message) => {
-      const lines = readSlideMessage(String(message.data), serviceId);
-      if (lines !== null) onLines(lines);
+    const channel = event.channel;
+    channel.binaryType = "arraybuffer";
+    channel.onmessage = (message) => {
+      void frameText(message.data).then((raw) => {
+        const lines = readSlideMessage(raw, serviceId);
+        if (lines !== null) onLines(lines);
+      });
     };
   };
   return pc;
@@ -197,12 +202,7 @@ async function operatorTick() {
       peers.get(id)?.pc.close();
       peers.delete(id);
     }
-    if (latest.serviceId === serviceId) {
-      const payload = slideMessage(serviceId, latest.lines);
-      for (const peer of peers.values()) {
-        if (peer.channel.readyState === "open") peer.channel.send(payload);
-      }
-    }
+    sendLatest(serviceId);
   } catch (error) {
     warnOnce(error);
   } finally {
@@ -217,7 +217,7 @@ async function ensureOffer(
   posted: { offer?: unknown } | undefined,
 ) {
   let peer = peers.get(id);
-  if (!peer || peer.pc.connectionState === "failed") {
+  if (!peer || peerDown(peer)) {
     peer?.pc.close();
     peer = createOperatorPeer(serviceId, id);
     peers.set(id, peer);
@@ -241,13 +241,13 @@ async function ensureOffer(
     });
   }
   const answer = sessionDesc(viewer.answer, "answer");
-  if (answer && !peer.answered && peer.pc.signalingState === "have-local-offer") {
+  if (answer && answer.sdp !== peer.rejected && !peer.answered && peer.pc.signalingState === "have-local-offer") {
     try {
       await peer.pc.setRemoteDescription(answer);
       peer.answered = true;
       for (const item of peer.queuedRemote.splice(0)) await peer.pc.addIceCandidate(item).catch(() => undefined);
     } catch {
-      /* 응답이 이번 제안과 맞지 않으면 다음 제안에 다시 받습니다. */
+      peer.rejected = answer.sdp ?? "";
     }
   }
   for (const item of iceList(viewer.ice)) {
@@ -267,6 +267,8 @@ function createOperatorPeer(serviceId: string, id: string): OperatorPeer {
     channel,
     offered: false,
     answered: false,
+    started: Date.now(),
+    rejected: "",
     localIce: [],
     seenRemote: new Set(),
     queuedRemote: [],
@@ -288,12 +290,38 @@ function createOperatorPeer(serviceId: string, id: string): OperatorPeer {
 }
 
 function viewerId(): string {
-  const existing = sessionStorage.getItem("church-output-viewer");
+  const key = `church-output-viewer:${location.pathname}:${location.search}`;
+  const existing = sessionStorage.getItem(key);
   if (existing && VIEWER_ID.test(existing)) return existing;
   const bytes = crypto.getRandomValues(new Uint8Array(8));
   const created = `v${Array.from(bytes, (byte) => (byte % 36).toString(36)).join("")}`;
-  sessionStorage.setItem("church-output-viewer", created);
+  sessionStorage.setItem(key, created);
   return created;
+}
+
+function peerDown(peer: OperatorPeer): boolean {
+  const state = peer.pc.connectionState;
+  const ice = peer.pc.iceConnectionState;
+  if (state === "failed" || state === "closed" || ice === "failed" || ice === "closed") return true;
+  if (peer.channel.readyState === "open") return false;
+  const checking = ice === "checking" || ice === "connected" || ice === "completed" || state === "connecting" || state === "connected";
+  return Date.now() - peer.started > (checking ? 20000 : 12000);
+}
+
+function sendLatest(serviceId: string) {
+  if (latest.serviceId !== serviceId || typeof RTCPeerConnection === "undefined") return;
+  const payload = slideMessage(serviceId, latest.lines);
+  for (const peer of peers.values()) {
+    if (peer.channel.readyState !== "open" || peer.channel.bufferedAmount > 8000) continue;
+    peer.channel.send(payload);
+  }
+}
+
+async function frameText(data: unknown): Promise<string> {
+  if (typeof data === "string") return data;
+  if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
+  if (typeof Blob !== "undefined" && data instanceof Blob) return data.text();
+  return "";
 }
 
 function asRoom(value: unknown): Room {
@@ -305,14 +333,14 @@ function sessionDesc(value: unknown, type: "offer" | "answer"): RTCSessionDescri
   if (!value || typeof value !== "object") return null;
   const record = value as { type?: unknown; sdp?: unknown };
   if (record.type !== type || typeof record.sdp !== "string") return null;
-  if (record.sdp.length < 20 || record.sdp.length > 20000) return null;
+  if (record.sdp.length < 20 || record.sdp.length > 100000) return null;
   return { type, sdp: record.sdp };
 }
 
 function waitGather(pc: RTCPeerConnection): Promise<void> {
   if (pc.iceGatheringState === "complete") return Promise.resolve();
   return new Promise((resolve) => {
-    const timer = window.setTimeout(finish, 2500);
+    const timer = window.setTimeout(finish, 4000);
     function finish() {
       pc.removeEventListener("icegatheringstatechange", onChange);
       window.clearTimeout(timer);

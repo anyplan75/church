@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { readDb, refreshChurchNow } from "@/lib/app-db";
 import { liveView, type LiveView } from "@/lib/live-view";
-import { outputHoldText, subscribeCue } from "@/lib/output-cue";
+import { outputHoldText } from "@/lib/output-cue";
 import { startViewerLink } from "@/lib/output-link";
 
 export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?: "overlay" | "main" }) {
@@ -11,13 +11,6 @@ export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?
   const [cue, setCue] = useState<string[] | null>(null);
   const [link, setLink] = useState("waiting");
 
-  useEffect(
-    () =>
-      subscribeCue(initial.serviceId, (lines) => {
-        setCue((current) => (sameLines(current, lines) ? current : lines));
-      }),
-    [initial.serviceId],
-  );
   useEffect(
     () =>
       startViewerLink(
