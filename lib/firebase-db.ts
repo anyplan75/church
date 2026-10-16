@@ -29,7 +29,7 @@ async function request(relative: string, idToken: string, method: string, body?:
   });
   if (response.status === 401 || response.status === 403) throw new DatabasePermissionError();
   const text = await response.text();
-  if (!response.ok) throw new Error("database");
+  if (!response.ok) throw new Error(`database ${response.status} ${text.replace(/\s+/g, " ").slice(0, 120)}`);
   if (!text) return null;
   return JSON.parse(text) as unknown;
 }
@@ -40,4 +40,8 @@ export function dbGet<T>(relative: string, idToken: string): Promise<T | null> {
 
 export function dbSet(relative: string, value: unknown, idToken: string): Promise<void> {
   return request(relative, idToken, "PUT", value).then(() => undefined);
+}
+
+export function dbPatch(relative: string, value: unknown, idToken: string): Promise<void> {
+  return request(relative, idToken, "PATCH", value).then(() => undefined);
 }

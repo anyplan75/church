@@ -7,6 +7,7 @@ import { addRosterPerson, copyServiceNextWeek, deleteService, saveService } from
 import { START_BLOCKED, settingsReady } from "@/lib/simple";
 import { ITEM_KINDS, SERVICE_TYPES, type ItemKind, type Person, type Reminder, type Service, type Settings, type Song } from "@/lib/types";
 import { assignmentProgress, createItem, kindLabel, reorder, songOptionLabel, templateItems } from "@/lib/worship";
+import { LocalTextPanel } from "./local-text-panel";
 import { FolderMatchLine, LibraryUseSteps, useServiceFolder } from "./service-folder";
 import { OutputLinks } from "./output-links";
 import { StatusBadge } from "./status-badge";
@@ -420,6 +421,7 @@ export function ServiceEditor({
                 ) : null}
                 <div className="mt-2">
                   <FolderMatchLine fill={folder.fills[item.id]} loaded={folder.loaded} />
+                  <LocalTextPanel item={item} song={songs.find((song) => song.id === item.songId)} onSaved={folder.reload} />
                 </div>
                 <div className="mt-2 grid gap-2 md:grid-cols-2">
                   {item.kind === "scripture" || item.kind === "sermon" || item.scripture ? (

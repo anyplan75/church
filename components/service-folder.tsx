@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { readFolderFill } from "@/lib/local-files";
+import { readFolderFill, subscribePassageSaved } from "@/lib/local-files";
 import { libraryMatchText, libraryQuery, LIBRARY_STEPS, searchedLabel, type LibraryQuery } from "@/lib/local-library";
 import type { Service, Song } from "@/lib/types";
 
@@ -18,6 +18,8 @@ export function useServiceFolder(service: Service | null, songs: Song[]) {
     .join("|");
   const [loaded, setLoaded] = useState(false);
   const [fills, setFills] = useState<Record<string, ServiceFill>>({});
+  const [tick, setTick] = useState(0);
+  useEffect(() => subscribePassageSaved(() => setTick((value) => value + 1)), []);
   useEffect(() => {
     let cancel = false;
     const targets = items.flatMap((item) => {
@@ -43,8 +45,8 @@ export function useServiceFolder(service: Service | null, songs: Song[]) {
     return () => {
       cancel = true;
     };
-  }, [signature]);
-  return { loaded, fills };
+  }, [signature, tick]);
+  return { loaded, fills, reload: () => setTick((value) => value + 1) };
 }
 
 export function FolderMatchLine({ fill, loaded, light = false }: { fill: ServiceFill | undefined; loaded: boolean; light?: boolean }) {

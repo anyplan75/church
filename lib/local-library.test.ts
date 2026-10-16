@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { bibleBook, emptyTemplate, fileMatchesQuery, fileSlides, folderStatusText, libraryMatchText, libraryQuery, nameContains, passageFromBook, previewLine, readableLines, scriptureKey, searchedLabel, SLIDE_LINE, splitSlides, textFileBody, twoLineSlides, verseSlides } from "./local-library.ts";
+import { bibleBook, emptyTemplate, fileMatchesQuery, fileSlides, folderStatusText, libraryMatchText, libraryQuery, nameContains, passageFromBook, previewLine, readableLines, savedFileText, scriptureKey, searchedLabel, SLIDE_LINE, splitSlides, textFileBody, twoLineSlides, verseSlides } from "./local-library.ts";
 import { buildDesk } from "./slide-show.ts";
 import { buildSeed } from "./seed.ts";
 
@@ -16,6 +16,10 @@ describe("교회 컴퓨터 텍스트", () => {
     const hymn = libraryQuery({ kind: "hymn", title: "찬송", scripture: "" }, { title: "복의 근원 강림하사", hymnNumber: "28" });
     assert.equal(hymn?.kind, "hymn");
     assert.equal(textFileBody(hymn!, "").includes("강림하사\n\n\n"), true);
+    const edited = savedFileText("하늘이 맑다\r\n들이 푸르다\r");
+    assert.equal(edited, "하늘이 맑다\n들이 푸르다\n");
+    assert.equal(edited.includes("찬송"), false);
+    assert.deepEqual(fileSlides(hymn!, edited), ["하늘이 맑다\n들이 푸르다"]);
   });
 
   it("찾은 글이 있을 때만 그룹 안 슬라이드를 나눈다", () => {

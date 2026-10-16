@@ -1,125 +1,129 @@
 "use client";
 
-import { useState } from "react";
-import { emptyTemplate, fileMatchesQuery, libraryQuery, preferredFileName, splitSlides, textFileBody, type LibraryQuery } from "@/lib/local-library";
-import { confirmLocalText, findLocalText, linkLocalFolder, localFolderLinked, saveLocalText } from "@/lib/local-files";
+import { useEffect, useState } from "react";
+import { emptyTemplate, fileSlides, folderStatusText, libraryQuery } from "@/lib/local-library";
+import { linkLocalFolder, notifyPassageSaved, readPassage, writePassageFile } from "@/lib/local-files";
 import type { Song, WorshipItem } from "@/lib/types";
 
-export function LocalTextPanel({ item, song }: { item: WorshipItem; song?: Song }) {
+export function LocalTextPanel({ item, song, onSaved }: { item: WorshipItem; song?: Song; onSaved?: () => void }) {
   const query = libraryQuery(item, song);
-  const [linked, setLinked] = useState(false);
-  const [foundName, setFoundName] = useState("");
-  const [foundText, setFoundText] = useState("");
-  const [writing, setWriting] = useState(false);
-  const [draft, setDraft] = useState("");
+  const [text, setText] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [state, setState] = useState<"loading" | "connected" | "idle" | "unsupported" | "reconnect">("loading");
+  const [slides, setSlides] = useState<string[]>([]);
   const [message, setMessage] = useState("");
-  if (!query) return null;
-  const template = emptyTemplate(query);
+  const [saving, setSaving] = useState(false);
+  const template = query ? emptyTemplate(query) : null;
+  const signature = query ? `${query.kind}\n${query.hymnNumber}\n${query.scripture}\n${query.title}` : "";
+
+  useEffect(() => {
+    if (!query) return;
+    const current = query;
+    let cancel = false;
+    void readPassage(current).then((result) => {
+      if (cancel) return;
+      if (result.state !== "connected") {
+        setState(result.state);
+        setText("");
+        setFileName(null);
+        return;
+      }
+      setState("connected");
+      setFileName(result.fileName);
+      setText(result.text);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [signature]);
+
+  if (!query || !template) return null;
 
   async function connect() {
     setMessage("");
-    const ok = await linkLocalFolder();
-    setLinked(ok);
-    if (!ok) setMessage("이 브라우저에서는 컴퓨터 폴더를 연결할 수 없습니다.");
-  }
-
-  async function search() {
-    setMessage("");
-    const ready = linked || (await localFolderLinked());
-    setLinked(ready);
-    if (!ready) {
-      setMessage("먼저 이 컴퓨터의 텍스트 폴더를 연결해 주세요.");
+    const ok = await linkLocalFolder(query!.kind);
+    if (!ok) {
+      setState("reconnect");
+      setMessage("폴더 권한이 없습니다. 다시 연결해 주세요.");
       return;
     }
-    const hit = await findLocalText(query!);
-    if (!hit) {
-      setFoundName("");
-      setFoundText("");
-      setWriting(true);
-      setDraft("");
-      setMessage("이 컴퓨터에서 해당하는 txt를 찾지 못했습니다. 빈 칸에 직접 쓸 수 있습니다.");
+    const result = await readPassage(query!);
+    if (result.state !== "connected") {
+      setState(result.state);
+      setMessage(result.state === "reconnect" ? "폴더 권한이 없습니다. 다시 연결해 주세요." : "이 컴퓨터의 폴더를 연결해 주세요.");
       return;
     }
-    setFoundName(hit.fileName);
-    setFoundText(hit.text);
-    setWriting(false);
-    setMessage("");
-  }
-
-  async function accept() {
-    await confirmLocalText(query!, foundText);
-    setMessage("이 컴퓨터에서만 슬라이드에 씁니다. 서버로는 올리지 않습니다.");
-  }
-
-  function reject() {
-    setWriting(true);
-    setDraft("");
-    setFoundText("");
+    setState("connected");
+    setFileName(result.fileName);
+    setText(result.text);
   }
 
   async function save() {
-    const body = textFileBody(query!, draft);
-    const saved = await saveLocalText(preferredFileName(query!), body, query!.kind);
-    if (!saved) {
-      setMessage("이 컴퓨터에 저장하지 못했습니다.");
+    if (!query) return;
+    setSaving(true);
+    setMessage("");
+    const saved = await writePassageFile(query, text, fileName);
+    setSaving(false);
+    if (!saved.ok) {
+      setState(saved.state);
+      setMessage(saved.state === "reconnect" ? "폴더 권한이 없습니다. 다시 연결해 주세요." : "이 컴퓨터의 폴더를 연결해 주세요.");
       return;
     }
-    await confirmLocalText(query!, draft);
-    setMessage(`${saved} 파일로 이 컴퓨터에만 저장했습니다.`);
-    setWriting(false);
+    setFileName(saved.fileName);
+    setSlides(fileSlides(query, text));
+    setMessage(`${saved.fileName}에 저장했습니다. 이 예배 슬라이드를 다시 만들었습니다.`);
+    onSaved?.();
+    notifyPassageSaved();
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-4">
+    <section className="mt-3 rounded-2xl border border-line bg-white p-4" data-passage-editor={query.kind}>
       <h3 className="font-semibold">{template.caption}</h3>
-      <p className="mt-1 text-sm text-muted">제목, 찬송가 장 번호, 성경 장·절로 이 컴퓨터의 txt를 찾습니다. 본문은 서버에 올리지 않습니다.</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" className="btn btn-quiet" onClick={() => void connect()}>
-          텍스트 폴더 연결
-        </button>
-        <button type="button" className="btn btn-quiet" onClick={() => void search()}>
-          이 컴퓨터에서 찾기
-        </button>
-      </div>
-      {foundText && !writing ? (
-        <div className="mt-4">
-          <p className="text-sm text-muted">{foundName} · 이 내용이 맞습니까?</p>
-          <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-paper p-3 text-sm">{foundText}</pre>
-          <div className="mt-3 flex gap-2">
-            <button type="button" className="btn btn-primary" onClick={() => void accept()}>
-              맞습니다
-            </button>
-            <button type="button" className="btn btn-quiet" onClick={reject}>
-              다릅니다. 새로 작성
-            </button>
-          </div>
-        </div>
-      ) : null}
-      {writing ? (
-        <form
-          className="mt-4 space-y-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
-        >
-          <p className="text-sm text-muted">빈 {template.bodyLabel} 칸입니다. 앱이 가사나 성경 본문을 넣어 두지 않습니다.</p>
+      <p className="mt-1 text-sm text-muted">이 예배에서 불러온 글입니다. 고친 내용은 연결된 폴더의 txt에만 저장하고, 서버나 앱에는 남기지 않습니다.</p>
+      {state === "loading" ? <p className="mt-3 text-sm text-muted">파일을 읽는 중</p> : null}
+      {state === "connected" ? (
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-muted" data-passage-file={fileName || "new"}>
+            {fileName || `${template.fileName} · 새 파일`}
+          </p>
           <label className="field">
             <span>{template.bodyLabel}</span>
-            <textarea className="textarea" value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={4000} />
+            <textarea className="textarea min-h-40" value={text} onChange={(event) => setText(event.target.value)} spellCheck={false} data-passage-text />
           </label>
-          <button type="submit" className="btn btn-primary">
-            이 컴퓨터에 txt로 저장
+          <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
+            {saving ? "저장 중" : "파일에 저장"}
           </button>
-        </form>
+        </div>
       ) : null}
-      {message ? <p className="mt-3 text-sm text-pine">{message}</p> : null}
-      <MatchHint query={query} />
+      {state === "reconnect" || state === "idle" || state === "unsupported" ? (
+        <div className="mt-3">
+          <p className="text-sm text-wine">{state === "unsupported" ? "이 브라우저에서는 폴더를 연결할 수 없습니다." : folderStatusText({ state, folderName: "", txtCount: 0, names: [] })}</p>
+          {state === "unsupported" ? null : (
+            <button type="button" className="btn btn-quiet mt-2" onClick={() => void connect()}>
+              {state === "reconnect" ? "다시 연결" : "폴더 연결"}
+            </button>
+          )}
+        </div>
+      ) : null}
+      {message ? (
+        <p className="mt-3 text-sm text-pine" data-passage-saved={message.includes("저장했습니다") ? "yes" : undefined}>
+          {message}
+        </p>
+      ) : null}
+      {slides.length > 0 ? (
+        <div className="mt-4 space-y-2" data-passage-slides={String(slides.length)}>
+          <p className="text-sm text-muted">다시 만든 슬라이드</p>
+          {slides.slice(0, 4).map((slide, index) => (
+            <div key={`${index}-${slide.slice(0, 12)}`} className="rounded-xl bg-[#10241f] px-4 py-3 text-center text-[#f6f1e6]">
+              {slide.split("\n").map((line) => (
+                <p key={line} className="slide-line">
+                  {line}
+                </p>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
-}
-
-function MatchHint({ query }: { query: LibraryQuery }) {
-  const sample = query.kind === "hymn" ? "찬송-28.txt" : query.kind === "bible" ? "bible-이사야-40-28.txt" : "찬양-제목.txt";
-  return <p className="mt-3 text-xs text-muted">파일 이름 예: {sample}. {fileMatchesQuery(sample, query) ? "" : ""}</p>;
 }

@@ -10,6 +10,23 @@ type CueMessage = { serviceId: string; lines: string[] };
 
 const CHANNEL = "church-output-cue";
 
+export function slideMessage(serviceId: string, lines: string[]): string {
+  return JSON.stringify({ serviceId, lines: cueLines(lines) });
+}
+
+export function readSlideMessage(raw: string, serviceId: string): string[] | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const record = data as { serviceId?: unknown; lines?: unknown };
+  if (record.serviceId !== serviceId || !Array.isArray(record.lines)) return null;
+  return cueLines(record.lines.map((line) => String(line)));
+}
+
 export function publishCue(serviceId: string, lines: string[]) {
   if (typeof BroadcastChannel === "undefined") return;
   const channel = new BroadcastChannel(CHANNEL);
