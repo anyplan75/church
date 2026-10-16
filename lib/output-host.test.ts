@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cleanHost, directCandidate, directDescription, hostKey, isPrivateIpv4, numericAddressFromCandidate } from "./output-host.ts";
+import { cleanHost, directCandidate, directDescription, hostEntry, hostKey, isPrivateIpv4, numericAddressFromCandidate } from "./output-host.ts";
 
 describe("송출 컴퓨터 주소", () => {
   it("IP 주소만 받는다", () => {
@@ -36,5 +36,15 @@ describe("송출 컴퓨터 주소", () => {
     assert.equal(numericAddressFromCandidate("candidate:1 1 udp 1 8.8.8.8 9 typ srflx raddr 192.168.0.10 rport 2"), "192.168.0.10");
     assert.equal(numericAddressFromCandidate("candidate:1 1 udp 1 8.8.8.8 9 typ srflx raddr 0.0.0.0 rport 2"), "");
     assert.equal(numericAddressFromCandidate("candidate:1 1 udp 1 abcd.local 9 typ host"), "");
+  });
+
+  it("페이지 주소는 192.168 주소가 아니라고 가른다", () => {
+    const page = "https://eunhye-church.surge.sh/services/e554924c-79ae-47ff-8374-b43f55338c8b/output/?mode=overlay";
+    assert.equal(hostEntry(page).problem, "url");
+    assert.equal(hostEntry(page).host, "");
+    assert.equal(hostEntry("eunhye-church.surge.sh/services/x/output").problem, "url");
+    assert.deepEqual(hostEntry("192.168.0.10"), { host: "192.168.0.10", problem: "" });
+    assert.equal(hostEntry("").problem, "");
+    assert.equal(hostEntry("송출컴퓨터").problem, "invalid");
   });
 });

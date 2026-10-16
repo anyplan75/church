@@ -22,9 +22,7 @@ export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?
         setCue((current) => (sameLines(current, lines) ? current : lines));
         setLink("direct");
       },
-      (status) => {
-        if (status === "retry") setLink((current) => (current === "direct" ? current : "retry"));
-      },
+      (status) => setLink(status),
     );
   }, [initial.serviceId, mode]);
 
@@ -45,7 +43,7 @@ export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?
   }, [initial.serviceId]);
 
   const lines = cue ?? [];
-  const hold = lines.length === 0 && link !== "direct" ? outputHoldText(link === "retry" ? "retry" : "waiting") : "";
+  const hold = lines.length === 0 ? outputHoldText(link === "direct" ? "direct" : link === "retry" ? "retry" : "waiting") : "";
   const style = {
     backgroundColor: view.backgroundColor,
     backgroundImage: view.backgroundUrl ? `url("${view.backgroundUrl}")` : undefined,

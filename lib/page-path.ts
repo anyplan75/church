@@ -34,3 +34,11 @@ export function go(path: string): never {
   if (typeof window !== "undefined") window.location.assign(target);
   throw new Error("NAV");
 }
+
+export function stay(path: string) {
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  const target = navigationTarget(path, pathname);
+  if (typeof window === "undefined") return;
+  window.history.pushState(null, "", target);
+  window.dispatchEvent(new Event("church-nav"));
+}

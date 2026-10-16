@@ -27,5 +27,10 @@ describe("송출 두 줄", () => {
     assert.equal(retry.includes("폴더"), false);
     assert.equal(waiting.includes("직접 연결"), true);
     assert.equal(retry.includes("다시 연결"), true);
+    assert.equal(retry.includes("끊"), false);
+    const linked = outputHoldText("direct");
+    assert.equal(linked.includes("연결되었습니다"), true);
+    assert.equal(linked.includes("끊"), false);
+    assert.equal(linked.includes("미리보기"), false);
   });
 });

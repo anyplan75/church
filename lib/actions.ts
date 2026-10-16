@@ -1,12 +1,12 @@
 import { serviceSaveBlock } from "./access";
-import { publishLinesNow } from "./output-link";
-import { cleanHost, saveOutputHost } from "./output-host";
+import { publishLinesNow, kickOperatorLink } from "./output-link";
+import { hostEntry, saveOutputHost } from "./output-host";
 import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
 import { START_BLOCKED, captionFont, categoryMembership, fullscreenStep, settingsReady, setupComplete } from "./simple";
 import { BULLETIN_UPLOAD_BYTES, extractUploadedText } from "./extract-text";
-import { go } from "./page-path";
+import { go, stay } from "./page-path";
 import { syncReminders } from "./reminders";
 import { isOverlayPosition } from "./db-shape";
 import type { Db, Office, PersonCategory, Service, ServiceStatus, SongLicense } from "./types";
@@ -400,17 +400,29 @@ export async function deleteSong(formData: FormData) {
 export async function updateSettings(formData: FormData) {
   await requireMutation("mutate.admin");
   const churchName = cleanText(formData.get("churchName"), 40);
-  if (!churchName) go("/settings?error=empty");
+  if (!churchName) {
+    stay("/settings?error=empty");
+    return;
+  }
   const overlayValue = cleanText(formData.get("overlay"), 12);
   const color = cleanText(formData.get("backgroundColor"), 7);
-  const rawHost = cleanText(formData.get("outputHost"), 40);
-  const outputHost = cleanHost(rawHost);
-  if (rawHost && !outputHost) go("/settings?error=host");
+  const rawHost = cleanText(formData.get("outputHost"), 200);
+  const entry = hostEntry(rawHost);
+  if (entry.problem === "url") {
+    stay("/settings?error=url");
+    return;
+  }
+  if (entry.problem === "invalid") {
+    stay("/settings?error=host");
+    return;
+  }
+  const outputHost = entry.host;
   let savedName: string | null = null;
   try {
     savedName = await storeBackground(formData.get("background"));
   } catch {
-    go("/settings?error=image");
+    stay("/settings?error=image");
+    return;
   }
   saveOutputHost(outputHost);
   updateDb((db) => {
@@ -426,9 +438,10 @@ export async function updateSettings(formData: FormData) {
     db.settings.outputHost = outputHost || undefined;
     syncReminders(db);
   });
+  kickOperatorLink();
   await flushChurchWrite();
   refreshService();
-  go("/settings?saved=1");
+  stay("/settings?saved=1");
 }
 
 export async function saveLibrary(formData: FormData) {
