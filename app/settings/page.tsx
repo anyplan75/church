@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AccountPanel } from "@/components/account-panel";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { deleteGroup, finishSetup, saveGroup, updateSettings } from "@/lib/actions";
 import { listAccounts, storedBackgroundUrl } from "@/lib/app-db";
+import { hostEntry } from "@/lib/output-host";
 import { formatVisit, settingsReady, setupComplete } from "@/lib/simple";
 
 const OVERLAYS = [
@@ -17,10 +19,17 @@ const OVERLAYS = [
 export default function SettingsPage() {
   const { ready, user, db } = useChurch();
   const query = useClientQuery();
+  const [hostDraft, setHostDraft] = useState("");
+  const [hostTouched, setHostTouched] = useState(false);
+  useEffect(() => {
+    if (!db || hostTouched) return;
+    setHostDraft(db.settings.outputHost || "");
+  }, [db, hostTouched]);
   if (!ready || !user || !db) return null;
   const settings = db.settings;
   const accounts = listAccounts();
   const missing = setupGaps(settings);
+  const hostProblem = hostEntry(hostDraft).problem;
 
   return (
     <div className="page max-w-3xl">
@@ -30,6 +39,7 @@ export default function SettingsPage() {
       {query.saved ? <p className="mt-4 text-sm text-pine">설정을 저장했습니다.</p> : null}
       {query.error === "empty" ? <p className="mt-4 text-sm text-wine">교회 이름을 입력해 주세요.</p> : null}
       {query.error === "host" ? <p className="mt-4 text-sm text-wine">이 송출 컴퓨터의 IP만 넣어 주세요. 예: 192.168.0.10</p> : null}
+      {query.error === "url" || hostProblem === "url" ? <p className="mt-4 text-sm text-wine">192.168 주소를 넣어 주세요.</p> : null}
       {query.error === "image" ? <p className="mt-4 text-sm text-wine">배경 그림은 5MB 이하의 JPG, PNG, WEBP로 올려 주세요.</p> : null}
       {query.error === "group" ? <p className="mt-4 text-sm text-wine">그룹 이름과 사람을 한 명 이상 골라 주세요.</p> : null}
       {query.error === "setup" ? (
@@ -66,7 +76,7 @@ export default function SettingsPage() {
         ) : null}
         <label className="field">
           <span>송출 컴퓨터</span>
-          <input className="input" name="outputHost" defaultValue={settings.outputHost || ""} inputMode="decimal" autoComplete="off" placeholder="이 컴퓨터의 192.168 주소를 입력" maxLength={15} aria-label="이 송출 컴퓨터의 IP" />
+          <input className="input" name="outputHost" value={hostDraft} onChange={(event) => { setHostTouched(true); setHostDraft(event.target.value); }} inputMode="decimal" autoComplete="off" placeholder="이 컴퓨터의 192.168 주소를 입력" maxLength={200} aria-label="이 송출 컴퓨터의 IP" />
         </label>
         <p className="text-sm text-muted">송출 화면에 나온 이 송출 컴퓨터의 IP를 넣습니다. 예: 192.168.0.10</p>
         <label className="field">

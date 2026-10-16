@@ -7,6 +7,7 @@ import { SessionGuard } from "@/components/session-guard";
 import { ReminderWatcher } from "@/components/reminder-watcher";
 import { useChurch } from "@/components/church-state";
 import { cleanPath } from "@/lib/page-path";
+import { readOperatorService, startOperatorLink } from "@/lib/output-link";
 import { can, canOpenPath, homeFor } from "@/lib/roles";
 
 function landing(user: { kind: "platform" | "church"; churchId: string | null; roles: Parameters<typeof homeFor>[0] }) {
@@ -27,6 +28,13 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setBrowserPath(cleanPath(window.location.pathname || ""));
   }, [pathname]);
+
+  useEffect(() => {
+    if (!ready || !user || !browserPath || isOutputPath(browserPath)) return;
+    const id = readOperatorService();
+    if (!id) return;
+    return startOperatorLink(id);
+  }, [ready, user?.id, browserPath]);
 
   useEffect(() => {
     if (!ready) return;

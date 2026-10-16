@@ -10,6 +10,14 @@ export function cleanHost(value: unknown): string {
   return IPV4.test(text) ? text : "";
 }
 
+export function hostEntry(value: unknown): { host: string; problem: "" | "url" | "invalid" } {
+  const text = String(value ?? "").trim();
+  const host = cleanHost(text);
+  if (host || !text) return { host, problem: "" };
+  const page = /https?:\/\//i.test(text) || /surge\.sh/i.test(text) || text.includes("/") || text.includes("?");
+  return { host: "", problem: page ? "url" : "invalid" };
+}
+
 export function isPrivateIpv4(value: unknown): boolean {
   const host = cleanHost(value);
   if (!host) return false;

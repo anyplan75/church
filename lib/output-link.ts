@@ -21,6 +21,7 @@ type Slot = {
   localSdp: string;
   posted: boolean;
   answered: boolean;
+  appliedAnswer: string;
   rejected: string;
   started: number;
   localIce: RTCIceCandidateInit[];
@@ -28,6 +29,9 @@ type Slot = {
   queuedRemote: RTCIceCandidateInit[];
   iceTimer: number;
 };
+
+const OPERATOR_SERVICE_KEY = "church-output-service";
+const SERVICE_ID = /^[A-Za-z0-9-]{1,80}$/;
 
 let latest = { serviceId: "", lines: [] as string[] };
 const slots = new Map<Mode, Slot>();
@@ -50,9 +54,25 @@ export function publishLinesNow(serviceId: string, lines: string[]) {
   sendLatest(serviceId);
 }
 
+export function readOperatorService(): string {
+  if (operatorService) return operatorService;
+  if (typeof sessionStorage === "undefined") return "";
+  try {
+    const stored = sessionStorage.getItem(OPERATOR_SERVICE_KEY) || "";
+    return SERVICE_ID.test(stored) ? stored : "";
+  } catch {
+    return "";
+  }
+}
+
 export function startOperatorLink(serviceId: string): () => void {
-  operatorService = serviceId;
+  if (!SERVICE_ID.test(serviceId)) return () => undefined;
+  const same = Boolean(operatorTimer) && operatorService === serviceId;
+  rememberOperatorService(serviceId);
   if (typeof RTCPeerConnection === "undefined") return () => undefined;
+  if (same) return () => undefined;
+  for (const slot of slots.values()) closeSlot(slot);
+  slots.clear();
   const generation = ++linkGeneration;
   if (operatorTimer) window.clearInterval(operatorTimer);
   operatorBusy = false;
@@ -60,8 +80,31 @@ export function startOperatorLink(serviceId: string): () => void {
   operatorTimer = window.setInterval(() => void operatorTick(generation), 400);
   return () => {
     if (generation !== linkGeneration) return;
-    stopOperator();
   };
+}
+
+export function kickOperatorLink() {
+  if (typeof RTCPeerConnection === "undefined") return;
+  const id = operatorService || readOperatorService();
+  if (!operatorTimer) {
+    if (id) startOperatorLink(id);
+    return;
+  }
+  void operatorTick(linkGeneration);
+}
+
+export function stopOperatorLink() {
+  stopOperator();
+}
+
+function rememberOperatorService(serviceId: string) {
+  operatorService = serviceId;
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(OPERATOR_SERVICE_KEY, serviceId);
+  } catch {
+    /* 이번 화면의 연결은 그대로 둡니다. */
+  }
 }
 
 function stopOperator() {
@@ -70,6 +113,13 @@ function stopOperator() {
   operatorTimer = 0;
   operatorService = "";
   operatorBusy = false;
+  if (typeof sessionStorage !== "undefined") {
+    try {
+      sessionStorage.removeItem(OPERATOR_SERVICE_KEY);
+    } catch {
+      /* 저장소가 없어도 피어는 닫습니다. */
+    }
+  }
   for (const slot of slots.values()) closeSlot(slot);
   slots.clear();
 }
@@ -78,10 +128,9 @@ export function startViewerLink(
   serviceId: string,
   mode: Mode,
   onLines: (lines: string[]) => void,
-  onStatus?: (status: "waiting" | "retry") => void,
+  onStatus?: (status: "waiting" | "retry" | "direct") => void,
 ): () => void {
   if (typeof RTCPeerConnection === "undefined") return () => undefined;
-  let pc = openViewer(serviceId, onLines);
   let host = "";
   let started = Date.now();
   const localIce: RTCIceCandidateInit[] = [];
@@ -92,7 +141,15 @@ export function startViewerLink(
   let posted = false;
   let stop = false;
   let busy = false;
+  let opened = false;
+  let viewGeneration = 0;
   let iceTimer = 0;
+  const markOpen = (generation: number) => () => {
+    if (generation !== viewGeneration) return;
+    opened = true;
+    onStatus?.("direct");
+  };
+  let pc = openViewer(serviceId, onLines, markOpen(viewGeneration));
 
   const flushIce = () => {
     window.clearTimeout(iceTimer);
@@ -121,18 +178,21 @@ export function startViewerLink(
     answeredSdp = "";
     localAnswer = "";
     posted = false;
+    opened = false;
     started = Date.now();
-    pc = openViewer(serviceId, onLines);
+    viewGeneration += 1;
+    pc = openViewer(serviceId, onLines, markOpen(viewGeneration));
     arm(pc);
   }
 
   function down(): boolean {
     const state = pc.connectionState;
     const ice = pc.iceConnectionState;
-    if (state === "failed" || state === "closed" || ice === "failed" || ice === "closed") return true;
     if (state === "connected" || ice === "connected" || ice === "completed") return false;
-    const checking = ice === "checking" || state === "connecting";
-    return Date.now() - started > (checking ? 20000 : 12000);
+    if (Date.now() - started < 1500) return false;
+    if (state === "failed" || state === "closed" || ice === "failed" || ice === "closed") return true;
+    if (ice === "disconnected" || state === "disconnected") return opened && Date.now() - started > 8000;
+    return false;
   }
 
   async function tick() {
@@ -145,7 +205,7 @@ export function startViewerLink(
       host = nextHost;
       if (stop) return;
       if (down()) {
-        onStatus?.("retry");
+        if (opened) onStatus?.("retry");
         replacePc();
       }
       const room = await readOutputDirect(host, mode);
@@ -166,6 +226,8 @@ export function startViewerLink(
           posted = false;
         }
       }
+      const roomAnswer = sessionDesc(record.answer, "answer");
+      if (localAnswer && roomAnswer?.sdp !== localAnswer) posted = false;
       if (localAnswer && !posted) {
         posted = await patchOutputDirect(host, mode, {
           answer: { type: "answer", sdp: localAnswer },
@@ -182,7 +244,7 @@ export function startViewerLink(
     } catch (error) {
       posted = false;
       warnOnce(error);
-      onStatus?.("retry");
+      if (opened) onStatus?.("retry");
     } finally {
       busy = false;
     }
@@ -199,11 +261,13 @@ export function startViewerLink(
   };
 }
 
-function openViewer(serviceId: string, onLines: (lines: string[]) => void): RTCPeerConnection {
+function openViewer(serviceId: string, onLines: (lines: string[]) => void, onOpen: () => void): RTCPeerConnection {
   const pc = new RTCPeerConnection(ICE);
   pc.ondatachannel = (event) => {
     const channel = event.channel;
     channel.binaryType = "arraybuffer";
+    channel.onopen = onOpen;
+    if (channel.readyState === "open") onOpen();
     channel.onmessage = (message) => {
       void frameText(message.data).then((raw) => {
         const lines = readSlideMessage(raw, serviceId);
@@ -246,50 +310,70 @@ async function ensureSlot(serviceId: string, host: string, mode: Mode, generatio
     slots.delete(mode);
     slot = undefined;
   }
-  if (slot?.channel.readyState === "open") return;
-  if (!slot || peerDown(slot)) {
-    slot?.pc && closeSlot(slot);
-    slot = createSlot(serviceId, host, mode);
-    slots.set(mode, slot);
+  if (slot?.channel.readyState === "open" && !peerDown(slot)) return;
+
+  for (let round = 0; round < 2; round += 1) {
+    if (!slot || peerDown(slot)) {
+      if (slot) closeSlot(slot);
+      slot = createSlot(serviceId, host, mode);
+      slots.set(mode, slot);
+    }
+    const ready = await publishLocalOffer(slot, host, mode, generation);
+    if (!ready || generation !== linkGeneration) return;
+    const room = await readOutputDirect(host, mode);
+    if (room === undefined || generation !== linkGeneration) return;
+    const record = asRoom(room);
+    const answer = sessionDesc(record.answer, "answer");
+    if (answer?.sdp && slot.appliedAnswer && answer.sdp !== slot.appliedAnswer && slot.channel.readyState !== "open") {
+      closeSlot(slot);
+      slots.delete(mode);
+      slot = undefined;
+      continue;
+    }
+    if (answer?.sdp && answer.sdp !== slot.rejected && !slot.answered && slot.pc.signalingState === "have-local-offer") {
+      const aimed = directDescription(answer.sdp, host);
+      try {
+        await slot.pc.setRemoteDescription({ type: "answer", sdp: aimed });
+        slot.answered = true;
+        slot.appliedAnswer = answer.sdp;
+        for (const item of slot.queuedRemote.splice(0)) await slot.pc.addIceCandidate(aimCandidate(item, host)).catch(() => undefined);
+      } catch {
+        slot.rejected = answer.sdp;
+      }
+    }
+    for (const item of iceList(record.answerIce)) {
+      const key = item.candidate ?? "";
+      if (!key || slot.seenRemote.has(key)) continue;
+      slot.seenRemote.add(key);
+      const aimed = aimCandidate(item, host);
+      if (!slot.pc.remoteDescription) slot.queuedRemote.push(aimed);
+      else await slot.pc.addIceCandidate(aimed).catch(() => undefined);
+    }
+    return;
   }
+}
+
+async function publishLocalOffer(slot: Slot, host: string, mode: Mode, generation: number): Promise<boolean> {
   if (!slot.localSdp) {
     const offer = await withTimeout(slot.pc.createOffer(), 5000);
-    if (generation !== linkGeneration) return;
+    if (generation !== linkGeneration) return false;
     await withTimeout(slot.pc.setLocalDescription(offer), 5000);
-    if (generation !== linkGeneration) return;
+    if (generation !== linkGeneration) return false;
     await waitGather(slot.pc);
-    if (generation !== linkGeneration) return;
+    if (generation !== linkGeneration) return false;
     slot.localSdp = slot.pc.localDescription?.sdp ?? "";
     slot.posted = false;
   }
-  if (!slot.localSdp || generation !== linkGeneration) return;
-  const room = await readOutputDirect(host, mode);
-  if (room === undefined || generation !== linkGeneration) return;
+  if (!slot.localSdp || generation !== linkGeneration) return false;
   if (!slot.posted) {
     slot.posted = await patchOutputDirect(host, mode, {
       offer: { type: "offer", sdp: slot.localSdp },
       offerIce: slot.localIce.slice(-12),
+      answer: null,
+      answerIce: null,
     });
   }
-  const answer = sessionDesc(asRoom(room).answer, "answer");
-  if (answer?.sdp && answer.sdp !== slot.rejected && !slot.answered && slot.pc.signalingState === "have-local-offer") {
-    const aimed = directDescription(answer.sdp, host);
-    try {
-      await slot.pc.setRemoteDescription({ type: "answer", sdp: aimed });
-      slot.answered = true;
-      for (const item of slot.queuedRemote.splice(0)) await slot.pc.addIceCandidate(aimCandidate(item, host)).catch(() => undefined);
-    } catch {
-      slot.rejected = answer.sdp;
-    }
-  }
-  for (const item of iceList(asRoom(room).answerIce)) {
-    const key = item.candidate ?? "";
-    if (!key || slot.seenRemote.has(key)) continue;
-    slot.seenRemote.add(key);
-    const aimed = aimCandidate(item, host);
-    if (!slot.pc.remoteDescription) slot.queuedRemote.push(aimed);
-    else await slot.pc.addIceCandidate(aimed).catch(() => undefined);
-  }
+  return true;
 }
 
 function createSlot(serviceId: string, host: string, mode: Mode): Slot {
@@ -303,6 +387,7 @@ function createSlot(serviceId: string, host: string, mode: Mode): Slot {
     localSdp: "",
     posted: false,
     answered: false,
+    appliedAnswer: "",
     rejected: "",
     started: Date.now(),
     localIce: [],
@@ -320,9 +405,7 @@ function createSlot(serviceId: string, host: string, mode: Mode): Slot {
     window.clearTimeout(slot.iceTimer);
     slot.iceTimer = window.setTimeout(() => {
       if (!slot.localSdp) return;
-      void patchOutputDirect(host, mode, { offerIce: slot.localIce.slice(-12) }).then((ok) => {
-        if (ok) slot.posted = true;
-      }).catch(() => undefined);
+      void patchOutputDirect(host, mode, { offerIce: slot.localIce.slice(-12) }).catch(() => undefined);
     }, 80);
   };
   return slot;
@@ -331,10 +414,12 @@ function createSlot(serviceId: string, host: string, mode: Mode): Slot {
 function peerDown(slot: Slot): boolean {
   const state = slot.pc.connectionState;
   const ice = slot.pc.iceConnectionState;
-  if (state === "failed" || state === "closed" || ice === "failed" || ice === "closed") return true;
+  const age = Date.now() - slot.started;
   if (slot.channel.readyState === "open") return false;
-  const checking = ice === "checking" || ice === "connected" || ice === "completed" || state === "connecting" || state === "connected";
-  return Date.now() - slot.started > (checking ? 20000 : 12000);
+  if (age < 1500) return false;
+  if (state === "failed" || state === "closed" || ice === "failed" || ice === "closed") return true;
+  if (slot.channel.readyState === "closed") return age > 5000;
+  return age > 20000;
 }
 
 function closeSlot(slot: Slot) {
