@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cueLines, readSlideMessage, slideMessage } from "./output-cue.ts";
+import { cueLines, outputHoldText, readSlideMessage, slideMessage } from "./output-cue.ts";
 
 describe("송출 두 줄", () => {
   it("지금 내보내는 두 줄만 남긴다", () => {
@@ -16,5 +16,16 @@ describe("송출 두 줄", () => {
     assert.deepEqual(readSlideMessage(raw, "service-1"), ["하늘이 맑다", "들이 푸르다"]);
     assert.equal(readSlideMessage(raw, "other"), null);
     assert.equal(readSlideMessage("not-json", "service-1"), null);
+  });
+
+  it("연결 전에는 이유만 짧게 보여 주고 폴더를 요구하지 않는다", () => {
+    const waiting = outputHoldText("waiting");
+    const retry = outputHoldText("retry");
+    assert.equal(waiting.includes("미리보기"), false);
+    assert.equal(retry.includes("미리보기"), false);
+    assert.equal(waiting.includes("폴더"), false);
+    assert.equal(retry.includes("폴더"), false);
+    assert.equal(waiting.includes("직접 연결"), true);
+    assert.equal(retry.includes("다시 연결"), true);
   });
 });
