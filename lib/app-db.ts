@@ -528,9 +528,9 @@ function scheduleChurchWrite() {
   writing = true;
   writeChain = writeChain
     .then(async () => {
-      const signals = await dbGet(`churches/${churchId}/data/outputSignals`, authToken).catch(() => null);
-      const body = signals && typeof signals === "object" ? { ...payload, outputSignals: signals } : payload;
-      await dbSet(`churches/${churchId}/data`, body, authToken);
+      await Promise.all(
+        Object.entries(payload).map(([key, value]) => dbSet(`churches/${churchId}/data/${key}`, value, authToken)),
+      );
       error = "";
     })
     .catch((reason: unknown) => {

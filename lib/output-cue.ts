@@ -35,6 +35,10 @@ export function publishCue(serviceId: string, lines: string[]) {
   channel.close();
 }
 
+export function outputHoldText(status: "waiting" | "retry"): string {
+  return status === "retry" ? "직접 연결이 끊겼습니다. 다시 연결합니다." : "조작 화면과 직접 연결 중입니다.";
+}
+
 export function subscribeCue(serviceId: string, onCue: (lines: string[]) => void): () => void {
   if (typeof BroadcastChannel === "undefined") return () => undefined;
   const channel = new BroadcastChannel(CHANNEL);

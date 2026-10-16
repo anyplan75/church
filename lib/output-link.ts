@@ -60,7 +60,7 @@ function stopOperator() {
   peers.clear();
 }
 
-export function startViewerLink(serviceId: string, onLines: (lines: string[]) => void): () => void {
+export function startViewerLink(serviceId: string, onLines: (lines: string[]) => void, onStatus?: (status: "waiting" | "retry") => void): () => void {
   if (typeof RTCPeerConnection === "undefined") return () => undefined;
   const id = viewerId();
   let pc = openViewer(serviceId, onLines);
@@ -107,6 +107,7 @@ export function startViewerLink(serviceId: string, onLines: (lines: string[]) =>
     if (stop || busy) return;
     busy = true;
     try {
+      if (pc.connectionState === "failed" || pc.connectionState === "disconnected" || pc.connectionState === "closed") onStatus?.("retry");
       await patchOutputRoom(serviceId, `viewers/${id}`, {
         at: Date.now(),
         ...(localAnswer && pc.connectionState !== "connected" ? { answer: localAnswer } : {}),
@@ -137,11 +138,13 @@ export function startViewerLink(serviceId: string, onLines: (lines: string[]) =>
       }
     } catch (error) {
       warnOnce(error);
+      onStatus?.("retry");
     } finally {
       busy = false;
     }
   }
 
+  onStatus?.("waiting");
   void tick();
   const timer = window.setInterval(() => void tick(), 400);
   return () => {
@@ -193,6 +196,12 @@ async function operatorTick() {
       if (live.has(id)) continue;
       peers.get(id)?.pc.close();
       peers.delete(id);
+    }
+    if (latest.serviceId === serviceId) {
+      const payload = slideMessage(serviceId, latest.lines);
+      for (const peer of peers.values()) {
+        if (peer.channel.readyState === "open") peer.channel.send(payload);
+      }
     }
   } catch (error) {
     warnOnce(error);

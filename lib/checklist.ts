@@ -34,7 +34,7 @@ export const CHECKS: CheckDefinition[] = [
   { id: "slides", group: "화면", label: "순서별 슬라이드", detail: "예배 순서마다 송출 화면이 만들어집니다.", required: true, auto: true },
   { id: "background", group: "화면", label: "배경", detail: "배경색 또는 배경 그림이 설정되어 있습니다.", required: true, auto: true },
   { id: "overlay", group: "화면", label: "자막 위치", detail: "통역 화면처럼 아래, 위, 왼쪽, 오른쪽 중 자막 위치가 있습니다.", required: true, auto: true },
-  { id: "preview", group: "화면", label: "송출 미리보기", detail: "배경 위에 순서와 자막이 보이는지 직접 확인합니다.", required: true, auto: false },
+  { id: "preview", group: "화면", label: "송출 화면", detail: "배경 위에 순서와 자막이 보이는지 직접 확인합니다.", required: true, auto: false },
   { id: "remind-day", group: "알림", label: "하루 전 알림", detail: "예배에 연결된 사람에게 하루 전 일정을 알립니다.", required: true, auto: true },
   { id: "remind-hour", group: "알림", label: "한 시간 전 알림", detail: "같은 사람에게 시작 한 시간 전 일정을 알립니다.", required: true, auto: true },
   { id: "sound", group: "현장", label: "음향", detail: "마이크와 음향을 확인합니다.", required: true, auto: false },
