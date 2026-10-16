@@ -288,12 +288,21 @@ export function normalizeService(input: Service): Service {
     announcements,
     liveIndex: clampLiveIndex(Number(input.liveIndex) || 0, items.length),
     liveSlide: clampLiveIndex(Number(input.liveSlide) || 0, 40),
+    outputLines: normalizeOutputLines(input.outputLines),
     startedAt: typeof input.startedAt === "string" && input.startedAt ? input.startedAt : null,
     notes: String(input.notes ?? "").slice(0, 2000),
     checks: normalizeChecks(input.checks),
     source: input.source === "bulletin" ? "bulletin" : "manual",
     groupId: input.groupId || null,
   };
+}
+
+function normalizeOutputLines(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((line) => String(line ?? "").replace(/\s+/g, " ").trim().slice(0, 80))
+    .filter(Boolean)
+    .slice(0, 2);
 }
 
 function normalizeItem(item: WorshipItem): WorshipItem {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/account-actions";
 import { backToChurches } from "@/lib/platform-actions";
+import { cleanPath } from "@/lib/page-path";
 import { can, homeFor, type Capability, type Role } from "@/lib/roles";
 
 const LINKS: { href: string; label: string; capability: Capability }[] = [
@@ -32,7 +33,8 @@ export function Nav({
   platform?: boolean;
 }) {
   const pathname = usePathname();
-  if (pathname.endsWith("/live") || pathname.endsWith("/output")) return null;
+  const path = cleanPath(pathname || "/");
+  if (path.endsWith("/live") || path.endsWith("/output")) return null;
   const links = LINKS.filter((link) => can(roles, link.capability));
 
   return (

@@ -19,6 +19,10 @@ describe("작업 기록", () => {
     assert.equal(vague, "화면 문구 설정을 바꿈");
     assert.equal(vague.includes("창세기"), false);
     assert.equal(vague.includes("찬송 가사"), false);
+
+    const cued = buildSeed("2026-10-14");
+    cued.services[0].outputLines = ["하늘이 맑다", "들이 푸르다"];
+    assert.equal((describeDbChange(before, cued) || "").includes("하늘"), false);
   });
 
   it("기록 문장에서 긴 본문을 잘라 낸다", () => {

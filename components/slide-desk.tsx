@@ -18,7 +18,7 @@ export function SlideDesk({
   songs: Song[];
   groupIndex: number;
   inGroup: number;
-  onJump: (groupIndex: number, inGroup: number) => void;
+  onJump: (groupIndex: number, inGroup: number, lines: string[]) => void;
 }) {
   const folder = useServiceFolder(service, songs);
   const local: Record<string, string[]> = {};
@@ -29,6 +29,12 @@ export function SlideDesk({
   const desk = buildDesk(service, people, songs, local);
   const current = desk.slides.find((slide) => slide.groupIndex === groupIndex && slide.inGroup === inGroup) ?? desk.slides.find((slide) => slide.groupIndex === groupIndex) ?? desk.slides[0];
   const next = current ? desk.slides[current.flat + 1] : undefined;
+  const cueKey = current ? `${current.groupIndex}:${current.inGroup}:${current.lines.join("\n")}` : "";
+
+  useEffect(() => {
+    if (!current || !folder.loaded) return;
+    onJump(current.groupIndex, current.inGroup, current.lines);
+  }, [cueKey, folder.loaded, onJump]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -38,7 +44,7 @@ export function SlideDesk({
         event.preventDefault();
         if (current && desk.slides[current.flat + 1]) {
           const target = desk.slides[current.flat + 1];
-          onJump(target.groupIndex, target.inGroup);
+          onJump(target.groupIndex, target.inGroup, target.lines);
         }
         return;
       }
@@ -46,34 +52,34 @@ export function SlideDesk({
         event.preventDefault();
         if (current && current.flat > 0) {
           const target = desk.slides[current.flat - 1];
-          onJump(target.groupIndex, target.inGroup);
+          onJump(target.groupIndex, target.inGroup, target.lines);
         }
         return;
       }
       if (key === "]" || (event.ctrlKey && key === "ArrowDown")) {
         event.preventDefault();
-        if (groupIndex + 1 < desk.groups.length) onJump(groupIndex + 1, 0);
+        if (groupIndex + 1 < desk.groups.length) onJump(groupIndex + 1, 0, desk.slides.find((slide) => slide.groupIndex === groupIndex + 1 && slide.inGroup === 0)?.lines ?? []);
         return;
       }
       if (key === "[" || (event.ctrlKey && key === "ArrowUp")) {
         event.preventDefault();
-        if (groupIndex > 0) onJump(groupIndex - 1, 0);
+        if (groupIndex > 0) onJump(groupIndex - 1, 0, desk.slides.find((slide) => slide.groupIndex === groupIndex - 1 && slide.inGroup === 0)?.lines ?? []);
         return;
       }
       if (key === "Home") {
         event.preventDefault();
-        onJump(0, 0);
+        onJump(0, 0, desk.slides.find((slide) => slide.groupIndex === 0 && slide.inGroup === 0)?.lines ?? []);
         return;
       }
       if (key === "End") {
         event.preventDefault();
         const last = desk.slides[desk.slides.length - 1];
-        if (last) onJump(last.groupIndex, last.inGroup);
+        if (last) onJump(last.groupIndex, last.inGroup, last.lines);
         return;
       }
       if (/^[1-9]$/.test(key)) {
         const index = Number(key) - 1;
-        if (desk.groups[index]) onJump(index, 0);
+        if (desk.groups[index]) onJump(index, 0, desk.slides.find((slide) => slide.groupIndex === index && slide.inGroup === 0)?.lines ?? []);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -90,7 +96,7 @@ export function SlideDesk({
               <button
                 type="button"
                 className="w-full rounded-t-lg bg-white/15 px-3 py-1.5 text-left text-sm font-semibold"
-                onClick={() => onJump(group.index, 0)}
+                onClick={() => onJump(group.index, 0, desk.slides[group.start]?.lines ?? [])}
               >
                 {group.index + 1}. {group.label}
               </button>
@@ -101,7 +107,7 @@ export function SlideDesk({
                     key={`${slide.itemId}-${slide.inGroup}`}
                     type="button"
                     className={`block w-full rounded-md px-2 py-2 text-left text-sm ${slide.flat === current?.flat ? "bg-white text-pine" : "text-[#f6f1e6] hover:bg-white/10"}`}
-                    onClick={() => onJump(slide.groupIndex, slide.inGroup)}
+                    onClick={() => onJump(slide.groupIndex, slide.inGroup, slide.lines)}
                   >
                     {slide.inGroup + 1}. {slide.lines[0] || slide.heading}
                   </button>
