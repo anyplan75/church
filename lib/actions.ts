@@ -4,7 +4,7 @@ import { hostEntry, saveOutputHost } from "./output-host";
 import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
-import { START_BLOCKED, captionFont, categoryMembership, fullscreenStep, settingsReady, setupComplete } from "./simple";
+import { START_BLOCKED, captionFont, captionSize, categoryMembership, fullscreenStep, settingsReady, setupComplete } from "./simple";
 import { BULLETIN_UPLOAD_BYTES, extractUploadedText } from "./extract-text";
 import { go, stay } from "./page-path";
 import { syncReminders } from "./reminders";
@@ -436,6 +436,8 @@ export async function updateSettings(formData: FormData) {
     if (savedName) db.settings.backgroundFile = savedName;
     db.settings.defaultPlace = cleanText(formData.get("defaultPlace"), 40) || "본당";
     db.settings.outputHost = outputHost || undefined;
+    db.settings.mainFontSize = captionSize(formData.get("mainFontSize"));
+    db.settings.overlayFontSize = captionSize(formData.get("overlayFontSize"));
     syncReminders(db);
   });
   kickOperatorLink();

@@ -145,13 +145,20 @@ export function homeFor(roles: readonly Role[]): string {
   return "/denied";
 }
 
+export const WEB_OUTPUT_ORIGIN = "https://eunhye-church.surge.sh";
+
 export type ServiceLink = { href: string; label: string };
 
-export function outputLinks(id: string): ServiceLink[] {
-  return [
-    { href: `/services/${id}/output?mode=overlay`, label: "오버레이 송출" },
-    { href: `/services/${id}/output?mode=main`, label: "메인 송출" },
-  ];
+export function outputLinks(id: string, localOrigin = ""): ServiceLink[] {
+  const origin = localOrigin.replace(/\/$/, "");
+  return (["overlay", "main"] as const).flatMap((mode) => {
+    const path = `/services/${id}/output?mode=${mode}`;
+    const name = mode === "overlay" ? "오버레이" : "메인";
+    return [
+      { href: `${WEB_OUTPUT_ORIGIN}${path}`, label: `${name} 웹` },
+      { href: origin ? `${origin}${path}` : path, label: `${name} 로컬` },
+    ];
+  });
 }
 
 export function serviceDestinations(id: string, roles: readonly Role[]): ServiceLink[] {

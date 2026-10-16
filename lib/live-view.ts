@@ -1,5 +1,5 @@
 import { storedBackgroundUrl } from "./app-db";
-import { captionFont, fullscreenStep } from "./simple";
+import { captionFont, captionSize, fullscreenStep } from "./simple";
 import type { Db } from "./types";
 import { clampLiveIndex } from "./worship";
 import { slidesFor, type Slide } from "./slides";
@@ -16,6 +16,8 @@ export type LiveView = {
   backgroundUrl: string | null;
   fontFamily: string;
   overlayFontFamily: string;
+  mainFontSize: number;
+  overlayFontSize: number;
   vertical: number;
 };
 
@@ -32,6 +34,8 @@ export function emptyLiveView(serviceId: string): LiveView {
     backgroundUrl: null,
     fontFamily: captionFont(undefined).family,
     overlayFontFamily: captionFont(undefined).family,
+    mainFontSize: captionSize(undefined),
+    overlayFontSize: captionSize(undefined),
     vertical: fullscreenStep(undefined),
   };
 }
@@ -53,6 +57,8 @@ export function liveView(db: Db, serviceId: string): LiveView | null {
     backgroundUrl: storedBackgroundUrl(db.settings.backgroundFile),
     fontFamily: captionFont(db.settings.fullscreenFont).family,
     overlayFontFamily: captionFont(db.settings.overlayFont).family,
+    mainFontSize: captionSize(db.settings.mainFontSize),
+    overlayFontSize: captionSize(db.settings.overlayFontSize),
     vertical: fullscreenStep(db.settings.fullscreenStep),
   };
 }

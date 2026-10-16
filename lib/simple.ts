@@ -91,6 +91,21 @@ export function fullscreenStep(value: number | undefined): number {
   return 2;
 }
 
+export const DEFAULT_CAPTION_SIZE = 32;
+
+export function captionSize(value: unknown, fallback = DEFAULT_CAPTION_SIZE): number {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.min(200, Math.max(16, Math.round(value)));
+  const text = String(value ?? "").replace(/px$/i, "").trim();
+  if (!text) return fallback;
+  const number = Number(text);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(200, Math.max(16, Math.round(number)));
+}
+
+export function lineFontSize(size: unknown, _line: string): number {
+  return captionSize(size);
+}
+
 export function twoLines(heading: string, line: string): string[] {
   const first = heading.trim();
   const second = line.trim();

@@ -7,7 +7,7 @@ import { useChurch, useClientQuery } from "@/components/church-state";
 import { deleteGroup, finishSetup, saveGroup, updateSettings } from "@/lib/actions";
 import { listAccounts, storedBackgroundUrl } from "@/lib/app-db";
 import { hostEntry } from "@/lib/output-host";
-import { formatVisit, settingsReady, setupComplete } from "@/lib/simple";
+import { captionSize, formatVisit, settingsReady, setupComplete } from "@/lib/simple";
 
 const OVERLAYS = [
   { id: "bottom", label: "아래" },
@@ -78,7 +78,16 @@ export default function SettingsPage() {
           <span>송출 컴퓨터</span>
           <input className="input" name="outputHost" value={hostDraft} onChange={(event) => { setHostTouched(true); setHostDraft(event.target.value); }} inputMode="decimal" autoComplete="off" placeholder="이 컴퓨터의 192.168 주소를 입력" maxLength={200} aria-label="이 송출 컴퓨터의 IP" />
         </label>
-        <p className="text-sm text-muted">송출 화면에 나온 이 송출 컴퓨터의 IP를 넣습니다. 예: 192.168.0.10</p>
+        <p className="text-sm text-muted">송출 컴퓨터의 IP는 이 설정에만 넣습니다. 예: 192.168.0.10</p>
+        <label className="field">
+          <span>메인 글자 크기</span>
+          <input className="input" name="mainFontSize" type="number" min={16} max={200} step={1} defaultValue={captionSize(settings.mainFontSize)} aria-label="메인 글자 크기" />
+        </label>
+        <label className="field">
+          <span>오버레이 글자 크기</span>
+          <input className="input" name="overlayFontSize" type="number" min={16} max={200} step={1} defaultValue={captionSize(settings.overlayFontSize)} aria-label="오버레이 글자 크기" />
+        </label>
+        <p className="text-sm text-muted">픽셀입니다. 메인의 첫째 줄과 둘째 줄은 이 크기로 같습니다.</p>
         <label className="field">
           <span>오버레이 자막 위치</span>
           <select className="select" name="overlay" defaultValue={settings.overlay}>
