@@ -7,7 +7,7 @@ import { saveLibrary } from "@/lib/actions";
 import { connectFolder, findNamedFile, readFolderView } from "@/lib/local-files";
 import { LibraryUseSteps } from "@/components/service-folder";
 import { folderStatusText, LIBRARY_RULES, type FolderView } from "@/lib/local-library";
-import { CAPTION_FONTS, captionFont, compactLabel, fullscreenStep } from "@/lib/simple";
+import { CAPTION_FONTS, captionFont, captionSize, compactLabel, fullscreenStep } from "@/lib/simple";
 
 const KINDS = [
   { id: "bible", label: "성경", hint: LIBRARY_RULES[0], sample: "창세기" },
@@ -131,7 +131,7 @@ export default function LibraryPage() {
           <FontSelect name="overlayFont" value={overlayFontId} onChange={setOverlayFontId} />
           <div className="caption-frame mt-2" data-overlay-preview={overlay}>
             <div className={`worship-shade layout-${overlay}`} style={{ fontFamily: captionFont(overlayFontId).family }}>
-              <p>자막은 영상 위에 겹칩니다</p>
+              <p style={{ fontSize: captionSize(db.settings.overlayFontSize) }}>자막은 영상 위에 겹칩니다</p>
             </div>
           </div>
         </section>
@@ -160,8 +160,8 @@ export default function LibraryPage() {
           </div>
           <div className="relative h-48 overflow-hidden rounded-xl bg-pine text-center text-white" style={{ fontFamily: previewFont }}>
             <div className="absolute inset-x-0" style={{ top: `${8 + step * 16}%` }}>
-              <p className="text-2xl font-semibold">첫째 줄</p>
-              <p className="mt-1 text-lg">둘째 줄</p>
+              <p className="font-semibold" style={{ fontSize: captionSize(db.settings.mainFontSize) }}>첫째 줄</p>
+              <p className="mt-1" style={{ fontSize: captionSize(db.settings.mainFontSize) }}>둘째 줄</p>
             </div>
           </div>
           <SubmitButton>라이브러리 저장</SubmitButton>

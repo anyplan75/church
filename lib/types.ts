@@ -161,6 +161,8 @@ export type Settings = {
   overlayFont?: string;
   fullscreenFont?: string;
   fullscreenStep?: number;
+  mainFontSize?: number;
+  overlayFontSize?: number;
   backgrounds?: string[];
   outputHost?: string;
 };

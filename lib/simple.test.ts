@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { fileMatchesQuery } from "./local-library.ts";
-import { formatVisit, noteVisit, openVisit, orderLine, serviceText, settingsReady, setupComplete } from "./simple.ts";
+import { captionSize, formatVisit, lineFontSize, noteVisit, openVisit, orderLine, serviceText, settingsReady, setupComplete } from "./simple.ts";
 import type { Person, Service, Settings, Song, WorshipItem } from "./types.ts";
 import { sundayOf, weekServices } from "./worship.ts";
 
@@ -97,6 +97,21 @@ describe("단순 운영", () => {
     assert.match(text, /^인도 이종찬/);
     assert.match(text, /찬송 455장 주님의 마음을 본받는 자/);
     assert.match(text, /광고\n새가족을 환영합니다\./);
+  });
+
+  it("메인 두 줄은 긴 줄도 같은 글자 크기다", () => {
+    assert.equal(captionSize(48), 48);
+    assert.equal(captionSize("64px"), 64);
+    assert.equal(captionSize(undefined), 32);
+    assert.equal(captionSize(""), 32);
+    assert.equal(captionSize("nope"), 32);
+    assert.equal(captionSize(8), 16);
+    assert.equal(captionSize(400), 200);
+    const size = 72;
+    const long = "가".repeat(80);
+    const short = "아멘";
+    assert.equal(lineFontSize(size, long), lineFontSize(size, short));
+    assert.equal(lineFontSize(size, long), 72);
   });
 
   it("접속과 나간 시각만 문장으로 남긴다", () => {

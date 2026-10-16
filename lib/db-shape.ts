@@ -1,6 +1,6 @@
 import { canStoreAttendance } from "./attendance";
 import { cleanHost } from "./output-host";
-import { backgroundsOf, captionFont, fullscreenStep } from "./simple";
+import { backgroundsOf, captionFont, captionSize, fullscreenStep } from "./simple";
 import type { ActivityEntry, AttendanceMark, Db, Department, Membership, Office, OverlayPosition, Person, PersonCategory, Service, Settings, Song, Supply, SupplyStatus, VisitLog } from "./types";
 import { OFFICES, PERSON_CATEGORIES } from "./types";
 import { isItemPhoto, oneLine } from "./supplies";
@@ -46,6 +46,8 @@ function normalizeSettings(settings: Partial<Settings> | undefined, fallback: Se
     overlayFont: captionFont(settings?.overlayFont).id,
     fullscreenFont: captionFont(settings?.fullscreenFont).id,
     fullscreenStep: fullscreenStep(settings?.fullscreenStep),
+    mainFontSize: captionSize(settings?.mainFontSize),
+    overlayFontSize: captionSize(settings?.overlayFontSize),
     backgrounds: backgroundsOf(settings ?? fallback),
     outputHost: cleanHost(settings?.outputHost) || undefined,
   };
