@@ -15,7 +15,7 @@ import {
   updateAccount,
 } from "./accounts.ts";
 import { verifyPassword } from "./passwords.ts";
-import { ALL_ROLES, can, canOpenPath, type Role } from "./roles.ts";
+import { ALL_ROLES, ROLES, can, canOpenPath, type Role } from "./roles.ts";
 import type { Service } from "./types.ts";
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "church-auth-"));
@@ -107,6 +107,13 @@ describe("역할 조합", () => {
       serviceSaveBlock(roles, worship(), worship({ status: "live", liveIndex: 0, startedAt: "2026-10-18T02:00:00.000Z" })),
       "권한이 없습니다.",
     );
+  });
+
+  it("역할 설명에는 출결과 물품을 적지 않는다", () => {
+    for (const role of ROLES) {
+      assert.equal(role.detail.includes("출결"), false);
+      assert.equal(role.detail.includes("물품"), false);
+    }
   });
 
   it("송출만 있으면 순서 편집과 사람 명단을 열지 못한다", () => {

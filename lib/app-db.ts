@@ -1,6 +1,6 @@
 import { closeVisit, openVisit } from "./simple";
 import { normalizeDb } from "./db-shape";
-import { DatabasePermissionError, dbGet, dbPatch, dbSet } from "./firebase-db";
+import { DatabasePermissionError, dbGet, dbKeys, dbPatch, dbSet } from "./firebase-db";
 import {
   emailFromIdToken,
   firebaseDeleteAccount,
@@ -494,13 +494,36 @@ async function adoptSession(next: Session): Promise<boolean> {
 }
 
 async function loadChurchIndex(authToken: string): Promise<ChurchRow[]> {
+  let indexDenied = false;
   const index = await dbGet<Record<string, Partial<ChurchRow>>>("churchIndex", authToken).catch((reason: unknown) => {
     if (reason instanceof DatabasePermissionError) {
-      error = "데이터베이스 권한이 없습니다.";
+      indexDenied = true;
       return null;
     }
     throw reason;
   });
+  const rows = churchRows(index);
+  if (rows.length > 0) {
+    error = "";
+    return rows;
+  }
+  let metaDenied = false;
+  const fromMeta = await churchRowsFromMeta(authToken).catch((reason: unknown) => {
+    if (reason instanceof DatabasePermissionError) {
+      metaDenied = true;
+      return [] as ChurchRow[];
+    }
+    throw reason;
+  });
+  if (fromMeta.length > 0) {
+    error = "";
+    return fromMeta;
+  }
+  error = indexDenied && metaDenied ? "데이터베이스 권한이 없습니다." : "";
+  return [];
+}
+
+function churchRows(index: Record<string, Partial<ChurchRow>> | null): ChurchRow[] {
   if (!index || typeof index !== "object") return [];
   return Object.entries(index)
     .filter(([id]) => isChurchId(id))
@@ -511,6 +534,26 @@ async function loadChurchIndex(authToken: string): Promise<ChurchRow[]> {
       createdAt: Number(row?.createdAt || 0),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+}
+
+async function churchRowsFromMeta(authToken: string): Promise<ChurchRow[]> {
+  const ids = await dbKeys("churches", authToken);
+  const rows: ChurchRow[] = [];
+  for (const id of ids) {
+    if (!isChurchId(id)) continue;
+    const meta = await dbGet<{ name?: unknown; operatorEmail?: unknown; createdAt?: unknown }>(`churches/${id}/meta`, authToken).catch((reason: unknown) => {
+      if (reason instanceof DatabasePermissionError) throw reason;
+      return null;
+    });
+    if (!meta || typeof meta !== "object") continue;
+    rows.push({
+      id,
+      name: String(meta.name || "교회").slice(0, 40),
+      operatorEmail: String(meta.operatorEmail || ""),
+      createdAt: Number(meta.createdAt || 0),
+    });
+  }
+  return rows.sort((a, b) => a.name.localeCompare(b.name, "ko"));
 }
 
 async function loadChurch(id: string) {
