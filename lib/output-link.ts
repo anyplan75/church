@@ -42,6 +42,7 @@ let latest = { serviceId: "", lines: [] as string[], seq: 0 };
 const slots = new Map<Mode, Slot>();
 let operatorService = "";
 let operatorTimer = 0;
+let lineTimer = 0;
 let operatorBusy = false;
 let linkGeneration = 0;
 let warned = "";
@@ -83,9 +84,11 @@ export function startOperatorLink(serviceId: string): () => void {
   slots.clear();
   const generation = ++linkGeneration;
   if (operatorTimer) window.clearInterval(operatorTimer);
+  if (lineTimer) window.clearInterval(lineTimer);
   operatorBusy = false;
   void operatorTick(generation);
   operatorTimer = window.setInterval(() => void operatorTick(generation), 400);
+  lineTimer = window.setInterval(() => sendLatest(serviceId), 200);
   return () => {
     if (generation !== linkGeneration) return;
   };
@@ -118,7 +121,9 @@ function rememberOperatorService(serviceId: string) {
 function stopOperator() {
   linkGeneration += 1;
   if (operatorTimer) window.clearInterval(operatorTimer);
+  if (lineTimer) window.clearInterval(lineTimer);
   operatorTimer = 0;
+  lineTimer = 0;
   operatorService = "";
   operatorBusy = false;
   if (typeof sessionStorage !== "undefined") {
@@ -317,8 +322,9 @@ function openViewer(
       void frameText(message.data).then((raw) => {
         const packet = slidePacket(raw, serviceId);
         if (!packet || !accept(packet.seq)) return;
-        view.heard = true;
         onLines(packet.lines);
+        if (packet.lines.length === 0) return;
+        view.heard = true;
         if (packet.seq > 0 && channel.readyState === "open") {
           try {
             channel.send(JSON.stringify({ ack: packet.seq }));

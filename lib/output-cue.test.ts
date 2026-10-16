@@ -25,30 +25,14 @@ describe("송출 두 줄", () => {
     assert.deepEqual(keepSlideSeq(2, 0), { keep: false, seen: 2 });
   });
 
-  it("연결 전에는 이유만 짧게 보여 주고 폴더를 요구하지 않는다", () => {
-    const waiting = outputHoldText("waiting");
-    const retry = outputHoldText("retry");
-    assert.equal(waiting.includes("미리보기"), false);
-    assert.equal(retry.includes("미리보기"), false);
-    assert.equal(waiting.includes("폴더"), false);
-    assert.equal(retry.includes("폴더"), false);
-    assert.equal(waiting.includes("직접 연결"), true);
-    assert.equal(retry.includes("다시 연결"), true);
-    assert.equal(retry.includes("끊"), false);
-    const linked = outputHoldText("direct");
-    assert.equal(linked.includes("두 줄"), true);
-    assert.equal(linked.includes("연결되었습니다"), false);
-    assert.equal(linked.includes("끊"), false);
-    assert.equal(linked.includes("미리보기"), false);
-    for (const status of ["no-ip", "no-signal", "unreachable"] as const) {
-      const reason = outputHoldText(status);
-      assert.equal(reason.includes("미리보기"), false);
-      assert.equal(reason.includes("끊"), false);
-      assert.equal(reason.split("\n").length, 1);
-      assert.equal(reason.length > 0, true);
+  it("송출 화면에는 실패 문장을 남기지 않는다", () => {
+    for (const status of ["waiting", "retry", "direct", "no-ip", "no-signal", "unreachable"] as const) {
+      const text = outputHoldText(status);
+      assert.equal(text, "");
+      assert.equal(text.includes("미리보기"), false);
+      assert.equal(text.includes("받지 못했습니다"), false);
+      assert.equal(text.includes("연결되었습니다"), false);
+      assert.equal(text.includes("폴더"), false);
     }
-    assert.equal(outputHoldText("no-ip").includes("설정에 송출 컴퓨터 IP"), true);
-    assert.equal(outputHoldText("no-signal").includes("신호를 보내지 못했습니다"), true);
-    assert.equal(outputHoldText("unreachable").includes("송출 컴퓨터 IP로 연결하지 못했습니다"), true);
   });
 });
