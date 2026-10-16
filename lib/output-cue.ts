@@ -10,11 +10,17 @@ type CueMessage = { serviceId: string; lines: string[] };
 
 const CHANNEL = "church-output-cue";
 
-export function slideMessage(serviceId: string, lines: string[]): string {
-  return JSON.stringify({ serviceId, lines: cueLines(lines) });
+export function slideMessage(serviceId: string, lines: string[], seq = 0): string {
+  const body: { serviceId: string; lines: string[]; seq?: number } = { serviceId, lines: cueLines(lines) };
+  if (seq > 0) body.seq = seq;
+  return JSON.stringify(body);
 }
 
 export function readSlideMessage(raw: string, serviceId: string): string[] | null {
+  return readSlidePacket(raw, serviceId)?.lines ?? null;
+}
+
+export function readSlidePacket(raw: string, serviceId: string): { lines: string[]; seq: number } | null {
   let data: unknown;
   try {
     data = JSON.parse(raw);
@@ -22,9 +28,15 @@ export function readSlideMessage(raw: string, serviceId: string): string[] | nul
     return null;
   }
   if (!data || typeof data !== "object") return null;
-  const record = data as { serviceId?: unknown; lines?: unknown };
+  const record = data as { serviceId?: unknown; lines?: unknown; seq?: unknown };
   if (record.serviceId !== serviceId || !Array.isArray(record.lines)) return null;
-  return cueLines(record.lines.map((line) => String(line)));
+  const seq = typeof record.seq === "number" && record.seq > 0 ? record.seq : 0;
+  return { seq, lines: cueLines(record.lines.map((line) => String(line))) };
+}
+
+export function keepSlideSeq(seen: number, seq: number): { keep: boolean; seen: number } {
+  if (seen > 0 && seq < seen) return { keep: false, seen };
+  return { keep: true, seen: seq > seen ? seq : seen };
 }
 
 export function publishCue(serviceId: string, lines: string[]) {
@@ -38,7 +50,7 @@ export function publishCue(serviceId: string, lines: string[]) {
 export type OutputLinkStatus = "waiting" | "retry" | "direct" | "no-ip" | "no-signal" | "unreachable";
 
 export function outputHoldText(status: OutputLinkStatus): string {
-  if (status === "direct") return "연결되었습니다.";
+  if (status === "direct") return "지금 두 줄을 받지 못했습니다.";
   if (status === "retry") return "다시 연결합니다.";
   if (status === "no-ip") return "설정에 송출 컴퓨터 IP가 없습니다.";
   if (status === "no-signal") return "직접 연결 신호를 보내지 못했습니다.";

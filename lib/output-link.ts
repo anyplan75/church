@@ -1,5 +1,5 @@
 import { churchSnapshot, patchOutputDirect, readDb, readOutputDirect } from "./app-db";
-import { cueLines, readSlideMessage, slideMessage, type OutputLinkStatus } from "./output-cue";
+import { cueLines, keepSlideSeq, readSlidePacket, slideMessage, type OutputLinkStatus } from "./output-cue";
 import { currentOutputHost, detectPrivateAddress, directCandidate, directDescription, isPrivateIpv4, OUTPUT_HOST_KEY, outputSignalHost, readStoredHost, thisComputer } from "./output-host";
 
 const ICE: RTCConfiguration = { iceServers: [] };
@@ -29,12 +29,16 @@ type Slot = {
   seenRemote: Set<string>;
   queuedRemote: RTCIceCandidateInit[];
   iceTimer: number;
+  sentSeq: number;
+  pending: boolean;
+  acked: number;
+  retryTimers: number[];
 };
 
 const OPERATOR_SERVICE_KEY = "church-output-service";
 const SERVICE_ID = /^[A-Za-z0-9-]{1,80}$/;
 
-let latest = { serviceId: "", lines: [] as string[] };
+let latest = { serviceId: "", lines: [] as string[], seq: 0 };
 const slots = new Map<Mode, Slot>();
 let operatorService = "";
 let operatorTimer = 0;
@@ -52,9 +56,9 @@ function warnOnce(error: unknown) {
 }
 
 export function publishLinesNow(serviceId: string, lines: string[]) {
-  latest = { serviceId, lines: cueLines(lines) };
+  latest = { serviceId, lines: cueLines(lines), seq: latest.seq + 1 };
   if (typeof RTCPeerConnection === "undefined") return;
-  sendLatest(serviceId);
+  sendLatest(serviceId, true);
 }
 
 export function readOperatorService(): string {
@@ -146,6 +150,8 @@ export function startViewerLink(
   let stop = false;
   let busy = false;
   let opened = false;
+  let seenSeq = 0;
+  const view: { channel: RTCDataChannel | null; heard: boolean } = { channel: null, heard: false };
   let viewGeneration = 0;
   let iceTimer = 0;
   let reported: OutputLinkStatus = "waiting";
@@ -159,7 +165,12 @@ export function startViewerLink(
     opened = true;
     report("direct");
   };
-  let pc = openViewer(serviceId, onLines, markOpen(viewGeneration));
+  const accept = (seq: number) => {
+    const next = keepSlideSeq(seenSeq, seq);
+    seenSeq = next.seen;
+    return next.keep;
+  };
+  let pc = openViewer(serviceId, onLines, markOpen(viewGeneration), accept, view);
 
   const flushIce = () => {
     window.clearTimeout(iceTimer);
@@ -190,8 +201,10 @@ export function startViewerLink(
     posted = false;
     opened = false;
     started = Date.now();
+    view.channel = null;
+    view.heard = false;
     viewGeneration += 1;
-    pc = openViewer(serviceId, onLines, markOpen(viewGeneration));
+    pc = openViewer(serviceId, onLines, markOpen(viewGeneration), accept, view);
     arm(pc);
   }
 
@@ -206,6 +219,13 @@ export function startViewerLink(
   }
 
   async function tick() {
+    if (!view.heard && view.channel?.readyState === "open") {
+      try {
+        view.channel.send(JSON.stringify({ ready: 1 }));
+      } catch {
+        /* 다음 주기에 다시 알립니다. */
+      }
+    }
     if (stop || busy) return;
     const nextHost = viewerSignalHost();
     if (!nextHost) {
@@ -281,21 +301,66 @@ export function startViewerLink(
   };
 }
 
-function openViewer(serviceId: string, onLines: (lines: string[]) => void, onOpen: () => void): RTCPeerConnection {
+function openViewer(
+  serviceId: string,
+  onLines: (lines: string[]) => void,
+  onOpen: () => void,
+  accept: (seq: number) => boolean,
+  view: { channel: RTCDataChannel | null; heard: boolean },
+): RTCPeerConnection {
   const pc = new RTCPeerConnection(ICE);
   pc.ondatachannel = (event) => {
     const channel = event.channel;
+    view.channel = channel;
     channel.binaryType = "arraybuffer";
-    channel.onopen = onOpen;
-    if (channel.readyState === "open") onOpen();
     channel.onmessage = (message) => {
       void frameText(message.data).then((raw) => {
-        const lines = readSlideMessage(raw, serviceId);
-        if (lines !== null) onLines(lines);
+        const packet = slidePacket(raw, serviceId);
+        if (!packet || !accept(packet.seq)) return;
+        view.heard = true;
+        onLines(packet.lines);
+        if (packet.seq > 0 && channel.readyState === "open") {
+          try {
+            channel.send(JSON.stringify({ ack: packet.seq }));
+          } catch {
+            /* 조작 쪽이 같은 두 줄을 다시 보냅니다. */
+          }
+        }
       });
     };
+    const tellReady = () => {
+      if (channel.readyState !== "open") return;
+      try {
+        channel.send(JSON.stringify({ ready: 1 }));
+      } catch {
+        /* 다음 주기에 다시 알립니다. */
+      }
+    };
+    channel.onopen = () => {
+      onOpen();
+      tellReady();
+    };
+    if (channel.readyState === "open") {
+      onOpen();
+      tellReady();
+    }
   };
   return pc;
+}
+
+function slidePacket(raw: string, serviceId: string): { lines: string[]; seq: number } | null {
+  const ids = [serviceId, serviceIdFromLocation()].filter((id, index, all) => id && all.indexOf(id) === index);
+  for (const id of ids) {
+    const packet = readSlidePacket(raw, id);
+    if (packet) return packet;
+  }
+  return null;
+}
+
+function serviceIdFromLocation(): string {
+  if (typeof location === "undefined") return "";
+  const match = location.pathname.match(/\/services\/([^/]+)\/output\/?$/);
+  return match ? decodeURIComponent(match[1]) : "";
 }
 
 async function operatorTick(generation: number) {
@@ -421,9 +486,26 @@ function createSlot(serviceId: string, host: string, mode: Mode): Slot {
     seenRemote: new Set(),
     queuedRemote: [],
     iceTimer: 0,
+    sentSeq: 0,
+    pending: false,
+    acked: 0,
+    retryTimers: [],
+  };
+  channel.onmessage = (event) => {
+    void frameText(event.data).then((raw) => {
+      const signal = readSignal(raw);
+      if (signal.ack > slot.acked) slot.acked = signal.ack;
+      if (signal.ready) sendLatest(serviceId, true);
+    });
   };
   channel.onopen = () => {
-    if (latest.serviceId === serviceId) channel.send(slideMessage(serviceId, latest.lines));
+    slot.sentSeq = 0;
+    slot.acked = 0;
+    slot.pending = true;
+    sendLatest(serviceId, true);
+    for (const delay of [50, 250]) {
+      slot.retryTimers.push(window.setTimeout(() => sendLatest(serviceId, true), delay));
+    }
   };
   pc.onicecandidate = (event) => {
     const init = candidateInit(event.candidate);
@@ -451,16 +533,42 @@ function peerDown(slot: Slot): boolean {
 
 function closeSlot(slot: Slot) {
   window.clearTimeout(slot.iceTimer);
+  for (const timer of slot.retryTimers) window.clearTimeout(timer);
+  slot.retryTimers.length = 0;
   slot.pc.close();
 }
 
-function sendLatest(serviceId: string) {
-  if (latest.serviceId !== serviceId || typeof RTCPeerConnection === "undefined") return;
-  const payload = slideMessage(serviceId, latest.lines);
+function sendLatest(serviceId: string, force = false) {
+  if (latest.serviceId !== serviceId || latest.seq <= 0 || typeof RTCPeerConnection === "undefined") return;
+  const payload = slideMessage(serviceId, latest.lines, latest.seq);
   for (const slot of slots.values()) {
-    if (slot.channel.readyState !== "open" || slot.channel.bufferedAmount > 8000) continue;
-    slot.channel.send(payload);
+    if (slot.channel.readyState !== "open") continue;
+    if (!force && slot.acked >= latest.seq && !slot.pending) continue;
+    if (slot.channel.bufferedAmount > 8000) {
+      slot.pending = true;
+      continue;
+    }
+    try {
+      slot.channel.send(payload);
+      slot.sentSeq = latest.seq;
+      slot.pending = false;
+    } catch {
+      slot.pending = true;
+    }
   }
+}
+
+function readSignal(raw: string): { ready: boolean; ack: number } {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return { ready: false, ack: 0 };
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data) || "lines" in data) return { ready: false, ack: 0 };
+  const record = data as { ready?: unknown; ack?: unknown };
+  const ack = typeof record.ack === "number" && record.ack > 0 ? record.ack : 0;
+  return { ready: record.ready === 1, ack };
 }
 
 function viewerSignalHost(): string {

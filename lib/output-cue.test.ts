@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cueLines, outputHoldText, readSlideMessage, slideMessage } from "./output-cue.ts";
+import { cueLines, keepSlideSeq, outputHoldText, readSlideMessage, readSlidePacket, slideMessage } from "./output-cue.ts";
 
 describe("송출 두 줄", () => {
   it("지금 내보내는 두 줄만 남긴다", () => {
@@ -16,6 +16,13 @@ describe("송출 두 줄", () => {
     assert.deepEqual(readSlideMessage(raw, "service-1"), ["하늘이 맑다", "들이 푸르다"]);
     assert.equal(readSlideMessage(raw, "other"), null);
     assert.equal(readSlideMessage("not-json", "service-1"), null);
+    const numbered = slideMessage("service-1", ["하늘이 맑다", "강이 잔잔하다"], 2);
+    assert.equal(JSON.parse(numbered).seq, 2);
+    assert.deepEqual(readSlidePacket(numbered, "service-1"), { seq: 2, lines: ["하늘이 맑다", "강이 잔잔하다"] });
+    assert.deepEqual(keepSlideSeq(0, 2), { keep: true, seen: 2 });
+    assert.deepEqual(keepSlideSeq(2, 2), { keep: true, seen: 2 });
+    assert.deepEqual(keepSlideSeq(2, 1), { keep: false, seen: 2 });
+    assert.deepEqual(keepSlideSeq(2, 0), { keep: false, seen: 2 });
   });
 
   it("연결 전에는 이유만 짧게 보여 주고 폴더를 요구하지 않는다", () => {
@@ -29,7 +36,8 @@ describe("송출 두 줄", () => {
     assert.equal(retry.includes("다시 연결"), true);
     assert.equal(retry.includes("끊"), false);
     const linked = outputHoldText("direct");
-    assert.equal(linked.includes("연결되었습니다"), true);
+    assert.equal(linked.includes("두 줄"), true);
+    assert.equal(linked.includes("연결되었습니다"), false);
     assert.equal(linked.includes("끊"), false);
     assert.equal(linked.includes("미리보기"), false);
     for (const status of ["no-ip", "no-signal", "unreachable"] as const) {
