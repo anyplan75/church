@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/surge-fallback.mjs",
     "start": "next start",
     "test": "tsx --test lib/*.test.ts"
   },
