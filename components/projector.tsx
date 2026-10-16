@@ -87,6 +87,9 @@ export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?
   );
 }
 
+const OUTPUT_IP_EXAMPLE = "192.168.0.10";
+const OUTPUT_IP_PROMPT = "이 컴퓨터의 192.168 주소를 입력";
+
 function ThisComputer() {
   const [host, setHost] = useState("");
   const [draft, setDraft] = useState("");
@@ -116,22 +119,33 @@ function ThisComputer() {
     };
   }, []);
 
-  if (!ready) return <p className="output-address">이 컴퓨터</p>;
+  if (!ready) {
+    return (
+      <p className="output-address">
+        <span>이 송출 컴퓨터의 IP</span>
+        <span>{OUTPUT_IP_PROMPT}</span>
+        <span className="output-address-example">예: {OUTPUT_IP_EXAMPLE}</span>
+      </p>
+    );
+  }
   if (host && !editing) {
     return (
       <p className="output-address" data-output-ip={host} onClick={() => setEditing(true)}>
-        이 컴퓨터 {host}
+        <span>이 송출 컴퓨터의 IP</span>
+        <span>{host}</span>
+        <span className="output-address-example">예: {OUTPUT_IP_EXAMPLE}</span>
       </p>
     );
   }
   return (
     <label className="output-address" data-output-ip={host || undefined}>
-      이 컴퓨터
+      <span>이 송출 컴퓨터의 IP</span>
       <input
         value={draft}
         inputMode="decimal"
         autoComplete="off"
-        aria-label="이 컴퓨터"
+        aria-label="이 송출 컴퓨터의 IP"
+        placeholder={OUTPUT_IP_PROMPT}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => commitAddress(draft, setHost, setDraft, setEditing)}
         onKeyDown={(event) => {
@@ -140,6 +154,7 @@ function ThisComputer() {
           commitAddress(draft, setHost, setDraft, setEditing);
         }}
       />
+      <span className="output-address-example">예: {OUTPUT_IP_EXAMPLE}</span>
     </label>
   );
 }

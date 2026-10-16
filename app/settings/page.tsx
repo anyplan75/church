@@ -29,7 +29,7 @@ export default function SettingsPage() {
       {settingsReady(settings) ? <p className="mt-4 text-sm text-pine">메인 설정을 마쳤습니다.</p> : null}
       {query.saved ? <p className="mt-4 text-sm text-pine">설정을 저장했습니다.</p> : null}
       {query.error === "empty" ? <p className="mt-4 text-sm text-wine">교회 이름을 입력해 주세요.</p> : null}
-      {query.error === "host" ? <p className="mt-4 text-sm text-wine">송출 컴퓨터에는 IP 주소만 넣어 주세요.</p> : null}
+      {query.error === "host" ? <p className="mt-4 text-sm text-wine">이 송출 컴퓨터의 IP만 넣어 주세요. 예: 192.168.0.10</p> : null}
       {query.error === "image" ? <p className="mt-4 text-sm text-wine">배경 그림은 5MB 이하의 JPG, PNG, WEBP로 올려 주세요.</p> : null}
       {query.error === "group" ? <p className="mt-4 text-sm text-wine">그룹 이름과 사람을 한 명 이상 골라 주세요.</p> : null}
       {query.error === "setup" ? (
@@ -66,9 +66,9 @@ export default function SettingsPage() {
         ) : null}
         <label className="field">
           <span>송출 컴퓨터</span>
-          <input className="input" name="outputHost" defaultValue={settings.outputHost || ""} inputMode="decimal" autoComplete="off" placeholder="192.168.0.10" maxLength={15} />
+          <input className="input" name="outputHost" defaultValue={settings.outputHost || ""} inputMode="decimal" autoComplete="off" placeholder="이 컴퓨터의 192.168 주소를 입력" maxLength={15} aria-label="이 송출 컴퓨터의 IP" />
         </label>
-        <p className="text-sm text-muted">송출 화면의 이 컴퓨터 주소를 넣으면, 지금 슬라이드 두 줄을 그 주소로 보냅니다.</p>
+        <p className="text-sm text-muted">송출 화면에 나온 이 송출 컴퓨터의 IP를 넣습니다. 예: 192.168.0.10</p>
         <label className="field">
           <span>오버레이 자막 위치</span>
           <select className="select" name="overlay" defaultValue={settings.overlay}>
