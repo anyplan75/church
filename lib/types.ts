@@ -127,6 +127,7 @@ export type Service = {
   announcements: Announcement[];
   liveIndex: number;
   liveSlide?: number;
+  outputLines?: string[];
   startedAt: string | null;
   notes: string;
   checks: Record<string, boolean>;

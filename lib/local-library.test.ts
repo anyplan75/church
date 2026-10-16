@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { bibleBook, emptyTemplate, fileMatchesQuery, fileSlides, folderStatusText, libraryMatchText, libraryQuery, nameContains, passageFromBook, previewLine, readableLines, scriptureKey, searchedLabel, splitSlides, textFileBody, twoLineSlides } from "./local-library.ts";
+import { bibleBook, emptyTemplate, fileMatchesQuery, fileSlides, folderStatusText, libraryMatchText, libraryQuery, nameContains, passageFromBook, previewLine, readableLines, scriptureKey, searchedLabel, SLIDE_LINE, splitSlides, textFileBody, twoLineSlides, verseSlides } from "./local-library.ts";
 import { buildDesk } from "./slide-show.ts";
 import { buildSeed } from "./seed.ts";
 
@@ -63,11 +63,19 @@ describe("예배 폴더", () => {
     assert.deepEqual(passageFromBook("32장 3절 하늘\n32장 4절 바다", "신명기 32장 3-4절"), ["하늘", "바다"]);
     assert.deepEqual(passageFromBook("32장\n<3> 하늘\n<4> 바다\n33장\n<1> 산", "신명기 32장 3-4절"), ["하늘", "바다"]);
     const query = { kind: "bible" as const, title: "성경봉독", hymnNumber: "", scripture: "야고보서 3:1-2" };
-    assert.deepEqual(fileSlides(query, book), ["삼장하나\n삼장둘"]);
+    assert.deepEqual(fileSlides(query, book), ["삼장하나", "삼장둘"]);
+    const longVerse = "가".repeat(SLIDE_LINE * 2 + 4);
+    const verseBook = `3장\n1 ${longVerse}\n2 산이 높다`;
+    const verseSlidesOut = fileSlides(query, verseBook);
+    assert.equal(verseSlidesOut.length, 3);
+    assert.equal(verseSlidesOut[verseSlidesOut.length - 1], "산이 높다");
+    assert.equal(verseSlidesOut.slice(0, -1).every((slide) => slide.includes("산이") === false), true);
+    assert.equal(verseSlidesOut.every((slide) => slide.split("\n").length <= 2), true);
+    assert.deepEqual(verseSlides(["하늘이 맑다", "들이 푸르다"]), ["하늘이 맑다", "들이 푸르다"]);
     assert.deepEqual(fileSlides({ kind: "hymn", title: "찬송", hymnNumber: "44", scripture: "" }, "하늘이 맑다\n들이 푸르다\n강이 흐른다\n산이 높다"), ["하늘이 맑다\n들이 푸르다", "강이 흐른다\n산이 높다"]);
     const wrapped = "가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하";
     assert.equal(readableLines(wrapped).length >= 3, true);
-    assert.equal(readableLines(wrapped).every((line) => line.length <= 18), true);
+    assert.equal(readableLines(wrapped).every((line) => line.length <= SLIDE_LINE), true);
     assert.equal(twoLineSlides(wrapped).length > 1, true);
     assert.equal(twoLineSlides(wrapped).every((slide) => slide.split("\n").length <= 2), true);
     assert.deepEqual(fileSlides({ kind: "praise", title: "찬양", hymnNumber: "", scripture: "" }, "하늘이 맑다\n들이 푸르다\n강이 흐른다"), ["하늘이 맑다\n들이 푸르다", "강이 흐른다"]);

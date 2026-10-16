@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { CopyrightNotice } from "@/components/copyright-notice";
 import { LibraryUseSteps } from "@/components/service-folder";
 import { OutputLinks } from "@/components/output-links";
 import { SlideDesk } from "@/components/slide-desk";
-import { saveLiveProgress } from "@/lib/actions";
+import { saveLiveCue, saveLiveProgress } from "@/lib/actions";
 import { formatKoreanDate, formatTime } from "@/lib/format";
 import type { Person, Service, Song } from "@/lib/types";
 import { START_BLOCKED } from "@/lib/simple";
@@ -40,18 +40,17 @@ export function LiveConsole({
   statusRef.current = status;
   const elapsed = useElapsed(startedAt, status === "live");
 
-  function go(groupIndex: number, inGroup: number) {
+  const go = useCallback((groupIndex: number, inGroup: number, lines: string[] = []) => {
     const clamped = clampLiveIndex(groupIndex, service.items.length);
     setIndex(clamped);
     setSlide(inGroup);
     setConfirming(false);
-    if (statusRef.current !== "live") return;
     startTransition(() => {
-      void saveLiveProgress(service.id, clamped, undefined, inGroup).then((result) => {
+      void saveLiveCue(service.id, clamped, inGroup, lines).then((result) => {
         if (!result.ok) setError(result.message);
       });
     });
-  }
+  }, [service.id, service.items.length]);
 
   async function start() {
     setError("");

@@ -145,6 +145,7 @@ describe("services", () => {
       liveIndex: 5,
       startedAt: null,
       notes: "",
+      outputLines: ["  하나  ", "둘", "셋은 버려진다"],
     });
     assert.equal(normalized.title, "예배");
     assert.equal(normalized.date, todayISO());
@@ -155,5 +156,6 @@ describe("services", () => {
     assert.equal(normalized.items[0]?.personId, null);
     assert.equal(normalized.liveIndex, 0);
     assert.equal(normalized.announcements[0]?.text, "  새가족 환영회  ");
+    assert.deepEqual(normalized.outputLines, ["하나", "둘"]);
   });
 });

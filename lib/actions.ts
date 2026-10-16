@@ -1,4 +1,5 @@
 import { serviceSaveBlock } from "./access";
+import { cueLines, publishCue } from "./output-cue";
 import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
@@ -79,6 +80,31 @@ export async function saveService(input: Service): Promise<{ ok: true } | { ok: 
     });
     if (!found) return { ok: false, message: "예배를 찾을 수 없습니다." };
     refreshService(service.id);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "저장하지 못했습니다." };
+  }
+}
+
+export async function saveLiveCue(
+  id: string,
+  liveIndex: number,
+  liveSlide: number,
+  lines: string[],
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const cue = cueLines(lines);
+  publishCue(id, cue);
+  try {
+    const auth = await mutationUser("mutate.run");
+    if (!auth.ok) return auth;
+    updateDb((db) => {
+      const service = db.services.find((item) => item.id === id);
+      if (!service) throw new Error("예배를 찾을 수 없습니다.");
+      service.liveIndex = clampLiveIndex(liveIndex, service.items.length);
+      service.liveSlide = clampLiveIndex(liveSlide, 40);
+      service.outputLines = cue;
+    });
+    refreshService(id);
     return { ok: true };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "저장하지 못했습니다." };

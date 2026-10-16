@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/account-actions";
 import { backToChurches } from "@/lib/platform-actions";
+import { cleanPath } from "@/lib/page-path";
 import { can, homeFor, type Capability, type Role } from "@/lib/roles";
 
 const LINKS: { href: string; label: string; capability: Capability }[] = [
@@ -32,7 +33,8 @@ export function Nav({
   platform?: boolean;
 }) {
   const pathname = usePathname();
-  if (pathname.endsWith("/live") || pathname.endsWith("/output")) return null;
+  const path = cleanPath(pathname || "/");
+  if (path.endsWith("/live") || path.endsWith("/output")) return null;
   const links = LINKS.filter((link) => can(roles, link.capability));
 
   return (
@@ -40,7 +42,7 @@ export function Nav({
       <div className="mx-auto flex w-full max-w-[1080px] flex-wrap items-center justify-between gap-3 px-4 py-3">
         <Link href={homeFor(roles)} className="flex min-w-0 items-baseline gap-2">
           <span className="truncate font-serif text-xl text-pine">{churchName}</span>
-          <span className="shrink-0 text-xs text-muted">예배 운영</span>
+          <span className="shrink-0 text-xs text-muted">은혜로운 예배</span>
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <nav className="flex items-center gap-1 text-sm" aria-label="주 메뉴">

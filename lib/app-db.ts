@@ -540,6 +540,10 @@ function scheduleChurchWrite() {
     });
 }
 
+export function refreshChurchNow() {
+  void refreshRemote();
+}
+
 async function refreshRemote() {
   if (!session || writing) return;
   try {
