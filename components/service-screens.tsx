@@ -16,7 +16,7 @@ import { updateSlideFields } from "@/lib/actions";
 import { updateDb } from "@/lib/app-db";
 import { COPYRIGHT_NOTE } from "@/lib/checklist";
 import { formatKoreanDate, formatTime } from "@/lib/format";
-import { liveView } from "@/lib/live-view";
+import { emptyLiveView, liveView } from "@/lib/live-view";
 import { settingsReady } from "@/lib/simple";
 import { can } from "@/lib/roles";
 import { syncReminders } from "@/lib/reminders";
@@ -83,14 +83,12 @@ export function OutputScreen({ id }: { id?: string }) {
   const serviceId = useServiceId(id);
   const { ready, db } = useChurch();
   const mode = useOutputMode();
-  if (!ready || !db) return null;
-  const view = liveView(db, serviceId);
-  if (!view) return <Missing />;
-  return <Projector initial={view} mode={mode} />;
+  const view = ready && db ? liveView(db, serviceId) : null;
+  return <Projector initial={view ?? emptyLiveView(serviceId)} mode={mode} />;
 }
 
-function useOutputMode(): "overlay" | "main" {
-  const [mode, setMode] = useState<"overlay" | "main">("main");
+function useOutputMode(): "overlay" | "main" | "" {
+  const [mode, setMode] = useState<"overlay" | "main" | "">("");
   useEffect(() => {
     const value = new URLSearchParams(window.location.search).get("mode");
     setMode(value === "overlay" ? "overlay" : "main");

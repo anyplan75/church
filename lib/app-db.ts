@@ -10,6 +10,7 @@ import {
   firebaseUpdateAccount,
   type FirebaseSession,
 } from "./firebase-auth";
+import { hostKey } from "./output-host";
 import { go } from "./page-path";
 import {
   canAddChurch,
@@ -571,32 +572,26 @@ export function refreshChurchNow() {
   void refreshRemote();
 }
 
-const SIGNAL_ID = /^[A-Za-z0-9_-]{1,80}$/;
-const SIGNAL_PATH = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/;
+const OUTPUT_MODE = /^(overlay|main)$/;
 
-export async function readOutputRoom(serviceId: string): Promise<unknown> {
-  if (!SIGNAL_ID.test(serviceId)) return null;
+export async function readOutputDirect(host: string, mode: string): Promise<unknown | undefined> {
+  const key = hostKey(host);
+  if (!key || !OUTPUT_MODE.test(mode)) return null;
   const churchId = activeChurchId();
-  if (!churchId || !session) return null;
+  if (!churchId || !session) return undefined;
   const token = await currentToken();
-  return dbGet(`churches/${churchId}/data/outputSignals/${serviceId}`, token);
+  return dbGet(`churches/${churchId}/data/outputDirect/${key}/${mode}`, token);
 }
 
-export async function patchOutputRoom(serviceId: string, path: string, value: unknown): Promise<void> {
-  if (!SIGNAL_ID.test(serviceId) || !SIGNAL_PATH.test(path)) return;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+export async function patchOutputDirect(host: string, mode: string, value: unknown): Promise<boolean> {
+  const key = hostKey(host);
+  if (!key || !OUTPUT_MODE.test(mode)) return false;
+  if (!value || typeof value !== "object" || Array.isArray(value) || "lines" in value) return false;
   const churchId = activeChurchId();
-  if (!churchId || !session) return;
+  if (!churchId || !session) return false;
   const token = await currentToken();
-  await dbPatch(`churches/${churchId}/data/outputSignals/${serviceId}/${path}`, value, token);
-}
-
-export async function clearOutputRoom(serviceId: string, path: string): Promise<void> {
-  if (!SIGNAL_ID.test(serviceId) || !SIGNAL_PATH.test(path)) return;
-  const churchId = activeChurchId();
-  if (!churchId || !session) return;
-  const token = await currentToken();
-  await dbSet(`churches/${churchId}/data/outputSignals/${serviceId}/${path}`, null, token);
+  await dbPatch(`churches/${churchId}/data/outputDirect/${key}/${mode}`, value, token);
+  return true;
 }
 
 async function refreshRemote() {
@@ -737,7 +732,9 @@ function clearSession() {
   accounts = [];
   churches = [];
   files = new Map();
-  if (typeof localStorage !== "undefined") localStorage.removeItem(SESSION_KEY);
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(SESSION_KEY);
+  // church-output-host 와 church-this-computer 는 로그인과 따로 둡니다.
 }
 
 function encodePath(name: string): string {

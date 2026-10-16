@@ -1,4 +1,5 @@
 import { canStoreAttendance } from "./attendance";
+import { cleanHost } from "./output-host";
 import { backgroundsOf, captionFont, fullscreenStep } from "./simple";
 import type { ActivityEntry, AttendanceMark, Db, Department, Membership, Office, OverlayPosition, Person, PersonCategory, Service, Settings, Song, Supply, SupplyStatus, VisitLog } from "./types";
 import { OFFICES, PERSON_CATEGORIES } from "./types";
@@ -46,6 +47,7 @@ function normalizeSettings(settings: Partial<Settings> | undefined, fallback: Se
     fullscreenFont: captionFont(settings?.fullscreenFont).id,
     fullscreenStep: fullscreenStep(settings?.fullscreenStep),
     backgrounds: backgroundsOf(settings ?? fallback),
+    outputHost: cleanHost(settings?.outputHost) || undefined,
   };
 }
 

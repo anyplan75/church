@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Nav } from "@/components/nav";
 import { SessionGuard } from "@/components/session-guard";
 import { ReminderWatcher } from "@/components/reminder-watcher";
@@ -14,14 +14,24 @@ function landing(user: { kind: "platform" | "church"; churchId: string | null; r
   return homeFor(user.roles);
 }
 
+function isOutputPath(path: string): boolean {
+  return /^\/services\/[^/]+\/output$/.test(cleanPath(path));
+}
+
 export function ChurchFrame({ children }: { children: React.ReactNode }) {
   const { ready, user, db } = useChurch();
   const pathname = usePathname();
   const router = useRouter();
+  const [browserPath, setBrowserPath] = useState("");
+
+  useEffect(() => {
+    setBrowserPath(cleanPath(window.location.pathname || ""));
+  }, [pathname]);
 
   useEffect(() => {
     if (!ready) return;
     const path = cleanPath(window.location.pathname || pathname || "/");
+    if (isOutputPath(path)) return;
     if (!user) {
       if (path !== "/login") router.replace("/login");
       return;
@@ -47,16 +57,17 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
     if (!canOpenPath(user.roles, path)) router.replace("/denied");
   }, [ready, user, pathname, router]);
 
-  if (!ready) return <p className="page text-muted">불러오는 중</p>;
   const path = cleanPath(pathname || "/");
+  const output = isOutputPath(path) || isOutputPath(browserPath);
+  if (!ready && !output) return <p className="page text-muted">불러오는 중</p>;
 
   return (
     <>
-      {user && db && path !== "/platform" ? (
+      {user && db && path !== "/platform" && !output ? (
         <Nav churchName={db.settings.churchName} email={user.email} roles={user.roles} platform={user.kind === "platform"} />
       ) : null}
-      {user && can(user.roles, "screen.prepare") ? <ReminderWatcher /> : null}
-      {user ? <SessionGuard /> : null}
+      {user && !output && can(user.roles, "screen.prepare") ? <ReminderWatcher /> : null}
+      {user && !output ? <SessionGuard /> : null}
       {children}
     </>
   );

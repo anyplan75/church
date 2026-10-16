@@ -1,5 +1,6 @@
 import { serviceSaveBlock } from "./access";
 import { publishLinesNow } from "./output-link";
+import { cleanHost, saveOutputHost } from "./output-host";
 import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
@@ -402,12 +403,16 @@ export async function updateSettings(formData: FormData) {
   if (!churchName) go("/settings?error=empty");
   const overlayValue = cleanText(formData.get("overlay"), 12);
   const color = cleanText(formData.get("backgroundColor"), 7);
+  const rawHost = cleanText(formData.get("outputHost"), 40);
+  const outputHost = cleanHost(rawHost);
+  if (rawHost && !outputHost) go("/settings?error=host");
   let savedName: string | null = null;
   try {
     savedName = await storeBackground(formData.get("background"));
   } catch {
     go("/settings?error=image");
   }
+  saveOutputHost(outputHost);
   updateDb((db) => {
     db.settings.churchName = churchName;
     if (isOverlayPosition(overlayValue)) db.settings.overlay = overlayValue;
@@ -418,8 +423,10 @@ export async function updateSettings(formData: FormData) {
     }
     if (savedName) db.settings.backgroundFile = savedName;
     db.settings.defaultPlace = cleanText(formData.get("defaultPlace"), 40) || "본당";
+    db.settings.outputHost = outputHost || undefined;
     syncReminders(db);
   });
+  await flushChurchWrite();
   refreshService();
   go("/settings?saved=1");
 }

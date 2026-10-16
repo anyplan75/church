@@ -19,6 +19,23 @@ export type LiveView = {
   vertical: number;
 };
 
+export function emptyLiveView(serviceId: string): LiveView {
+  return {
+    serviceId,
+    title: "",
+    status: "",
+    index: 0,
+    total: 0,
+    slide: null,
+    overlay: "bottom",
+    backgroundColor: "#1b3a32",
+    backgroundUrl: null,
+    fontFamily: captionFont(undefined).family,
+    overlayFontFamily: captionFont(undefined).family,
+    vertical: fullscreenStep(undefined),
+  };
+}
+
 export function liveView(db: Db, serviceId: string): LiveView | null {
   const service = db.services.find((item) => item.id === serviceId);
   if (!service) return null;

@@ -1,33 +1,40 @@
-import { clearOutputRoom, patchOutputRoom, readOutputRoom } from "./app-db";
-import { cueLines, publishCue, readSlideMessage, slideMessage } from "./output-cue";
+import { patchOutputDirect, readDb, readOutputDirect } from "./app-db";
+import { cueLines, readSlideMessage, slideMessage } from "./output-cue";
+import { currentOutputHost, directCandidate, directDescription, thisComputer } from "./output-host";
 
-const ICE: RTCConfiguration = {
-  iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }],
+const ICE: RTCConfiguration = { iceServers: [] };
+const MODES = ["overlay", "main"] as const;
+type Mode = (typeof MODES)[number];
+
+type DirectRoom = {
+  offer?: unknown;
+  offerIce?: unknown;
+  answer?: unknown;
+  answerIce?: unknown;
 };
-const VIEWER_ID = /^v[a-z0-9]{6,12}$/;
 
-type Room = {
-  viewers?: Record<string, { at?: number; answer?: unknown; ice?: unknown }>;
-  offers?: Record<string, { offer?: unknown; ice?: unknown }>;
-};
-
-type OperatorPeer = {
+type Slot = {
+  host: string;
+  mode: Mode;
   pc: RTCPeerConnection;
   channel: RTCDataChannel;
-  offered: boolean;
+  localSdp: string;
+  posted: boolean;
   answered: boolean;
-  started: number;
   rejected: string;
+  started: number;
   localIce: RTCIceCandidateInit[];
   seenRemote: Set<string>;
   queuedRemote: RTCIceCandidateInit[];
+  iceTimer: number;
 };
 
 let latest = { serviceId: "", lines: [] as string[] };
-const peers = new Map<string, OperatorPeer>();
+const slots = new Map<Mode, Slot>();
 let operatorService = "";
 let operatorTimer = 0;
 let operatorBusy = false;
+let linkGeneration = 0;
 let warned = "";
 
 function warnOnce(error: unknown) {
@@ -38,38 +45,51 @@ function warnOnce(error: unknown) {
 }
 
 export function publishLinesNow(serviceId: string, lines: string[]) {
-  const cue = cueLines(lines);
-  latest = { serviceId, lines: cue };
-  publishCue(serviceId, cue);
+  latest = { serviceId, lines: cueLines(lines) };
   if (typeof RTCPeerConnection === "undefined") return;
   sendLatest(serviceId);
 }
 
 export function startOperatorLink(serviceId: string): () => void {
   operatorService = serviceId;
-  if (operatorTimer || typeof RTCPeerConnection === "undefined") return stopOperator;
-  void operatorTick();
-  operatorTimer = window.setInterval(() => void operatorTick(), 400);
-  return stopOperator;
+  if (typeof RTCPeerConnection === "undefined") return () => undefined;
+  const generation = ++linkGeneration;
+  if (operatorTimer) window.clearInterval(operatorTimer);
+  operatorBusy = false;
+  void operatorTick(generation);
+  operatorTimer = window.setInterval(() => void operatorTick(generation), 400);
+  return () => {
+    if (generation !== linkGeneration) return;
+    stopOperator();
+  };
 }
 
 function stopOperator() {
+  linkGeneration += 1;
   if (operatorTimer) window.clearInterval(operatorTimer);
   operatorTimer = 0;
   operatorService = "";
-  for (const peer of peers.values()) peer.pc.close();
-  peers.clear();
+  operatorBusy = false;
+  for (const slot of slots.values()) closeSlot(slot);
+  slots.clear();
 }
 
-export function startViewerLink(serviceId: string, onLines: (lines: string[]) => void, onStatus?: (status: "waiting" | "retry") => void): () => void {
+export function startViewerLink(
+  serviceId: string,
+  mode: Mode,
+  onLines: (lines: string[]) => void,
+  onStatus?: (status: "waiting" | "retry") => void,
+): () => void {
   if (typeof RTCPeerConnection === "undefined") return () => undefined;
-  const id = viewerId();
   let pc = openViewer(serviceId, onLines);
+  let host = "";
+  let started = Date.now();
   const localIce: RTCIceCandidateInit[] = [];
   const seen = new Set<string>();
   const queued: RTCIceCandidateInit[] = [];
   let answeredSdp = "";
-  let localAnswer: RTCSessionDescriptionInit | null = null;
+  let localAnswer = "";
+  let posted = false;
   let stop = false;
   let busy = false;
   let iceTimer = 0;
@@ -77,47 +97,63 @@ export function startViewerLink(serviceId: string, onLines: (lines: string[]) =>
   const flushIce = () => {
     window.clearTimeout(iceTimer);
     iceTimer = window.setTimeout(() => {
-      void patchOutputRoom(serviceId, `viewers/${id}`, { ice: localIce.slice(-12) }).catch(() => undefined);
+      if (!host || !localAnswer) return;
+      void patchOutputDirect(host, mode, { answerIce: localIce.slice(-12) }).catch(() => undefined);
     }, 80);
   };
-  pc.onicecandidate = (event) => {
-    const init = candidateInit(event.candidate);
-    if (!init) return;
-    localIce.push(init);
-    flushIce();
+  const arm = (peer: RTCPeerConnection) => {
+    peer.onicecandidate = (event) => {
+      const init = candidateInit(event.candidate);
+      if (!init) return;
+      localIce.push(init);
+      flushIce();
+    };
   };
+  arm(pc);
 
   function replacePc() {
+    window.clearTimeout(iceTimer);
     pc.onicecandidate = null;
     pc.close();
     localIce.length = 0;
     seen.clear();
     queued.length = 0;
     answeredSdp = "";
-    localAnswer = null;
+    localAnswer = "";
+    posted = false;
+    started = Date.now();
     pc = openViewer(serviceId, onLines);
-    pc.onicecandidate = (event) => {
-      const init = candidateInit(event.candidate);
-      if (!init) return;
-      localIce.push(init);
-      flushIce();
-    };
+    arm(pc);
+  }
+
+  function down(): boolean {
+    const state = pc.connectionState;
+    const ice = pc.iceConnectionState;
+    if (state === "failed" || state === "closed" || ice === "failed" || ice === "closed") return true;
+    if (state === "connected" || ice === "connected" || ice === "completed") return false;
+    const checking = ice === "checking" || state === "connecting";
+    return Date.now() - started > (checking ? 20000 : 12000);
   }
 
   async function tick() {
     if (stop || busy) return;
+    const nextHost = thisComputer();
+    if (!nextHost) return;
     busy = true;
     try {
-      if (pc.connectionState === "failed" || pc.connectionState === "disconnected" || pc.connectionState === "closed") onStatus?.("retry");
-      await patchOutputRoom(serviceId, `viewers/${id}`, {
-        at: Date.now(),
-        ...(localAnswer && pc.connectionState !== "connected" ? { answer: localAnswer } : {}),
-      });
-      const room = asRoom(await readOutputRoom(serviceId));
-      const slot = room.offers?.[id];
-      const offer = sessionDesc(slot?.offer, "offer");
+      if (host && host !== nextHost) replacePc();
+      host = nextHost;
+      if (stop) return;
+      if (down()) {
+        onStatus?.("retry");
+        replacePc();
+      }
+      const room = await readOutputDirect(host, mode);
+      if (stop || room === undefined) return;
+      const record = asRoom(room);
+      const offer = sessionDesc(record.offer, "offer");
       if (offer?.sdp && offer.sdp !== answeredSdp) {
-        if (answeredSdp || pc.signalingState !== "stable" || pc.connectionState === "failed") replacePc();
+        if (answeredSdp || pc.signalingState !== "stable") replacePc();
         await pc.setRemoteDescription(offer);
         for (const item of queued.splice(0)) await pc.addIceCandidate(item).catch(() => undefined);
         const answer = await pc.createAnswer();
@@ -125,12 +161,18 @@ export function startViewerLink(serviceId: string, onLines: (lines: string[]) =>
         await waitGather(pc);
         const local = pc.localDescription;
         if (local?.sdp) {
-          localAnswer = { type: "answer", sdp: local.sdp };
+          localAnswer = local.sdp;
           answeredSdp = offer.sdp;
-          await patchOutputRoom(serviceId, `viewers/${id}`, { answer: localAnswer, at: Date.now(), ice: localIce.slice(-12) });
+          posted = false;
         }
       }
-      for (const item of iceList(slot?.ice)) {
+      if (localAnswer && !posted) {
+        posted = await patchOutputDirect(host, mode, {
+          answer: { type: "answer", sdp: localAnswer },
+          answerIce: localIce.slice(-12),
+        });
+      }
+      for (const item of iceList(record.offerIce)) {
         const key = item.candidate ?? "";
         if (!key || seen.has(key)) continue;
         seen.add(key);
@@ -138,6 +180,7 @@ export function startViewerLink(serviceId: string, onLines: (lines: string[]) =>
         else await pc.addIceCandidate(item).catch(() => undefined);
       }
     } catch (error) {
+      posted = false;
       warnOnce(error);
       onStatus?.("retry");
     } finally {
@@ -153,7 +196,6 @@ export function startViewerLink(serviceId: string, onLines: (lines: string[]) =>
     window.clearInterval(timer);
     window.clearTimeout(iceTimer);
     pc.close();
-    void clearOutputRoom(serviceId, `viewers/${id}`).catch(() => undefined);
   };
 }
 
@@ -172,149 +214,145 @@ function openViewer(serviceId: string, onLines: (lines: string[]) => void): RTCP
   return pc;
 }
 
-async function operatorTick() {
-  if (operatorBusy || !operatorService) return;
+async function operatorTick(generation: number) {
+  if (operatorBusy || !operatorService || generation !== linkGeneration) return;
   operatorBusy = true;
   const serviceId = operatorService;
   try {
-    const room = asRoom(await readOutputRoom(serviceId));
-    const now = Date.now();
-    const live = new Set<string>();
-    for (const [id, viewer] of Object.entries(room.viewers ?? {})) {
-      if (!VIEWER_ID.test(id)) continue;
-      if (now - Number(viewer?.at ?? 0) > 25000) {
-        peers.get(id)?.pc.close();
-        peers.delete(id);
-        void clearOutputRoom(serviceId, `viewers/${id}`).catch(() => undefined);
-        void clearOutputRoom(serviceId, `offers/${id}`).catch(() => undefined);
-        continue;
-      }
-      live.add(id);
-      try {
-        await ensureOffer(serviceId, id, viewer, room.offers?.[id]);
-      } catch {
-        peers.get(id)?.pc.close();
-        peers.delete(id);
-      }
+    const host = currentOutputHost(readDb().settings.outputHost);
+    if (generation !== linkGeneration) return;
+    if (!host) {
+      for (const slot of slots.values()) closeSlot(slot);
+      slots.clear();
+      return;
     }
-    for (const id of [...peers.keys()]) {
-      if (live.has(id)) continue;
-      peers.get(id)?.pc.close();
-      peers.delete(id);
+    for (const mode of MODES) {
+      if (generation !== linkGeneration) return;
+      await ensureSlot(serviceId, host, mode, generation);
     }
+    if (generation !== linkGeneration) return;
     sendLatest(serviceId);
   } catch (error) {
-    warnOnce(error);
+    if (generation === linkGeneration) warnOnce(error);
   } finally {
-    operatorBusy = false;
+    if (generation === linkGeneration) operatorBusy = false;
   }
 }
 
-async function ensureOffer(
-  serviceId: string,
-  id: string,
-  viewer: { answer?: unknown; ice?: unknown },
-  posted: { offer?: unknown } | undefined,
-) {
-  let peer = peers.get(id);
-  if (!peer || peerDown(peer)) {
-    peer?.pc.close();
-    peer = createOperatorPeer(serviceId, id);
-    peers.set(id, peer);
+async function ensureSlot(serviceId: string, host: string, mode: Mode, generation: number) {
+  let slot = slots.get(mode);
+  if (slot && slot.host !== host) {
+    closeSlot(slot);
+    slots.delete(mode);
+    slot = undefined;
   }
-  if (!peer.offered) {
-    const offer = await peer.pc.createOffer();
-    await peer.pc.setLocalDescription(offer);
-    await waitGather(peer.pc);
-    peer.offered = true;
-    const local = peer.pc.localDescription;
-    if (!local?.sdp) return;
-    await patchOutputRoom(serviceId, `offers/${id}`, {
-      at: Date.now(),
-      offer: { type: local.type, sdp: local.sdp },
-      ice: peer.localIce.slice(-12),
-    });
-  } else if (!sessionDesc(posted?.offer, "offer") && peer.pc.localDescription) {
-    await patchOutputRoom(serviceId, `offers/${id}/offer`, {
-      type: peer.pc.localDescription.type,
-      sdp: peer.pc.localDescription.sdp,
+  if (slot?.channel.readyState === "open") return;
+  if (!slot || peerDown(slot)) {
+    slot?.pc && closeSlot(slot);
+    slot = createSlot(serviceId, host, mode);
+    slots.set(mode, slot);
+  }
+  if (!slot.localSdp) {
+    const offer = await withTimeout(slot.pc.createOffer(), 5000);
+    if (generation !== linkGeneration) return;
+    await withTimeout(slot.pc.setLocalDescription(offer), 5000);
+    if (generation !== linkGeneration) return;
+    await waitGather(slot.pc);
+    if (generation !== linkGeneration) return;
+    slot.localSdp = slot.pc.localDescription?.sdp ?? "";
+    slot.posted = false;
+  }
+  if (!slot.localSdp || generation !== linkGeneration) return;
+  const room = await readOutputDirect(host, mode);
+  if (room === undefined || generation !== linkGeneration) return;
+  if (!slot.posted) {
+    slot.posted = await patchOutputDirect(host, mode, {
+      offer: { type: "offer", sdp: slot.localSdp },
+      offerIce: slot.localIce.slice(-12),
     });
   }
-  const answer = sessionDesc(viewer.answer, "answer");
-  if (answer && answer.sdp !== peer.rejected && !peer.answered && peer.pc.signalingState === "have-local-offer") {
+  const answer = sessionDesc(asRoom(room).answer, "answer");
+  if (answer?.sdp && answer.sdp !== slot.rejected && !slot.answered && slot.pc.signalingState === "have-local-offer") {
+    const aimed = directDescription(answer.sdp, host);
     try {
-      await peer.pc.setRemoteDescription(answer);
-      peer.answered = true;
-      for (const item of peer.queuedRemote.splice(0)) await peer.pc.addIceCandidate(item).catch(() => undefined);
+      await slot.pc.setRemoteDescription({ type: "answer", sdp: aimed });
+      slot.answered = true;
+      for (const item of slot.queuedRemote.splice(0)) await slot.pc.addIceCandidate(aimCandidate(item, host)).catch(() => undefined);
     } catch {
-      peer.rejected = answer.sdp ?? "";
+      slot.rejected = answer.sdp;
     }
   }
-  for (const item of iceList(viewer.ice)) {
+  for (const item of iceList(asRoom(room).answerIce)) {
     const key = item.candidate ?? "";
-    if (!key || peer.seenRemote.has(key)) continue;
-    peer.seenRemote.add(key);
-    if (!peer.pc.remoteDescription) peer.queuedRemote.push(item);
-    else await peer.pc.addIceCandidate(item).catch(() => undefined);
+    if (!key || slot.seenRemote.has(key)) continue;
+    slot.seenRemote.add(key);
+    const aimed = aimCandidate(item, host);
+    if (!slot.pc.remoteDescription) slot.queuedRemote.push(aimed);
+    else await slot.pc.addIceCandidate(aimed).catch(() => undefined);
   }
 }
 
-function createOperatorPeer(serviceId: string, id: string): OperatorPeer {
+function createSlot(serviceId: string, host: string, mode: Mode): Slot {
   const pc = new RTCPeerConnection(ICE);
   const channel = pc.createDataChannel("slides");
-  const peer: OperatorPeer = {
+  const slot: Slot = {
+    host,
+    mode,
     pc,
     channel,
-    offered: false,
+    localSdp: "",
+    posted: false,
     answered: false,
-    started: Date.now(),
     rejected: "",
+    started: Date.now(),
     localIce: [],
     seenRemote: new Set(),
     queuedRemote: [],
+    iceTimer: 0,
   };
   channel.onopen = () => {
     if (latest.serviceId === serviceId) channel.send(slideMessage(serviceId, latest.lines));
   };
-  let iceTimer = 0;
   pc.onicecandidate = (event) => {
     const init = candidateInit(event.candidate);
     if (!init) return;
-    peer.localIce.push(init);
-    window.clearTimeout(iceTimer);
-    iceTimer = window.setTimeout(() => {
-      void patchOutputRoom(serviceId, `offers/${id}`, { ice: peer.localIce.slice(-12) }).catch(() => undefined);
+    slot.localIce.push(init);
+    window.clearTimeout(slot.iceTimer);
+    slot.iceTimer = window.setTimeout(() => {
+      if (!slot.localSdp) return;
+      void patchOutputDirect(host, mode, { offerIce: slot.localIce.slice(-12) }).then((ok) => {
+        if (ok) slot.posted = true;
+      }).catch(() => undefined);
     }, 80);
   };
-  return peer;
+  return slot;
 }
 
-function viewerId(): string {
-  const key = `church-output-viewer:${location.pathname}:${location.search}`;
-  const existing = sessionStorage.getItem(key);
-  if (existing && VIEWER_ID.test(existing)) return existing;
-  const bytes = crypto.getRandomValues(new Uint8Array(8));
-  const created = `v${Array.from(bytes, (byte) => (byte % 36).toString(36)).join("")}`;
-  sessionStorage.setItem(key, created);
-  return created;
-}
-
-function peerDown(peer: OperatorPeer): boolean {
-  const state = peer.pc.connectionState;
-  const ice = peer.pc.iceConnectionState;
+function peerDown(slot: Slot): boolean {
+  const state = slot.pc.connectionState;
+  const ice = slot.pc.iceConnectionState;
   if (state === "failed" || state === "closed" || ice === "failed" || ice === "closed") return true;
-  if (peer.channel.readyState === "open") return false;
+  if (slot.channel.readyState === "open") return false;
   const checking = ice === "checking" || ice === "connected" || ice === "completed" || state === "connecting" || state === "connected";
-  return Date.now() - peer.started > (checking ? 20000 : 12000);
+  return Date.now() - slot.started > (checking ? 20000 : 12000);
+}
+
+function closeSlot(slot: Slot) {
+  window.clearTimeout(slot.iceTimer);
+  slot.pc.close();
 }
 
 function sendLatest(serviceId: string) {
   if (latest.serviceId !== serviceId || typeof RTCPeerConnection === "undefined") return;
   const payload = slideMessage(serviceId, latest.lines);
-  for (const peer of peers.values()) {
-    if (peer.channel.readyState !== "open" || peer.channel.bufferedAmount > 8000) continue;
-    peer.channel.send(payload);
+  for (const slot of slots.values()) {
+    if (slot.channel.readyState !== "open" || slot.channel.bufferedAmount > 8000) continue;
+    slot.channel.send(payload);
   }
+}
+
+function aimCandidate(item: RTCIceCandidateInit, host: string): RTCIceCandidateInit {
+  return { ...item, candidate: item.candidate ? directCandidate(item.candidate, host) : item.candidate };
 }
 
 async function frameText(data: unknown): Promise<string> {
@@ -324,9 +362,9 @@ async function frameText(data: unknown): Promise<string> {
   return "";
 }
 
-function asRoom(value: unknown): Room {
+function asRoom(value: unknown): DirectRoom {
   if (!value || typeof value !== "object") return {};
-  return value as Room;
+  return value as DirectRoom;
 }
 
 function sessionDesc(value: unknown, type: "offer" | "answer"): RTCSessionDescriptionInit | null {
@@ -335,6 +373,22 @@ function sessionDesc(value: unknown, type: "offer" | "answer"): RTCSessionDescri
   if (record.type !== type || typeof record.sdp !== "string") return null;
   if (record.sdp.length < 20 || record.sdp.length > 100000) return null;
   return { type, sdp: record.sdp };
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("시간 초과")), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 function waitGather(pc: RTCPeerConnection): Promise<void> {

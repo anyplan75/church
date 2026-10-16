@@ -162,6 +162,7 @@ export type Settings = {
   fullscreenFont?: string;
   fullscreenStep?: number;
   backgrounds?: string[];
+  outputHost?: string;
 };
 
 export type AttendanceMark = {
