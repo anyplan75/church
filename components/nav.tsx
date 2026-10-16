@@ -40,7 +40,7 @@ export function Nav({
       <div className="mx-auto flex w-full max-w-[1080px] flex-wrap items-center justify-between gap-3 px-4 py-3">
         <Link href={homeFor(roles)} className="flex min-w-0 items-baseline gap-2">
           <span className="truncate font-serif text-xl text-pine">{churchName}</span>
-          <span className="shrink-0 text-xs text-muted">예배 운영</span>
+          <span className="shrink-0 text-xs text-muted">은혜로운 예배</span>
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <nav className="flex items-center gap-1 text-sm" aria-label="주 메뉴">

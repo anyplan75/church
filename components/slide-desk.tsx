@@ -81,7 +81,7 @@ export function SlideDesk({
   }, [current, desk.groups, desk.slides, groupIndex, onJump]);
 
   return (
-    <div className="grid min-h-[70vh] lg:grid-cols-[280px_minmax(0,1fr)_300px]">
+    <div className="grid min-h-[70vh] lg:grid-cols-[220px_minmax(0,1fr)_minmax(34rem,0.9fr)]">
       <aside className="border-b border-white/10 lg:h-[calc(100vh-11rem)] lg:overflow-y-auto lg:border-b-0 lg:border-r">
         <h2 className="px-4 pt-4 text-sm text-[#d9d0c2]">그룹</h2>
         <ol className="space-y-3 px-3 py-3">
@@ -136,8 +136,8 @@ function SlideCard({ slide, label, large = false, status = null }: { slide: Desk
         <p className="text-sm text-[#d9d0c2]">{slide.kicker}</p>
         {slide.lines.length > 0 ? (
           <>
-            <p className={large ? "mt-6 font-serif text-5xl leading-tight" : "mt-3 font-serif text-2xl leading-tight"}>{slide.lines[0]}</p>
-            {slide.lines[1] ? <p className={large ? "mt-4 text-3xl leading-tight" : "mt-2 text-lg leading-tight"}>{slide.lines[1]}</p> : null}
+            <p className="slide-line">{slide.lines[0]}</p>
+            {slide.lines[1] ? <p className="slide-line">{slide.lines[1]}</p> : null}
           </>
         ) : (
           <h2 className={large ? "mt-3 font-serif text-5xl leading-tight" : "mt-2 font-serif text-2xl leading-tight"}>{slide.heading}</h2>

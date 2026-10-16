@@ -204,7 +204,7 @@ export function buildSeed(today = todayISO()): Db {
 
   return {
     settings: {
-      churchName: "은혜교회",
+      churchName: "교회",
       backgroundColor: "#1b3a32",
       backgroundFile: null,
       overlay: "bottom",

@@ -119,7 +119,7 @@ export function passageFromBook(text: string, scripture: string): string[] {
   return block.slice(0, 24);
 }
 
-const SLIDE_LINE = 18;
+export const SLIDE_LINE = 16;
 
 export function readableLines(text: string): string[] {
   const rows = text.replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean);
@@ -137,12 +137,23 @@ export function readableLines(text: string): string[] {
   return lines;
 }
 
-export function twoLineSlides(text: string): string[] {
-  const lines = readableLines(text);
+export function pairLines(lines: string[]): string[] {
   const slides: string[] = [];
   for (let index = 0; index < lines.length; index += 2) {
     const pair = [lines[index], lines[index + 1]].filter(Boolean);
     if (pair.length > 0) slides.push(pair.join("\n"));
+  }
+  return slides;
+}
+
+export function twoLineSlides(text: string): string[] {
+  return pairLines(readableLines(text)).slice(0, 40);
+}
+
+export function verseSlides(verses: string[]): string[] {
+  const slides: string[] = [];
+  for (const verse of verses) {
+    slides.push(...pairLines(readableLines(verse)));
   }
   return slides.slice(0, 40);
 }
@@ -150,8 +161,9 @@ export function twoLineSlides(text: string): string[] {
 export function fileSlides(query: LibraryQuery, text: string): string[] {
   if (query.kind === "bible") {
     const verses = passageFromBook(text, query.scripture);
+    if (verses.length > 0) return verseSlides(verses);
     const rows = text.replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean);
-    const source = verses.length > 0 ? verses.join("\n") : rows.length > 0 && rows.length <= 40 ? rows.join("\n") : "";
+    const source = rows.length > 0 && rows.length <= 40 ? rows.join("\n") : "";
     return twoLineSlides(source);
   }
   return twoLineSlides(text);

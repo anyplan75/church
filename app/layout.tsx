@@ -3,7 +3,7 @@ import { ChurchFrame } from "@/components/church-frame";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "예배 운영",
+  title: "은혜로운 예배",
   description: "예배 전에 순서를 점검하고, 주보로 한 주를 준비한 뒤 예배 화면에 송출합니다.",
 };
 
