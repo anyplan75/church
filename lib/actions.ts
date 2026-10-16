@@ -1,5 +1,5 @@
 import { serviceSaveBlock } from "./access";
-import { cueLines, publishCue } from "./output-cue";
+import { publishLinesNow } from "./output-link";
 import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
@@ -92,8 +92,7 @@ export async function saveLiveCue(
   liveSlide: number,
   lines: string[],
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  const cue = cueLines(lines);
-  publishCue(id, cue);
+  publishLinesNow(id, lines);
   try {
     const auth = await mutationUser("mutate.run");
     if (!auth.ok) return auth;
@@ -102,7 +101,7 @@ export async function saveLiveCue(
       if (!service) throw new Error("예배를 찾을 수 없습니다.");
       service.liveIndex = clampLiveIndex(liveIndex, service.items.length);
       service.liveSlide = clampLiveIndex(liveSlide, 40);
-      service.outputLines = cue;
+      service.outputLines = [];
     });
     refreshService(id);
     return { ok: true };

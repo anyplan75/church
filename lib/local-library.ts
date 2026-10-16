@@ -254,6 +254,10 @@ export function emptyTemplate(query: LibraryQuery): LibraryTemplate {
   return { kind: "praise", fileName: preferredFileName(query), caption: query.title || "찬양", bodyLabel: "가사" };
 }
 
+export function savedFileText(text: string): string {
+  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
 export function textFileBody(query: LibraryQuery, body: string): string {
   const written = body.replace(/\r/g, "").trim();
   if (query.kind === "hymn") return `찬송 ${query.hymnNumber}장\n${query.title}\n\n${written}\n`;

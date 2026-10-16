@@ -8,6 +8,7 @@ import { LibraryUseSteps } from "@/components/service-folder";
 import { OutputLinks } from "@/components/output-links";
 import { SlideDesk } from "@/components/slide-desk";
 import { saveLiveCue, saveLiveProgress } from "@/lib/actions";
+import { publishLinesNow, startOperatorLink } from "@/lib/output-link";
 import { formatKoreanDate, formatTime } from "@/lib/format";
 import type { Person, Service, Song } from "@/lib/types";
 import { START_BLOCKED } from "@/lib/simple";
@@ -40,8 +41,11 @@ export function LiveConsole({
   statusRef.current = status;
   const elapsed = useElapsed(startedAt, status === "live");
 
+  useEffect(() => startOperatorLink(service.id), [service.id]);
+
   const go = useCallback((groupIndex: number, inGroup: number, lines: string[] = []) => {
     const clamped = clampLiveIndex(groupIndex, service.items.length);
+    publishLinesNow(service.id, lines);
     setIndex(clamped);
     setSlide(inGroup);
     setConfirming(false);

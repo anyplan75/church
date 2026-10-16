@@ -1,10 +1,8 @@
-import { fileMatchesQuery, fileSlides, nameContains, previewLine, twoLineSlides, type FolderView, type LibraryQuery } from "./local-library";
+import { fileMatchesQuery, fileSlides, nameContains, preferredFileName, previewLine, savedFileText, type FolderView, type LibraryQuery } from "./local-library";
 import { decodeLocalText } from "./text-encoding";
 
 const DB_NAME = "church-local-texts";
 const HANDLE = "directory";
-
-type Confirmed = { text: string };
 
 type DirectoryHandle = {
   name?: string;
@@ -114,27 +112,81 @@ export async function peekLocalMatch(query: LibraryQuery): Promise<{ fileName: s
 }
 
 export async function saveLocalText(fileName: string, body: string, slot = ""): Promise<string | null> {
-  const handle = await resolveHandle(slot, true);
-  if (!handle) return null;
-  const file = await handle.getFileHandle(fileName, { create: true });
-  const writable = await file.createWritable();
-  await writable.write(body);
-  await writable.close();
-  return fileName;
+  const saved = await writePassageFile({ kind: slot === "bible" || slot === "hymn" || slot === "praise" ? slot : "praise", title: "", hymnNumber: "", scripture: "" }, body, fileName);
+  return saved.ok ? saved.fileName : null;
 }
 
-export async function confirmLocalText(query: LibraryQuery, text: string) {
-  await idbSet(confirmKey(query), { text } satisfies Confirmed);
+export async function readPassage(query: LibraryQuery): Promise<{ state: "connected"; fileName: string | null; text: string } | { state: Exclude<FolderView["state"], "connected"> }> {
+  const state = await folderState(query.kind);
+  if (state !== "connected") return { state };
+  const handle = await resolveHandle(query.kind, false);
+  if (!handle) return { state: "reconnect" };
+  for await (const entry of handle.values()) {
+    if (entry.kind !== "file" || !fileMatchesQuery(entry.name, query) || !entry.getFile) continue;
+    const file = await entry.getFile();
+    return { state: "connected", fileName: entry.name, text: await textOf(file) };
+  }
+  return { state: "connected", fileName: null, text: "" };
 }
 
-export async function confirmedSlides(query: LibraryQuery): Promise<string[]> {
-  const saved = await idbGet<Confirmed>(confirmKey(query));
-  if (!saved?.text) return [];
-  return twoLineSlides(saved.text);
+export async function writePassageFile(
+  query: LibraryQuery,
+  text: string,
+  fileName?: string | null,
+): Promise<{ ok: true; fileName: string } | { ok: false; state: Exclude<FolderView["state"], "connected"> }> {
+  const state = await folderState(query.kind);
+  if (state !== "connected") return { ok: false, state };
+  const handle = await resolveHandle(query.kind, true);
+  if (!handle) return { ok: false, state: "reconnect" };
+  const found = fileName || (await findFileName(handle, query));
+  const name = safeTxtName(found || preferredFileName(query));
+  if (!name) return { ok: false, state: "idle" };
+  try {
+    const file = await handle.getFileHandle(name, { create: true });
+    const writable = await file.createWritable();
+    await writable.write(savedFileText(text));
+    await writable.close();
+    return { ok: true, fileName: name };
+  } catch {
+    return { ok: false, state: "reconnect" };
+  }
 }
 
-function confirmKey(query: LibraryQuery): string {
-  return `text:${query.kind}:${query.hymnNumber}:${query.scripture}:${query.title}`;
+export function notifyPassageSaved() {
+  if (typeof BroadcastChannel === "undefined") return;
+  const channel = new BroadcastChannel("church-passage-refresh");
+  channel.postMessage({ saved: true });
+  channel.close();
+}
+
+export function subscribePassageSaved(onSaved: () => void): () => void {
+  if (typeof BroadcastChannel === "undefined") return () => undefined;
+  const channel = new BroadcastChannel("church-passage-refresh");
+  channel.onmessage = () => onSaved();
+  return () => channel.close();
+}
+
+async function folderState(slot: string): Promise<FolderView["state"]> {
+  if (typeof indexedDB === "undefined") return "unsupported";
+  const keyed = slot ? await idbGet<DirectoryHandle>(handleKey(slot)).catch(() => null) : null;
+  const handle = keyed ?? (await idbGet<DirectoryHandle>(HANDLE).catch(() => null));
+  if (!handle) return typeof window !== "undefined" && picker() ? "idle" : "unsupported";
+  const mode = { mode: "readwrite" as const };
+  const permissionState = handle.queryPermission ? await handle.queryPermission(mode) : "granted";
+  return permissionState === "granted" ? "connected" : "reconnect";
+}
+
+async function findFileName(handle: DirectoryHandle, query: LibraryQuery): Promise<string | null> {
+  for await (const entry of handle.values()) {
+    if (entry.kind === "file" && fileMatchesQuery(entry.name, query)) return entry.name;
+  }
+  return null;
+}
+
+function safeTxtName(fileName: string): string {
+  const base = fileName.replace(/\\/g, "/").split("/").pop() ?? "";
+  if (!base || base === "." || base === ".." || !base.toLowerCase().endsWith(".txt")) return "";
+  return base.slice(0, 120);
 }
 
 async function textOf(file: Blob, limit?: number): Promise<string> {

@@ -1,6 +1,6 @@
 import { closeVisit, openVisit } from "./simple";
 import { normalizeDb } from "./db-shape";
-import { DatabasePermissionError, dbGet, dbSet } from "./firebase-db";
+import { DatabasePermissionError, dbGet, dbPatch, dbSet } from "./firebase-db";
 import {
   emailFromIdToken,
   firebaseDeleteAccount,
@@ -528,7 +528,9 @@ function scheduleChurchWrite() {
   writing = true;
   writeChain = writeChain
     .then(async () => {
-      await dbSet(`churches/${churchId}/data`, payload, authToken);
+      const signals = await dbGet(`churches/${churchId}/data/outputSignals`, authToken).catch(() => null);
+      const body = signals && typeof signals === "object" ? { ...payload, outputSignals: signals } : payload;
+      await dbSet(`churches/${churchId}/data`, body, authToken);
       error = "";
     })
     .catch((reason: unknown) => {
@@ -542,6 +544,34 @@ function scheduleChurchWrite() {
 
 export function refreshChurchNow() {
   void refreshRemote();
+}
+
+const SIGNAL_ID = /^[A-Za-z0-9_-]{1,80}$/;
+const SIGNAL_PATH = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/;
+
+export async function readOutputRoom(serviceId: string): Promise<unknown> {
+  if (!SIGNAL_ID.test(serviceId)) return null;
+  const churchId = activeChurchId();
+  if (!churchId || !session) return null;
+  const token = await currentToken();
+  return dbGet(`churches/${churchId}/data/outputSignals/${serviceId}`, token);
+}
+
+export async function patchOutputRoom(serviceId: string, path: string, value: unknown): Promise<void> {
+  if (!SIGNAL_ID.test(serviceId) || !SIGNAL_PATH.test(path)) return;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  const churchId = activeChurchId();
+  if (!churchId || !session) return;
+  const token = await currentToken();
+  await dbPatch(`churches/${churchId}/data/outputSignals/${serviceId}/${path}`, value, token);
+}
+
+export async function clearOutputRoom(serviceId: string, path: string): Promise<void> {
+  if (!SIGNAL_ID.test(serviceId) || !SIGNAL_PATH.test(path)) return;
+  const churchId = activeChurchId();
+  if (!churchId || !session) return;
+  const token = await currentToken();
+  await dbSet(`churches/${churchId}/data/outputSignals/${serviceId}/${path}`, null, token);
 }
 
 async function refreshRemote() {
