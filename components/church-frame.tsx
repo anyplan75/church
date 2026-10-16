@@ -7,6 +7,7 @@ import { SessionGuard } from "@/components/session-guard";
 import { ReminderWatcher } from "@/components/reminder-watcher";
 import { useChurch } from "@/components/church-state";
 import { cleanPath } from "@/lib/page-path";
+import { saveOutputHost } from "@/lib/output-host";
 import { readOperatorService, startOperatorLink } from "@/lib/output-link";
 import { can, canOpenPath, homeFor } from "@/lib/roles";
 
@@ -30,11 +31,16 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    if (!ready || !user || !browserPath || isOutputPath(browserPath)) return;
+    if (!ready || !db?.settings.outputHost) return;
+    saveOutputHost(db.settings.outputHost);
+  }, [ready, db?.settings.outputHost]);
+
+  useEffect(() => {
+    if (!ready || !user || !browserPath || isOutputPath(browserPath) || !db?.settings.outputHost) return;
     const id = readOperatorService();
     if (!id) return;
     return startOperatorLink(id);
-  }, [ready, user?.id, browserPath]);
+  }, [ready, user?.id, browserPath, db?.settings.outputHost]);
 
   useEffect(() => {
     if (!ready) return;

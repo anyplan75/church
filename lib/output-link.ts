@@ -1,6 +1,6 @@
 import { churchSnapshot, patchOutputDirect, readDb, readOutputDirect } from "./app-db";
-import { cueLines, keepSlideSeq, readSlidePacket, slideMessage, type OutputLinkStatus } from "./output-cue";
-import { currentOutputHost, detectPrivateAddress, directCandidate, directDescription, isPrivateIpv4, OUTPUT_HOST_KEY, outputSignalHost, readStoredHost, thisComputer } from "./output-host";
+import { cueLines, keepSlideSeq, rememberedCue, readSlidePacket, slideMessage, type OutputLinkStatus } from "./output-cue";
+import { cleanServiceId, currentOutputHost, detectPrivateAddress, directCandidate, directDescription, isPrivateIpv4, OPERATOR_SERVICE_KEY, OUTPUT_HOST_KEY, outputSignalHost, readStoredHost, thisComputer } from "./output-host";
 
 const ICE: RTCConfiguration = { iceServers: [] };
 const MODES = ["overlay", "main"] as const;
@@ -35,7 +35,7 @@ type Slot = {
   retryTimers: number[];
 };
 
-const OPERATOR_SERVICE_KEY = "church-output-service";
+const OPERATOR_LINES_KEY = "church-output-lines";
 const SERVICE_ID = /^[A-Za-z0-9-]{1,80}$/;
 
 let latest = { serviceId: "", lines: [] as string[], seq: 0 };
@@ -58,25 +58,21 @@ function warnOnce(error: unknown) {
 
 export function publishLinesNow(serviceId: string, lines: string[]) {
   latest = { serviceId, lines: cueLines(lines), seq: latest.seq + 1 };
+  rememberLines(serviceId, latest.lines);
   if (typeof RTCPeerConnection === "undefined") return;
   sendLatest(serviceId, true);
 }
 
 export function readOperatorService(): string {
   if (operatorService) return operatorService;
-  if (typeof sessionStorage === "undefined") return "";
-  try {
-    const stored = sessionStorage.getItem(OPERATOR_SERVICE_KEY) || "";
-    return SERVICE_ID.test(stored) ? stored : "";
-  } catch {
-    return "";
-  }
+  return cleanServiceId(storedItem(OPERATOR_SERVICE_KEY));
 }
 
 export function startOperatorLink(serviceId: string): () => void {
   if (!SERVICE_ID.test(serviceId)) return () => undefined;
   const same = Boolean(operatorTimer) && operatorService === serviceId;
   rememberOperatorService(serviceId);
+  restoreLines(serviceId);
   if (typeof RTCPeerConnection === "undefined") return () => undefined;
   if (same) return () => undefined;
   rememberOperatorLan();
@@ -110,9 +106,33 @@ export function stopOperatorLink() {
 
 function rememberOperatorService(serviceId: string) {
   operatorService = serviceId;
-  if (typeof sessionStorage === "undefined") return;
+  writeStored(OPERATOR_SERVICE_KEY, serviceId);
+}
+
+function rememberLines(serviceId: string, lines: string[]) {
+  writeStored(OPERATOR_LINES_KEY, JSON.stringify({ serviceId, lines: cueLines(lines) }));
+}
+
+function restoreLines(serviceId: string) {
+  if (latest.serviceId === serviceId && latest.seq > 0) return;
+  const lines = rememberedCue(storedItem(OPERATOR_LINES_KEY), serviceId);
+  if (lines.length === 0) return;
+  latest = { serviceId, lines, seq: latest.seq + 1 };
+}
+
+function storedItem(key: string): string {
+  if (typeof localStorage === "undefined") return "";
   try {
-    sessionStorage.setItem(OPERATOR_SERVICE_KEY, serviceId);
+    return localStorage.getItem(key) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStored(key: string, value: string) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(key, value);
   } catch {
     /* 이번 화면의 연결은 그대로 둡니다. */
   }
@@ -126,13 +146,6 @@ function stopOperator() {
   lineTimer = 0;
   operatorService = "";
   operatorBusy = false;
-  if (typeof sessionStorage !== "undefined") {
-    try {
-      sessionStorage.removeItem(OPERATOR_SERVICE_KEY);
-    } catch {
-      /* 저장소가 없어도 피어는 닫습니다. */
-    }
-  }
   for (const slot of slots.values()) closeSlot(slot);
   slots.clear();
 }

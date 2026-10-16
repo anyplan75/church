@@ -1,3 +1,16 @@
+export function rememberedCue(raw: string, serviceId: string): string[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return [];
+  const record = data as { serviceId?: unknown; lines?: unknown };
+  if (record.serviceId !== serviceId || !Array.isArray(record.lines)) return [];
+  return cueLines(record.lines.map((line) => String(line)));
+}
+
 export function cueLines(lines: string[]): string[] {
   return lines
     .map((line) => line.replace(/\s+/g, " ").trim())

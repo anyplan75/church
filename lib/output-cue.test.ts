@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cueLines, keepSlideSeq, outputHoldText, readSlideMessage, readSlidePacket, slideMessage } from "./output-cue.ts";
+import { cueLines, keepSlideSeq, outputHoldText, rememberedCue, readSlideMessage, readSlidePacket, slideMessage } from "./output-cue.ts";
 
 describe("송출 두 줄", () => {
   it("지금 내보내는 두 줄만 남긴다", () => {
@@ -23,6 +23,13 @@ describe("송출 두 줄", () => {
     assert.deepEqual(keepSlideSeq(2, 2), { keep: true, seen: 2 });
     assert.deepEqual(keepSlideSeq(2, 1), { keep: false, seen: 2 });
     assert.deepEqual(keepSlideSeq(2, 0), { keep: false, seen: 2 });
+  });
+
+  it("껐다 켜도 마지막 두 줄을 같은 예배에 다시 붙인다", () => {
+    const raw = JSON.stringify({ serviceId: "service-1", lines: ["  하늘이 맑다  ", "들이 푸르다", "강은 버린다"] });
+    assert.deepEqual(rememberedCue(raw, "service-1"), ["하늘이 맑다", "들이 푸르다"]);
+    assert.deepEqual(rememberedCue(raw, "other"), []);
+    assert.deepEqual(rememberedCue("not-json", "service-1"), []);
   });
 
   it("송출 화면에는 실패 문장을 남기지 않는다", () => {
