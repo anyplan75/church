@@ -120,7 +120,7 @@ export function LiveConsole({
         </div>
         <LibraryUseSteps light />
         {status !== "live" && status !== "done" && service.items.length > 0 ? (
-          <button type="button" className="btn btn-light mt-4" onClick={() => void start()} disabled={!canStart}>
+          <button type="button" className="btn btn-light btn-touch mt-4 w-full max-w-sm sm:w-auto" onClick={() => void start()} disabled={!canStart}>
             예배 시작
           </button>
         ) : null}

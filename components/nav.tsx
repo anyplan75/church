@@ -53,7 +53,7 @@ export function Nav({
                   key={link.href}
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  className={`rounded-full px-3 py-1.5 ${active ? "bg-pine-soft font-semibold text-pine" : "text-muted hover:text-ink"}`}
+                  className={`rounded-full px-3 py-2.5 text-base sm:py-1.5 sm:text-sm ${active ? "bg-pine-soft font-semibold text-pine" : "text-muted hover:text-ink"}`}
                 >
                   {link.label}
                 </Link>

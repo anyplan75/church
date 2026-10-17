@@ -8,6 +8,15 @@
 
 전체 구조는 루트 [`전체구조안내서.md`](./전체구조안내서.md)를 보세요.
 
+## iPhone·iPad 조작 앱
+
+조작만 모바일에서 할 수 있습니다. 송출은 Mac/Windows 데스크톱 앱을 그대로 씁니다. 설치·시뮬레이터·실기기 단계는 [`docs/mobile-operator-install.md`](./docs/mobile-operator-install.md)에 있습니다.
+
+```bash
+npm run mobile:sync
+npx cap open ios
+```
+
 ## 데스크톱 앱 설치
 
 송출은 Windows·Mac 모두 같은 로컬 직접연결(포트 `18765`)입니다. 조작 / 송출(메인) / 오버레이 세 가지로 실행합니다. 자세한 단계는 [`docs/desktop-install.md`](./docs/desktop-install.md)에 있습니다.

@@ -7,6 +7,7 @@ import { saveLibrary } from "@/lib/actions";
 import { connectFolder, findNamedFile, readFolderView } from "@/lib/local-files";
 import { LibraryUseSteps } from "@/components/service-folder";
 import { folderStatusText, LIBRARY_RULES, type FolderView } from "@/lib/local-library";
+import { isMobileOperatorApp } from "@/lib/mobile-app";
 import { CAPTION_FONTS, captionFont, captionSize, compactLabel, fullscreenStep } from "@/lib/simple";
 
 const KINDS = [
@@ -77,10 +78,17 @@ export default function LibraryPage() {
     setHit(name ? `찾음: ${name}` : `이 컴퓨터에서 ${label.replace(/\s+/g, "")} 파일을 찾지 못했습니다.`);
   }
 
+  const mobile = isMobileOperatorApp();
+
   return (
     <div className="page">
       <h1 className="font-serif text-4xl">라이브러리</h1>
       <p className="mt-2 text-muted">성경, 찬송가, 찬양 폴더를 각각 지정합니다. 본문은 이 컴퓨터의 파일에서만 읽고 앱에는 저장하지 않습니다.</p>
+      {mobile ? (
+        <p className="mt-3 rounded-xl border border-line bg-card px-4 py-3 text-sm text-muted">
+          iPhone·iPad에서는 로컬 txt 폴더를 쓸 수 없습니다. 로그인·예배 진행·송출 연결은 되고, 가사·성경 본문은 조작 컴퓨터의 라이브러리에서 준비합니다.
+        </p>
+      ) : null}
       <LibraryUseSteps />
       <section className="card mt-6 p-5">
         <h2 className="font-serif text-2xl">찾는 규칙</h2>
