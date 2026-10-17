@@ -6,7 +6,7 @@
 
 ## 실행
 
-Node.js 20 이상이 필요합니다.
+Node.js 20 이상이 필요합니다. `.env.example`을 복사해 `.env.local`을 만들고 Firebase 값을 채운 뒤 실행합니다.
 
 ```bash
 npm install

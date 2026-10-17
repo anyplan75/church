@@ -5,3 +5,7 @@ data/*.json
 data/*.tmp
 data/backgrounds
 tsconfig.tsbuildinfo
+.env
+.env.local
+.env.*.local
+!.env.example

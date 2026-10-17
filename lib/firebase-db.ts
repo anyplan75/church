@@ -1,5 +1,10 @@
-const DATABASE_URL = "https://live-interpret-db65e-default-rtdb.asia-southeast1.firebasedatabase.app";
 const BANNED = new Set(["live-interpret", "cheil", "jifc"]);
+
+function databaseUrl(): string {
+  const url = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL?.trim() || "";
+  if (!url) throw new Error("NEXT_PUBLIC_FIREBASE_DATABASE_URL이 없습니다. .env.local을 확인하세요.");
+  return url.replace(/\/+$/, "");
+}
 
 export class DatabasePermissionError extends Error {
   constructor() {
@@ -22,7 +27,7 @@ export function churchPath(relative: string): string {
 
 async function request(relative: string, idToken: string, method: string, body?: unknown): Promise<unknown> {
   const path = churchPath(relative);
-  const response = await fetch(`${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`, {
+  const response = await fetch(`${databaseUrl()}/${path}.json?auth=${encodeURIComponent(idToken)}`, {
     method,
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -40,7 +45,7 @@ export function dbGet<T>(relative: string, idToken: string): Promise<T | null> {
 
 export async function dbKeys(relative: string, idToken: string): Promise<string[]> {
   const path = churchPath(relative);
-  const response = await fetch(`${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}&shallow=true`);
+  const response = await fetch(`${databaseUrl()}/${path}.json?auth=${encodeURIComponent(idToken)}&shallow=true`);
   if (response.status === 401 || response.status === 403) throw new DatabasePermissionError();
   const text = await response.text();
   if (!response.ok) throw new Error(`database ${response.status} ${text.replace(/\s+/g, " ").slice(0, 120)}`);
