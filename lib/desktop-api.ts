@@ -27,6 +27,7 @@ export type DesktopApi = {
   refreshPeers: () => Promise<DesktopPeer[]>;
   localAddresses: () => Promise<string[]>;
   outputStatus: () => Promise<{ clients: number; host: string; port: number }>;
+  pushLines?: (payload: DesktopLinesPayload) => Promise<boolean>;
   onLines: (handler: (payload: DesktopLinesPayload) => void) => () => void;
   onPeers: (handler: (peers: DesktopPeer[]) => void) => () => void;
   onOutputStatus: (handler: (status: { clients: number; host: string; port: number }) => void) => () => void;

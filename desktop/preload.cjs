@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("eunhyeDesktop", {
   refreshPeers: () => ipcRenderer.invoke("desktop:refreshPeers"),
   localAddresses: () => ipcRenderer.invoke("desktop:localAddresses"),
   outputStatus: () => ipcRenderer.invoke("desktop:outputStatus"),
+  pushLines: (payload) => ipcRenderer.invoke("desktop:pushLines", payload),
   onLines: (handler) => {
     const listen = (_event, payload) => handler(payload);
     ipcRenderer.on("desktop:lines", listen);

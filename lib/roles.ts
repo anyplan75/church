@@ -150,14 +150,31 @@ export const WEB_OUTPUT_ORIGIN = "https://eunhye-church.surge.sh";
 
 export type ServiceLink = { href: string; label: string };
 
+/** 크롬 폴백 송출 주소. from=조작 PC IP 이면 포트 18765로 수신만 한다. */
+export function chromeOutputUrl(id: string, mode: "main" | "overlay", from = ""): string {
+  const params = new URLSearchParams({ mode });
+  const lan = String(from ?? "").trim();
+  if (/^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/.test(lan)) {
+    params.set("from", lan);
+  }
+  return `${WEB_OUTPUT_ORIGIN}/services/${id}/output/?${params.toString()}`;
+}
+
+export function chromeOutputLinks(id: string, from = ""): ServiceLink[] {
+  return [
+    { href: chromeOutputUrl(id, "main", from), label: "크롬용 메인" },
+    { href: chromeOutputUrl(id, "overlay", from), label: "크롬용 오버레이" },
+  ];
+}
+
 export function outputLinks(id: string, localOrigin = ""): ServiceLink[] {
   const origin = localOrigin.replace(/\/$/, "");
   return (["overlay", "main"] as const).flatMap((mode) => {
-    const path = `/services/${id}/output?mode=${mode}`;
+    const path = `/services/${id}/output/?mode=${mode}`;
     const name = mode === "overlay" ? "오버레이" : "메인";
     return [
-      { href: `${WEB_OUTPUT_ORIGIN}${path}`, label: `${name} 웹` },
-      { href: origin ? `${origin}${path}` : path, label: `${name} 로컬` },
+      { href: chromeOutputUrl(id, mode), label: `크롬용 ${name}` },
+      { href: origin ? `${origin}${path}` : `/services/${id}/output?mode=${mode}`, label: `${name} 로컬` },
     ];
   });
 }
