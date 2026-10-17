@@ -1,6 +1,7 @@
-import type { Person, Service, Song } from "./types";
+import type { Person, Service, Song, WorshipItem } from "./types";
+import { twoLines } from "./simple";
 import { kindLabel, personName } from "./worship";
-import { slidesFor } from "./slides";
+import { slidesFor, type Slide } from "./slides";
 
 export type DeskGroup = {
   itemId: string;
@@ -44,6 +45,7 @@ export function buildDesk(service: Service, people: Person[], songs: Song[], loc
     const bodies = chunks.length > 0 ? chunks : [""];
     const start = slides.length;
     bodies.forEach((body, inGroup) => {
+      const fromFile = body.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 2);
       slides.push({
         itemId: item.id,
         groupIndex: index,
@@ -53,12 +55,22 @@ export function buildDesk(service: Service, people: Person[], songs: Song[], loc
         kicker: slide?.kicker || kindLabel(item.kind),
         heading: slide?.heading || item.title,
         reference,
-        lines: body ? body.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 2) : [],
+        lines: fromFile.length > 0 ? fromFile : ownLines(slide, item),
       });
     });
     groups.push({ itemId: item.id, index, label: item.title || kindLabel(item.kind), start, count: bodies.length });
   });
   return { groups, slides };
+}
+
+function ownLines(slide: Slide | undefined, item: WorshipItem): string[] {
+  const heading = (slide?.heading || item.title || "").trim();
+  const body = (slide?.lines ?? []).flatMap((line) => line.split("\n")).map((line) => line.trim()).filter(Boolean);
+  const written = item.screenCue.trim() || slide?.overlay.trim() || "";
+  if (body.length >= 2) return body.slice(0, 2);
+  if (body.length === 1) return twoLines(heading && heading !== body[0] ? heading : body[0], heading && heading !== body[0] ? body[0] : "");
+  if (heading && written && written !== heading) return [heading, written];
+  return twoLines(heading || written, "");
 }
 
 export function groupStart(groups: DeskGroup[], groupIndex: number): number {

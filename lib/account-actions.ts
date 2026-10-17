@@ -12,6 +12,7 @@ import {
   updateDb,
 } from "./app-db";
 import { go } from "./page-path";
+import { outputReturnPath } from "./output-host";
 import { stopOperatorLink } from "./output-link";
 import { closeVisit } from "./simple";
 import { homeFor, normalizeRoles } from "./roles";
@@ -38,10 +39,13 @@ export async function setupAccount() {
 export async function login(formData: FormData) {
   const email = normalizeEmail(text(formData, "email"));
   const password = text(formData, "password");
-  if (!email || !normalizePassword(password)) go("/login?error=1");
+  const next = outputReturnPath(formData.get("next"));
+  const again = next ? `/login?error=1&next=${encodeURIComponent(next)}` : "/login?error=1";
+  if (!email || !normalizePassword(password)) go(again);
   const user = await loginWithPassword(email!, password.trim());
-  if (!user) go("/login?error=1");
+  if (!user) go(again);
   if (user!.kind === "platform" && !user!.churchId) go("/platform");
+  if (next) go(next);
   go(homeFor(user!.roles));
 }
 

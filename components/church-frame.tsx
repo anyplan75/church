@@ -7,7 +7,7 @@ import { SessionGuard } from "@/components/session-guard";
 import { ReminderWatcher } from "@/components/reminder-watcher";
 import { useChurch } from "@/components/church-state";
 import { cleanPath } from "@/lib/page-path";
-import { saveOutputHost } from "@/lib/output-host";
+import { outputReturnPath, saveOutputHost } from "@/lib/output-host";
 import { readOperatorService, startOperatorLink } from "@/lib/output-link";
 import { can, canOpenPath, homeFor } from "@/lib/roles";
 
@@ -17,7 +17,8 @@ function landing(user: { kind: "platform" | "church"; churchId: string | null; r
 }
 
 function isOutputPath(path: string): boolean {
-  return /^\/services\/[^/]+\/output$/.test(cleanPath(path));
+  const clean = cleanPath(path);
+  return clean === "/output-computer" || clean === "/overlay" || /^\/services\/[^/]+\/output$/.test(clean);
 }
 
 export function ChurchFrame({ children }: { children: React.ReactNode }) {
@@ -45,13 +46,16 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     const path = cleanPath(window.location.pathname || pathname || "/");
-    if (isOutputPath(path)) return;
+    const back = outputReturnPath(`${path}${window.location.search || ""}`);
     if (!user) {
-      if (path !== "/login") router.replace("/login");
+      if (path === "/login") return;
+      router.replace(back ? `/login?next=${encodeURIComponent(back)}` : "/login");
       return;
     }
+    if (back) return;
     if (path === "/login" || path === "/setup") {
-      router.replace(landing(user));
+      const next = outputReturnPath(new URLSearchParams(window.location.search).get("next"));
+      router.replace(next || landing(user));
       return;
     }
     if (user.kind === "platform" && !user.churchId && path !== "/platform" && path !== "/activity") {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { normalizeDb } from "./db-shape.ts";
-import { cleanHost, directCandidate, directDescription, hostEntry, hostKey, isPrivateIpv4, numericAddressFromCandidate, outputSignalHost, savedOutputTarget } from "./output-host.ts";
+import { cleanHost, directCandidate, directDescription, hostEntry, hostKey, isPrivateIpv4, numericAddressFromCandidate, outputReturnPath, outputSignalHost, savedOutputTarget } from "./output-host.ts";
 
 describe("송출 컴퓨터 주소", () => {
   it("IP 주소만 받는다", () => {
@@ -59,6 +59,20 @@ describe("송출 컴퓨터 주소", () => {
     assert.deepEqual(savedOutputTarget("", "192.168.0.10", "service-1"), { host: "192.168.0.10", serviceId: "service-1" });
     assert.equal(savedOutputTarget("192.168.0.10", "", ""), null);
     assert.equal(outputSignalHost(db.settings.outputHost, "", ""), "192.168.0.10");
+  });
+
+  it("로그인한 뒤 송출 주소로만 돌아간다", () => {
+    assert.equal(outputReturnPath("/services/service-1/output?mode=overlay"), "/services/service-1/output?mode=overlay");
+    assert.equal(outputReturnPath("/services/service-1/output/?mode=main"), "/services/service-1/output?mode=main");
+    assert.equal(outputReturnPath("/services/service-1/output"), "/services/service-1/output?mode=main");
+    assert.equal(outputReturnPath("/output-computer"), "/output-computer");
+    assert.equal(outputReturnPath("/output-computer/?mode=main"), "/output-computer");
+    assert.equal(outputReturnPath("/operator"), "/operator");
+    assert.equal(outputReturnPath("/overlay"), "/overlay");
+    assert.equal(outputReturnPath("/services/service-1/output?mode=overlay&next=https://evil.example"), "/services/service-1/output?mode=overlay");
+    assert.equal(outputReturnPath("https://evil.example/services/service-1/output?mode=main"), "");
+    assert.equal(outputReturnPath("/settings"), "");
+    assert.equal(outputReturnPath("/services/service-1/live"), "");
   });
 
   it("설정에 넣은 송출 컴퓨터 IP를 자기 칸보다 먼저 쓴다", () => {

@@ -29,6 +29,11 @@ describe("교회 컴퓨터 텍스트", () => {
     const plain = buildDesk(service, db.people, db.songs);
     assert.equal(plain.groups.length, service.items.length);
     assert.equal(plain.slides.length, service.items.length);
+    const songSlide = plain.slides.find((slide) => slide.itemId === songItem.id);
+    assert.equal((songSlide?.lines.length ?? 0) > 0, true);
+    songItem.screenCue = "자리에 앉으십시오";
+    const cued = buildDesk(service, db.people, db.songs);
+    assert.equal(cued.slides.find((slide) => slide.itemId === songItem.id)?.lines[1], "자리에 앉으십시오");
     const local = buildDesk(service, db.people, db.songs, { [songItem.id]: ["첫째 화면", "둘째 화면"] });
     const group = local.groups.find((item) => item.itemId === songItem.id)!;
     assert.equal(group.count, 2);

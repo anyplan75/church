@@ -14,6 +14,11 @@
   --color-gold: #8a6432;
 }
 
+html[data-caption="overlay"],
+html[data-caption="overlay"] body {
+  background: transparent;
+}
+
 body {
   min-height: 100vh;
   background:
