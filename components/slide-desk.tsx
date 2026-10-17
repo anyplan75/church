@@ -29,6 +29,7 @@ export function SlideDesk({
   const desk = buildDesk(service, people, songs, local);
   const current = desk.slides.find((slide) => slide.groupIndex === groupIndex && slide.inGroup === inGroup) ?? desk.slides.find((slide) => slide.groupIndex === groupIndex) ?? desk.slides[0];
   const next = current ? desk.slides[current.flat + 1] : undefined;
+  const prev = current && current.flat > 0 ? desk.slides[current.flat - 1] : undefined;
   const cueKey = current ? `${current.groupIndex}:${current.inGroup}:${current.lines.join("\n")}` : "";
 
   useEffect(() => {
@@ -86,50 +87,74 @@ export function SlideDesk({
     return () => window.removeEventListener("keydown", onKey);
   }, [current, desk.groups, desk.slides, groupIndex, onJump]);
 
+  function goPrev() {
+    if (!prev) return;
+    onJump(prev.groupIndex, prev.inGroup, prev.lines);
+  }
+
+  function goNext() {
+    if (!next) return;
+    onJump(next.groupIndex, next.inGroup, next.lines);
+  }
+
   return (
-    <div className="grid min-h-[70vh] lg:grid-cols-[220px_minmax(0,1fr)_minmax(34rem,0.9fr)]">
-      <aside className="border-b border-white/10 lg:h-[calc(100vh-11rem)] lg:overflow-y-auto lg:border-b-0 lg:border-r">
-        <h2 className="px-4 pt-4 text-sm text-[#d9d0c2]">그룹</h2>
-        <ol className="space-y-3 px-3 py-3">
-          {desk.groups.map((group) => (
-            <li key={group.itemId}>
-              <button
-                type="button"
-                className="w-full rounded-t-lg bg-white/15 px-3 py-1.5 text-left text-sm font-semibold"
-                onClick={() => onJump(group.index, 0, desk.slides[group.start]?.lines ?? [])}
-              >
-                {group.index + 1}. {group.label}
-              </button>
-              <FolderMatchLine fill={folder.fills[group.itemId]} loaded={folder.loaded} light />
-              <div className="space-y-1 rounded-b-lg bg-black/20 p-1">
-                {desk.slides.slice(group.start, group.start + group.count).map((slide) => (
-                  <button
-                    key={`${slide.itemId}-${slide.inGroup}`}
-                    type="button"
-                    className={`block w-full rounded-md px-2 py-2 text-left text-sm ${slide.flat === current?.flat ? "bg-white text-pine" : "text-[#f6f1e6] hover:bg-white/10"}`}
-                    onClick={() => onJump(slide.groupIndex, slide.inGroup, slide.lines)}
-                  >
-                    {slide.inGroup + 1}. {slide.lines[0] || slide.heading}
-                  </button>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ol>
-      </aside>
-      <section className="px-6 py-8">
-        {current ? <SlideCard label="현재" slide={current} large status={<FolderMatchLine fill={folder.fills[current.itemId]} loaded={folder.loaded} light />} /> : <p>슬라이드가 없습니다</p>}
-      </section>
-      <aside className="border-t border-white/10 px-4 py-6 lg:border-t-0 lg:border-l">
-        {next ? <SlideCard label="다음" slide={next} /> : <p className="text-sm text-[#d9d0c2]">다음 슬라이드가 없습니다</p>}
-        <ul className="mt-6 space-y-1 text-xs text-[#d9d0c2]">
-          {SLIDE_KEYS.map((item) => (
-            <li key={item.action}>
-              <span className="text-[#f6f1e6]">{item.keys}</span> {item.action}
-            </li>
-          ))}
-        </ul>
-      </aside>
+    <div className="slide-desk pb-28 lg:pb-0">
+      <div className="grid min-h-[70vh] lg:grid-cols-[220px_minmax(0,1fr)_minmax(34rem,0.9fr)]">
+        <aside className="border-b border-white/10 lg:h-[calc(100vh-11rem)] lg:overflow-y-auto lg:border-b-0 lg:border-r">
+          <h2 className="px-4 pt-4 text-sm text-[#d9d0c2]">그룹</h2>
+          <ol className="space-y-3 px-3 py-3">
+            {desk.groups.map((group) => (
+              <li key={group.itemId}>
+                <button
+                  type="button"
+                  className="w-full rounded-t-lg bg-white/15 px-3 py-3 text-left text-base font-semibold lg:py-1.5 lg:text-sm"
+                  onClick={() => onJump(group.index, 0, desk.slides[group.start]?.lines ?? [])}
+                >
+                  {group.index + 1}. {group.label}
+                </button>
+                <FolderMatchLine fill={folder.fills[group.itemId]} loaded={folder.loaded} light />
+                <div className="space-y-1 rounded-b-lg bg-black/20 p-1">
+                  {desk.slides.slice(group.start, group.start + group.count).map((slide) => (
+                    <button
+                      key={`${slide.itemId}-${slide.inGroup}`}
+                      type="button"
+                      className={`block w-full rounded-md px-3 py-3 text-left text-base lg:px-2 lg:py-2 lg:text-sm ${slide.flat === current?.flat ? "bg-white text-pine" : "text-[#f6f1e6] hover:bg-white/10"}`}
+                      onClick={() => onJump(slide.groupIndex, slide.inGroup, slide.lines)}
+                    >
+                      {slide.inGroup + 1}. {slide.lines[0] || slide.heading}
+                    </button>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </aside>
+        <section className="px-5 py-6 lg:px-6 lg:py-8">
+          {current ? <SlideCard label="현재" slide={current} large status={<FolderMatchLine fill={folder.fills[current.itemId]} loaded={folder.loaded} light />} /> : <p>슬라이드가 없습니다</p>}
+        </section>
+        <aside className="hidden border-t border-white/10 px-4 py-6 lg:block lg:border-t-0 lg:border-l">
+          {next ? <SlideCard label="다음" slide={next} /> : <p className="text-sm text-[#d9d0c2]">다음 슬라이드가 없습니다</p>}
+          <ul className="mt-6 space-y-1 text-xs text-[#d9d0c2]">
+            {SLIDE_KEYS.map((item) => (
+              <li key={item.action}>
+                <span className="text-[#f6f1e6]">{item.keys}</span> {item.action}
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </div>
+
+      <div className="slide-touch-bar lg:hidden" role="toolbar" aria-label="슬라이드 넘기기">
+        <button type="button" className="btn btn-on-dark slide-touch-btn" onClick={goPrev} disabled={!prev}>
+          이전
+        </button>
+        <p className="slide-touch-pos">
+          {current ? `${current.flat + 1} / ${desk.slides.length}` : "—"}
+        </p>
+        <button type="button" className="btn btn-light slide-touch-btn" onClick={goNext} disabled={!next}>
+          다음
+        </button>
+      </div>
     </div>
   );
 }
@@ -138,7 +163,7 @@ function SlideCard({ slide, label, large = false, status = null }: { slide: Desk
   return (
       <article className={large ? "" : "opacity-90"} data-service-slide={large ? slide.itemId : undefined} data-slide-lines={large ? String(slide.lines.length) : undefined}>
       <p className="text-xs uppercase tracking-wide text-[#d9d0c2]">{label}</p>
-      <div className={`mt-2 rounded-2xl bg-[#10241f] text-center ${large ? "min-h-72 p-8" : "p-4"}`}>
+      <div className={`mt-2 rounded-2xl bg-[#10241f] text-center ${large ? "min-h-56 p-6 lg:min-h-72 lg:p-8" : "p-4"}`}>
         <p className="text-sm text-[#d9d0c2]">{slide.kicker}</p>
         {slide.lines.length > 0 ? (
           <>
@@ -146,11 +171,10 @@ function SlideCard({ slide, label, large = false, status = null }: { slide: Desk
             {slide.lines[1] ? <p className="slide-line">{slide.lines[1]}</p> : null}
           </>
         ) : (
-          <h2 className={large ? "mt-3 font-serif text-5xl leading-tight" : "mt-2 font-serif text-2xl leading-tight"}>{slide.heading}</h2>
+          <h2 className={large ? "mt-3 font-serif text-3xl leading-tight lg:text-5xl" : "mt-2 font-serif text-2xl leading-tight"}>{slide.heading}</h2>
         )}
         {status ? <div className="mt-4">{status}</div> : null}
       </div>
     </article>
   );
 }
-

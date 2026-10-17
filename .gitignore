@@ -7,6 +7,12 @@ data/backgrounds
 tsconfig.tsbuildinfo
 desktop-dist
 dist
+ios/App/Pods
+ios/App/App/public
+ios/App/App/capacitor.config.json
+ios/DerivedData
+ios/**/xcuserdata
+*.xcuserstate
 mirror-out/
 backups/
 *.exe

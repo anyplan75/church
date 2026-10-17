@@ -161,6 +161,56 @@ a:focus-visible {
   color: #f7f3ea;
 }
 
+.btn-touch {
+  min-height: 3rem;
+  padding: 0.75rem 1.15rem;
+  font-size: 1rem;
+}
+
+.input-touch {
+  min-height: 3rem;
+  font-size: 1.05rem;
+  padding: 0.75rem 0.9rem;
+}
+
+.slide-touch-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(16, 36, 31, 0.96);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.slide-touch-btn {
+  min-height: 3.25rem;
+  width: 100%;
+  border-radius: 1rem;
+  font-size: 1.15rem;
+}
+
+.slide-touch-pos {
+  min-width: 4.5rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: #d9d0c2;
+  white-space: nowrap;
+}
+
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
