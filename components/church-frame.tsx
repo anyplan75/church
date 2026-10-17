@@ -18,7 +18,7 @@ function landing(user: { kind: "platform" | "church"; churchId: string | null; r
 
 function isOutputPath(path: string): boolean {
   const clean = cleanPath(path);
-  return clean === "/output-computer" || /^\/services\/[^/]+\/output$/.test(clean);
+  return clean === "/output-computer" || clean === "/overlay" || /^\/services\/[^/]+\/output$/.test(clean);
 }
 
 export function ChurchFrame({ children }: { children: React.ReactNode }) {

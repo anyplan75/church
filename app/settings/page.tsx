@@ -7,7 +7,7 @@ import { useChurch, useClientQuery } from "@/components/church-state";
 import { deleteGroup, finishSetup, saveGroup, updateSettings } from "@/lib/actions";
 import { listAccounts, storedBackgroundUrl } from "@/lib/app-db";
 import { hostEntry } from "@/lib/output-host";
-import { operatorComputerHref, outputComputerHref } from "@/lib/roles";
+import { operatorComputerHref, outputComputerHref, overlayComputerHref } from "@/lib/roles";
 import { CAPTION_FONTS, captionFont, captionSize, formatVisit, fullscreenStep, settingsReady, setupComplete } from "@/lib/simple";
 
 const OVERLAYS = [
@@ -95,8 +95,9 @@ export default function SettingsPage() {
           </label>
           <a className="btn btn-quiet" href={outputComputerHref()} target="_blank" rel="noreferrer">송출용 링크</a>
           <a className="btn btn-quiet" href={operatorComputerHref()} target="_blank" rel="noreferrer">조작용 링크</a>
+          <a className="btn btn-quiet" href={overlayComputerHref()} target="_blank" rel="noreferrer">오버레이 링크</a>
         </div>
-        <p className="text-sm text-muted">송출 컴퓨터의 IP는 이 칸에만 넣습니다. 송출용 링크는 받는 화면이고, 그 옆의 조작용 링크는 슬라이드를 보내는 화면입니다.</p>
+        <p className="text-sm text-muted">송출 컴퓨터의 IP는 이 칸에만 넣습니다. 송출용 링크는 메인 전체화면이고, 옆의 오버레이 링크는 영상 위 자막입니다. 둘 다 이 IP로 받습니다.</p>
         <label className="field">
           <span>메인 글자 크기</span>
           <input className="input" name="mainFontSize" type="number" min={16} max={200} step={1} defaultValue={captionSize(settings.mainFontSize)} aria-label="메인 글자 크기" />

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { operatorComputerHref, outputComputerHref, outputLinks, WEB_OUTPUT_ORIGIN } from "./roles.ts";
+import { operatorComputerHref, outputComputerHref, overlayComputerHref, outputLinks, WEB_OUTPUT_ORIGIN } from "./roles.ts";
 
 describe("자막 링크", () => {
   it("오버레이와 메인을 웹과 로컬로 나눈다", () => {
@@ -21,6 +21,7 @@ describe("자막 링크", () => {
     assert.equal(outputComputerHref(), `${WEB_OUTPUT_ORIGIN}/output-computer`);
     assert.equal(outputComputerHref().includes("mode="), false);
     assert.equal(operatorComputerHref(), `${WEB_OUTPUT_ORIGIN}/operator`);
+    assert.equal(overlayComputerHref(), `${WEB_OUTPUT_ORIGIN}/overlay`);
   });
 
   it("로컬 주소가 없으면 같은 경로만 남긴다", () => {

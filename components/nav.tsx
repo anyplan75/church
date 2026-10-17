@@ -34,7 +34,7 @@ export function Nav({
 }) {
   const pathname = usePathname();
   const path = cleanPath(pathname || "/");
-  if (path.endsWith("/live") || path.endsWith("/output") || path === "/output-computer" || path === "/operator") return null;
+  if (path.endsWith("/live") || path.endsWith("/output") || path === "/output-computer" || path === "/overlay" || path === "/operator") return null;
   const links = LINKS.filter((link) => can(roles, link.capability));
 
   return (

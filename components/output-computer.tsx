@@ -6,7 +6,7 @@ import { startViewerLink } from "@/lib/output-link";
 import { detectPrivateAddress, isPrivateIpv4, saveThisComputer } from "@/lib/output-host";
 import { captionFont, captionSize, fullscreenStep, lineFontSize } from "@/lib/simple";
 
-export function OutputComputer() {
+export function OutputComputer({ mode = "main" }: { mode?: "main" | "overlay" }) {
   const { db } = useChurch();
   const [lines, setLines] = useState<string[]>([]);
 
@@ -22,18 +22,38 @@ export function OutputComputer() {
   }, []);
 
   useEffect(() => {
-    const show = (next: string[]) => setLines((current) => (sameLines(current, next) ? current : next));
-    const stopMain = startViewerLink("", "main", show);
-    const stopOverlay = startViewerLink("", "overlay", show);
+    if (mode !== "overlay") return;
+    document.documentElement.dataset.caption = "overlay";
     return () => {
-      stopMain();
-      stopOverlay();
+      delete document.documentElement.dataset.caption;
     };
-  }, []);
+  }, [mode]);
 
-  const size = captionSize(db?.settings.mainFontSize);
+  useEffect(() => {
+    const show = (next: string[]) => setLines((current) => (sameLines(current, next) ? current : next));
+    return startViewerLink("", mode, show);
+  }, [mode]);
+
+  const size = captionSize(mode === "overlay" ? db?.settings.overlayFontSize : db?.settings.mainFontSize);
   const fontSize = `${lineFontSize(size, lines.join("\n"))}px`;
   const vertical = fullscreenStep(db?.settings.fullscreenStep);
+  const shown = lines.length > 0 ? (
+    <>
+      <p className="worship-pair" data-output-line="1" style={{ fontSize }}>{lines[0]}</p>
+      {lines[1] ? <p className="worship-pair" data-output-line="2" style={{ fontSize }}>{lines[1]}</p> : null}
+    </>
+  ) : null;
+
+  if (mode === "overlay") {
+    const place = db?.settings.overlay || "bottom";
+    return (
+      <div className="worship-output" style={{ background: "transparent" }} data-output="overlay" data-caption-size={size}>
+        <div className={`worship-shade layout-${place}`} style={{ fontFamily: captionFont(db?.settings.overlayFont).family }}>
+          {shown}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -43,12 +63,7 @@ export function OutputComputer() {
       data-caption-size={size}
     >
       <div className="worship-stage" style={{ justifyContent: "flex-start", paddingTop: `${8 + vertical * 14}vh` }}>
-        {lines.length > 0 ? (
-          <>
-            <p className="worship-pair" data-output-line="1" style={{ fontSize }}>{lines[0]}</p>
-            {lines[1] ? <p className="worship-pair" data-output-line="2" style={{ fontSize }}>{lines[1]}</p> : null}
-          </>
-        ) : null}
+        {shown}
       </div>
     </div>
   );
