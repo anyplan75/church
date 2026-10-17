@@ -1,4 +1,8 @@
-const API_KEY = "AIzaSyDsYIaoKxRjNUUOnQvwyYLpPRvNy0WLRUM";
+function apiKey(): string {
+  const key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim() || "";
+  if (!key) throw new Error("NEXT_PUBLIC_FIREBASE_API_KEY가 없습니다. .env.local을 확인하세요.");
+  return key;
+}
 
 export type FirebaseSession = {
   localId: string;
@@ -51,7 +55,7 @@ function sessionFrom(data: Record<string, string>, fallbackEmail: string): Fireb
 }
 
 export async function firebaseSignIn(email: string, password: string): Promise<FirebaseSession | null> {
-  const result = await post(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`, {
+  const result = await post(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey()}`, {
     email,
     password,
     returnSecureToken: true,
@@ -61,7 +65,7 @@ export async function firebaseSignIn(email: string, password: string): Promise<F
 }
 
 export async function firebaseSignUp(email: string, password: string): Promise<{ ok: true; session: FirebaseSession } | { ok: false; taken: boolean }> {
-  const result = await post(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`, {
+  const result = await post(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey()}`, {
     email,
     password,
     returnSecureToken: true,
@@ -73,7 +77,7 @@ export async function firebaseSignUp(email: string, password: string): Promise<{
 }
 
 export async function firebaseRefresh(refreshToken: string): Promise<FirebaseSession | null> {
-  const result = await post(`https://securetoken.googleapis.com/v1/token?key=${API_KEY}`, {
+  const result = await post(`https://securetoken.googleapis.com/v1/token?key=${apiKey()}`, {
     grant_type: "refresh_token",
     refresh_token: refreshToken,
   });
@@ -88,11 +92,11 @@ export async function firebaseUpdateAccount(
   const body: Record<string, string | boolean> = { idToken, returnSecureToken: true };
   if (patch.email) body.email = patch.email;
   if (patch.password) body.password = patch.password;
-  const result = await post(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${API_KEY}`, body);
+  const result = await post(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey()}`, body);
   if (!result.ok) return { ok: false, message: result.message };
   return { ok: true, email: (result.data.email || patch.email || "").toLowerCase(), idToken: result.data.idToken || idToken };
 }
 
 export async function firebaseDeleteAccount(idToken: string): Promise<void> {
-  await post(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${API_KEY}`, { idToken });
+  await post(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${apiKey()}`, { idToken });
 }
