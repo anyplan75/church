@@ -13,7 +13,7 @@
     "test": "tsx --test lib/*.test.ts",
     "smoke:lan": "node scripts/smoke-lan-link.mjs",
     "mirror:firebase": "node scripts/mirror-firebase.mjs",
-    "desktop:build-web": "STATIC_EXPORT=1 next build",
+    "desktop:build-web": "node scripts/check-desktop-env.mjs && STATIC_EXPORT=1 next build",
     "desktop:dev": "electron .",
     "desktop:pack": "npm run desktop:build-web && electron-builder --config desktop/builder.json",
     "desktop:pack:win": "npm run desktop:build-web && electron-builder --config desktop/builder.json --win portable --x64",
