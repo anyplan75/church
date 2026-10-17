@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { deleteGroup, finishSetup, saveGroup, updateSettings } from "@/lib/actions";
 import { listAccounts, storedBackgroundUrl } from "@/lib/app-db";
+import { OutputTargetField } from "@/components/output-target";
 import { hostEntry } from "@/lib/output-host";
 import { captionSize, formatVisit, settingsReady, setupComplete } from "@/lib/simple";
 
@@ -74,11 +75,13 @@ export default function SettingsPage() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={storedBackgroundUrl(settings.backgroundFile) || ""} alt="현재 배경" className="h-32 w-full rounded-xl object-cover" />
         ) : null}
-        <label className="field">
-          <span>송출 컴퓨터</span>
-          <input className="input" name="outputHost" value={hostDraft} onChange={(event) => { setHostTouched(true); setHostDraft(event.target.value); }} inputMode="decimal" autoComplete="off" placeholder="이 컴퓨터의 192.168 주소를 입력" maxLength={200} aria-label="이 송출 컴퓨터의 IP" />
-        </label>
-        <p className="text-sm text-muted">송출 컴퓨터의 IP는 이 설정에만 넣습니다. 예: 192.168.0.10</p>
+        <OutputTargetField
+          value={hostDraft}
+          onChange={(host) => {
+            setHostTouched(true);
+            setHostDraft(host);
+          }}
+        />
         <label className="field">
           <span>메인 글자 크기</span>
           <input className="input" name="mainFontSize" type="number" min={16} max={200} step={1} defaultValue={captionSize(settings.mainFontSize)} aria-label="메인 글자 크기" />

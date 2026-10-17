@@ -1,0 +1,83 @@
+{
+  "appId": "kr.eunhye.worship",
+  "productName": "은혜로운 예배",
+  "copyright": "Copyright notices in the app are retained.",
+  "directories": {
+    "output": "desktop-dist",
+    "buildResources": "desktop/resources"
+  },
+  "files": [
+    "desktop/**/*",
+    "out/**/*",
+    "package.json",
+    "node_modules/ws/**/*",
+    "node_modules/bonjour-service/**/*",
+    "node_modules/multicast-dns/**/*",
+    "node_modules/dns-packet/**/*",
+    "node_modules/dns-equal/**/*",
+    "node_modules/multicast-dns-service-types/**/*",
+    "node_modules/thunky/**/*",
+    "!desktop-dist/**/*"
+  ],
+  "extraMetadata": {
+    "main": "desktop/main.cjs"
+  },
+  "asar": true,
+  "afterPack": "desktop/after-pack.cjs",
+  "mac": {
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["x64", "arm64"]
+      },
+      {
+        "target": "zip",
+        "arch": ["x64", "arm64"]
+      }
+    ],
+    "category": "public.app-category.productivity",
+    "artifactName": "EunhyeWorship-${version}-mac-${arch}.${ext}",
+    "identity": null,
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false,
+    "extendInfo": {
+      "CFBundleDisplayName": "은혜로운 예배",
+      "NSLocalNetworkUsageDescription": "같은 네트워크의 송출 컴퓨터에 자막 두 줄을 보냅니다.",
+      "NSBonjourServices": ["_eunhye-worship._tcp"]
+    }
+  },
+  "dmg": {
+    "title": "은혜로운 예배",
+    "artifactName": "EunhyeWorship-${version}-mac-${arch}.${ext}"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "EunhyeWorship-${version}-${os}-${arch}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "은혜로운 예배 조작",
+    "include": "desktop/installer.nsh",
+    "license": "desktop/license.txt"
+  },
+  "portable": {
+    "artifactName": "EunhyeWorship-${version}-portable.${ext}"
+  },
+  "linux": {
+    "target": ["AppImage", "dir"],
+    "category": "Office",
+    "artifactName": "EunhyeWorship-${version}-${os}-${arch}.${ext}"
+  }
+}

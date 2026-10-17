@@ -1,4 +1,5 @@
 import { serviceSaveBlock } from "./access";
+import { rememberLanHost } from "./lan-link";
 import { publishLinesNow, kickOperatorLink } from "./output-link";
 import { hostEntry, saveOutputHost } from "./output-host";
 import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
@@ -425,6 +426,7 @@ export async function updateSettings(formData: FormData) {
     return;
   }
   saveOutputHost(outputHost);
+  rememberLanHost(outputHost);
   updateDb((db) => {
     db.settings.churchName = churchName;
     if (isOverlayPosition(overlayValue)) db.settings.overlay = overlayValue;

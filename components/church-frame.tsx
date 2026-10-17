@@ -7,6 +7,7 @@ import { SessionGuard } from "@/components/session-guard";
 import { ReminderWatcher } from "@/components/reminder-watcher";
 import { useChurch } from "@/components/church-state";
 import { cleanPath } from "@/lib/page-path";
+import { rememberLanHost, restoreLanHost } from "@/lib/lan-link";
 import { saveOutputHost } from "@/lib/output-host";
 import { readOperatorService, startOperatorLink } from "@/lib/output-link";
 import { can, canOpenPath, homeFor } from "@/lib/roles";
@@ -17,7 +18,8 @@ function landing(user: { kind: "platform" | "church"; churchId: string | null; r
 }
 
 function isOutputPath(path: string): boolean {
-  return /^\/services\/[^/]+\/output$/.test(cleanPath(path));
+  const clean = cleanPath(path);
+  return clean === "/receive" || /^\/services\/[^/]+\/output$/.test(clean);
 }
 
 export function ChurchFrame({ children }: { children: React.ReactNode }) {
@@ -33,7 +35,13 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready || !db?.settings.outputHost) return;
     saveOutputHost(db.settings.outputHost);
+    rememberLanHost(db.settings.outputHost);
   }, [ready, db?.settings.outputHost]);
+
+  useEffect(() => {
+    if (!ready || !user || isOutputPath(browserPath)) return;
+    void restoreLanHost(db?.settings.outputHost);
+  }, [ready, user?.id, browserPath, db?.settings.outputHost]);
 
   useEffect(() => {
     if (!ready || !user || !browserPath || isOutputPath(browserPath) || !db?.settings.outputHost) return;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { readDb, refreshChurchNow } from "@/lib/app-db";
+import { desktopApi, isDesktopApp } from "@/lib/desktop-api";
 import { liveView, type LiveView } from "@/lib/live-view";
 import { outputHoldText, type OutputLinkStatus } from "@/lib/output-cue";
 import { lineFontSize } from "@/lib/simple";
@@ -15,6 +16,15 @@ export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?
 
   useEffect(() => {
     if (mode !== "overlay" && mode !== "main") return;
+    const api = desktopApi();
+    if (api) {
+      setLink("waiting");
+      return api.onLines((payload) => {
+        setCue((current) => (sameLines(current, payload.lines) ? current : payload.lines));
+        setLink("direct");
+      });
+    }
+    if (isDesktopApp()) return;
     return startViewerLink(
       initial.serviceId,
       mode,

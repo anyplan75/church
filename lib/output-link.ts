@@ -1,4 +1,6 @@
 import { churchSnapshot, patchOutputDirect, readDb, readOutputDirect } from "./app-db";
+import { isDesktopApp } from "./desktop-api";
+import { publishLanLines, rememberLanHost, restoreLanHost } from "./lan-link";
 import { cueLines, keepSlideSeq, rememberedCue, readSlidePacket, slideMessage, type OutputLinkStatus } from "./output-cue";
 import { cleanServiceId, currentOutputHost, detectPrivateAddress, directCandidate, directDescription, isPrivateIpv4, OPERATOR_SERVICE_KEY, OUTPUT_HOST_KEY, outputSignalHost, readStoredHost, thisComputer } from "./output-host";
 
@@ -59,6 +61,18 @@ function warnOnce(error: unknown) {
 export function publishLinesNow(serviceId: string, lines: string[]) {
   latest = { serviceId, lines: cueLines(lines), seq: latest.seq + 1 };
   rememberLines(serviceId, latest.lines);
+  const host = currentOutputHost(readDb().settings.outputHost);
+  if (host) {
+    rememberLanHost(host);
+    const settings = readDb().settings;
+    publishLanLines(serviceId, latest.lines, {
+      backgroundColor: settings.backgroundColor,
+      overlay: settings.overlay,
+      mainFontSize: settings.mainFontSize,
+      overlayFontSize: settings.overlayFontSize,
+    });
+  }
+  if (isDesktopApp()) return;
   if (typeof RTCPeerConnection === "undefined") return;
   sendLatest(serviceId, true);
 }
@@ -73,6 +87,11 @@ export function startOperatorLink(serviceId: string): () => void {
   const same = Boolean(operatorTimer) && operatorService === serviceId;
   rememberOperatorService(serviceId);
   restoreLines(serviceId);
+  void restoreLanHost(readDb().settings.outputHost).then((host) => {
+    if (!host || latest.serviceId !== serviceId || latest.lines.length === 0) return;
+    publishLanLines(serviceId, latest.lines);
+  });
+  if (isDesktopApp()) return () => undefined;
   if (typeof RTCPeerConnection === "undefined") return () => undefined;
   if (same) return () => undefined;
   rememberOperatorLan();
@@ -91,8 +110,15 @@ export function startOperatorLink(serviceId: string): () => void {
 }
 
 export function kickOperatorLink() {
-  if (typeof RTCPeerConnection === "undefined") return;
   const id = operatorService || readOperatorService();
+  const host = currentOutputHost(readDb().settings.outputHost);
+  if (host) rememberLanHost(host);
+  if (id && latest.serviceId === id) publishLanLines(id, latest.lines);
+  if (isDesktopApp()) {
+    if (id) startOperatorLink(id);
+    return;
+  }
+  if (typeof RTCPeerConnection === "undefined") return;
   if (!operatorTimer) {
     if (id) startOperatorLink(id);
     return;
