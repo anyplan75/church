@@ -1,5 +1,13 @@
 {
   "rules": {
+    "jifc": {
+      ".read": false,
+      ".write": false
+    },
+    "cheil": {
+      ".read": false,
+      ".write": false
+    },
     "live-interpret": {
       "admin": {
         "uid": {
