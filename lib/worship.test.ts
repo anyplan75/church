@@ -11,6 +11,7 @@ import {
   itemAside,
   mondayOf,
   nextService,
+  operatorService,
   normalizeService,
   reorder,
   splitServices,
@@ -115,6 +116,9 @@ describe("services", () => {
     assert.deepEqual(split.upcoming.map((item) => item.id), ["late", "early", "next"]);
     assert.deepEqual(split.past.map((item) => item.id), ["past"]);
     assert.equal(nextService(services, "2026-10-12")?.id, "late");
+    assert.equal(operatorService(services, "2026-10-12", "next")?.id, "late");
+    assert.equal(operatorService(services.filter((item) => item.id !== "late"), "2026-10-12", "next")?.id, "next");
+    assert.equal(operatorService(services.filter((item) => item.status === "done"), "2026-10-12", "past"), null);
     assert.deepEqual(weekServices(services, "2026-10-12").map((item) => item.id), ["late", "past"]);
   });
 

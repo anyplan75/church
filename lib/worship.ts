@@ -191,6 +191,14 @@ export function nextService(services: Service[], today: string): Service | null 
   return splitServices(services, today).upcoming[0] ?? null;
 }
 
+export function operatorService(services: Service[], today: string, storedId = ""): Service | null {
+  const live = nextService(services, today);
+  if (live?.status === "live") return live;
+  const stored = services.find((service) => service.id === storedId && service.status !== "done");
+  if (stored) return stored;
+  return live;
+}
+
 export function weekServices(services: Service[], today: string): Service[] {
   const start = sundayOf(today);
   const end = addDays(start, 6);

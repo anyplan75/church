@@ -1,3 +1,14 @@
+export function acceptedCueLines(serviceId: string, messageServiceId: unknown, lines: unknown): string[] {
+  if (typeof messageServiceId !== "string" || !SERVICE_ID.test(messageServiceId) || !Array.isArray(lines)) return [];
+  if (serviceId && messageServiceId !== serviceId) return [];
+  return cueLines(lines.map((line) => String(line)));
+}
+
+export function linesForViewer(raw: string, serviceId: string): string[] {
+  if (serviceId) return rememberedCue(raw, serviceId);
+  return readIncomingSlide(raw)?.lines ?? [];
+}
+
 export function rememberedCue(raw: string, serviceId: string): string[] {
   let data: unknown;
   try {
@@ -31,6 +42,24 @@ export function slideMessage(serviceId: string, lines: string[], seq = 0): strin
 
 export function readSlideMessage(raw: string, serviceId: string): string[] | null {
   return readSlidePacket(raw, serviceId)?.lines ?? null;
+}
+
+const SERVICE_ID = /^[A-Za-z0-9-]{1,80}$/;
+
+export function readIncomingSlide(raw: string): { lines: string[]; seq: number } | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const record = data as { serviceId?: unknown; lines?: unknown; seq?: unknown };
+  if (typeof record.serviceId !== "string" || !SERVICE_ID.test(record.serviceId) || !Array.isArray(record.lines)) return null;
+  const lines = cueLines(record.lines.map((line) => String(line)));
+  if (lines.length === 0) return null;
+  const seq = typeof record.seq === "number" && record.seq > 0 ? record.seq : 0;
+  return { seq, lines };
 }
 
 export function readSlidePacket(raw: string, serviceId: string): { lines: string[]; seq: number } | null {
@@ -70,8 +99,9 @@ export function subscribeCue(serviceId: string, onCue: (lines: string[]) => void
   if (typeof BroadcastChannel === "undefined") return () => undefined;
   const channel = new BroadcastChannel(CHANNEL);
   channel.onmessage = (event: MessageEvent<CueMessage>) => {
-    if (!event.data || event.data.serviceId !== serviceId || !Array.isArray(event.data.lines)) return;
-    onCue(cueLines(event.data.lines));
+    const lines = acceptedCueLines(serviceId, event.data?.serviceId, event.data?.lines);
+    if (lines.length === 0) return;
+    onCue(lines);
   };
   return () => channel.close();
 }

@@ -95,6 +95,21 @@ export function cleanServiceId(value: unknown): string {
   return /^[A-Za-z0-9-]{1,80}$/.test(id) ? id : "";
 }
 
+export function outputReturnPath(value: unknown): string {
+  const text = String(value ?? "").trim();
+  if (!text.startsWith("/")) return "";
+  const hash = text.indexOf("#");
+  const bare = hash === -1 ? text : text.slice(0, hash);
+  const queryAt = bare.indexOf("?");
+  let path = queryAt === -1 ? bare : bare.slice(0, queryAt);
+  if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+  if (path === "/output-computer" || path === "/operator") return path;
+  if (!/^\/services\/[A-Za-z0-9-]{1,80}\/output$/.test(path)) return "";
+  const params = new URLSearchParams(queryAt === -1 ? "" : bare.slice(queryAt + 1));
+  const mode = params.get("mode") === "overlay" ? "overlay" : "main";
+  return `${path}?mode=${mode}`;
+}
+
 export function savedOutputTarget(settingsHost: unknown, storedHost: unknown, storedService: unknown): { host: string; serviceId: string } | null {
   const host = outputSignalHost(settingsHost, storedHost, "");
   const serviceId = cleanServiceId(storedService);
