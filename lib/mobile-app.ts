@@ -7,7 +7,7 @@ export function isMobileOperatorApp(): boolean {
   return Boolean(cap?.isNativePlatform?.());
 }
 
-/** 모바일 조작 앱의 첫 화면(슬라이드 리모컨). */
+/** 모바일 Remote 앱의 첫 화면(슬라이드 리모컨). */
 export const MOBILE_REMOTE_HOME = "/remote";
 
 /** 모바일 앱이면 항상 슬라이드 리모컨, 아니면 넘긴 주소를 씁니다. */
