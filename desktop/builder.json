@@ -23,6 +23,33 @@
     "main": "desktop/main.cjs"
   },
   "asar": true,
+  "afterPack": "desktop/after-pack.cjs",
+  "mac": {
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["x64", "arm64"]
+      },
+      {
+        "target": "zip",
+        "arch": ["x64", "arm64"]
+      }
+    ],
+    "category": "public.app-category.productivity",
+    "artifactName": "EunhyeWorship-${version}-mac-${arch}.${ext}",
+    "identity": null,
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false,
+    "extendInfo": {
+      "CFBundleDisplayName": "은혜로운 예배",
+      "NSLocalNetworkUsageDescription": "같은 네트워크의 송출 컴퓨터에 자막 두 줄을 보냅니다.",
+      "NSBonjourServices": ["_eunhye-worship._tcp"]
+    }
+  },
+  "dmg": {
+    "title": "은혜로운 예배",
+    "artifactName": "EunhyeWorship-${version}-mac-${arch}.${ext}"
+  },
   "win": {
     "target": [
       {

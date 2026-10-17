@@ -1,7 +1,7 @@
 "use strict";
 
 const path = require("path");
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, shell } = require("electron");
 const { createOutputServer, privateAddresses, DEFAULT_PORT } = require("./output-server.cjs");
 const { createAdvertiser, createBrowser } = require("./discovery.cjs");
 const { createStaticServer } = require("./static-server.cjs");
@@ -10,6 +10,10 @@ const { cleanHost } = require("./host.cjs");
 
 const MODE = resolveMode(process.argv);
 const DISPLAY = resolveDisplay(process.argv);
+
+if (MODE === "output") {
+  Menu.setApplicationMenu(null);
+}
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
@@ -75,6 +79,10 @@ function createWindow() {
 
   if (isOutput) {
     mainWindow.setMenuBarVisibility(false);
+    if (overlay && process.platform === "darwin") {
+      mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      mainWindow.setWindowButtonVisibility(false);
+    }
     mainWindow.loadURL(`${appBase}/receive/?mode=${DISPLAY}`);
   } else {
     mainWindow.loadURL(`${appBase}/`);

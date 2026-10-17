@@ -32,8 +32,16 @@ describe("desktop protocol", () => {
 
   it("ships electron entry files", () => {
     const root = path.join(process.cwd(), "desktop");
-    for (const name of ["main.cjs", "preload.cjs", "output-server.cjs", "discovery.cjs"]) {
+    for (const name of ["main.cjs", "preload.cjs", "output-server.cjs", "discovery.cjs", "after-pack.cjs", "builder.json"]) {
       assert.ok(readFileSync(path.join(root, name), "utf8").length > 20);
+    }
+  });
+
+  it("ships mac launchers for operator output overlay", () => {
+    const dir = path.join(process.cwd(), "desktop", "mac-launchers");
+    for (const name of ["은혜로운 예배 조작.command", "은혜로운 예배 송출.command", "은혜로운 예배 오버레이.command"]) {
+      const body = readFileSync(path.join(dir, name), "utf8");
+      assert.match(body, /--mode=/);
     }
   });
 });

@@ -6,51 +6,49 @@
 
 송출은 **데스크톱 앱 직접 연결**이 본선입니다. 조작 컴퓨터와 송출 컴퓨터에 각각 앱을 설치하고, 같은 로컬 네트워크에서 지금 두 줄 자막만 보냅니다. 브라우저 탭·Surge 송출 링크·송출 화면 IP 입력은 쓰지 않습니다.
 
-## 데스크톱 앱 설치 (Windows)
+## 데스크톱 앱 설치
 
-1. Windows에서 `npm run desktop:pack:win`으로 설치 파일을 만듭니다. 결과물은 `desktop-dist/`입니다.
-2. `EunhyeWorship-*-portable.exe`를 실행하거나, `desktop-dist/win-unpacked/` 폴더를 복사해 `은혜로운 예배.exe`를 실행합니다.
-3. 포터블/언팩 폴더에서는 `desktop/portable-shortcuts.ps1`로 바로가기를 만듭니다.
-   - **은혜로운 예배 조작** — 조작 컴퓨터
-   - **은혜로운 예배 송출** — 송출 컴퓨터 메인 전체화면
-   - **은혜로운 예배 오버레이** — 투명/그라데이션 자막
-4. Windows에서 설치형 Setup이 필요하면 `npm run desktop:pack:win:setup`을 실행합니다.
+송출은 Windows·Mac 모두 같은 로컬 직접연결(포트 `18765`)입니다. 조작 / 송출(메인) / 오버레이 세 가지로 실행합니다.
+
+### Windows
+
+1. `npm run desktop:pack:win` → 결과물 `desktop-dist/`
+2. `EunhyeWorship-*-portable.exe` 또는 `win-unpacked/은혜로운 예배.exe`
+3. `desktop/portable-shortcuts.ps1`로 조작·송출·오버레이 바로가기
+4. 설치형 Setup: `npm run desktop:pack:win:setup`
+
+### macOS
+
+1. Mac에서 `npm run desktop:pack:mac` → 결과물 `desktop-dist/`
+2. `EunhyeWorship-*-mac-*.dmg`를 열어 **은혜로운 예배.app**을 Applications로 드래그
+3. 같은 폴더의 `.command` 바로가기를 더블클릭합니다.
+   - **은혜로운 예배 조작**
+   - **은혜로운 예배 송출**
+   - **은혜로운 예배 오버레이**
+4. 처음 열 때 Gatekeeper 안내가 나오면 **시스템 설정 → 개인 정보 보호 및 보안**에서 허용합니다.
+5. 로컬 네트워크 권한을 물으면 허용합니다. (송출 포트 `18765`)
+
+Intel/Apple Silicon용 dmg·zip이 함께 만들어집니다. 지금 Mac 한 대용만 필요하면 `npm run desktop:pack:mac:current`를 씁니다.
 
 ### 조작 컴퓨터
 
 1. **은혜로운 예배 조작**을 엽니다.
 2. 로그인 뒤 **설정**으로 갑니다.
-3. **송출 컴퓨터 찾기**를 누르거나, 송출 앱이 보여 주는 주소를 고릅니다. IP를 직접 넣을 수도 있습니다.
-4. **기본값 저장**을 누릅니다. 껐다 켜도 같은 송출 컴퓨터에 다시 붙습니다.
-5. 예배 **진행**에서 슬라이드를 넘기면 송출 앱에 지금 두 줄만 전달됩니다. 본문 파일 전체는 올리지 않습니다.
+3. **송출 컴퓨터 찾기**를 누르거나 IP를 넣습니다.
+4. **기본값 저장**을 누릅니다. 껐다 켜도 다시 붙습니다.
+5. 예배 **진행**에서 슬라이드를 넘기면 송출에 지금 두 줄만 갑니다. 본문 파일 전체는 올리지 않습니다.
 
 ### 송출 컴퓨터
 
 1. **은혜로운 예배 송출**(또는 오버레이)을 엽니다.
-2. 메뉴 없이 받을 준비만 합니다. 연결되면 조작 앱이 보낸 두 줄이 보입니다.
-3. Windows 방화벽이 물으면 **액세스 허용**을 선택합니다. (포트 `18765`)
+2. 메뉴 없이 받을 준비만 합니다.
+3. 방화벽·로컬 네트워크 권한을 허용합니다. (포트 `18765`)
 
-### 설치 파일을 직접 만들기
-
-Windows PC에서 Node.js 20 이상으로:
-
-```bash
-npm install
-npm run desktop:pack:win
-```
-
-결과물은 `desktop-dist/`에 있습니다.
-
-개발 중 확인:
+### 개발 중 확인
 
 ```bash
 npm run desktop:build-web
 npm run desktop:dev
-```
-
-송출 모드로 열려면:
-
-```bash
 npx electron . --mode=output --display=main
 ```
 
