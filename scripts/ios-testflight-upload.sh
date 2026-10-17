@@ -87,12 +87,21 @@ if [[ -n "${APP_STORE_CONNECT_API_KEY_PATH:-}" && -n "${APP_STORE_CONNECT_KEY_ID
 fi
 
 set +e
-xcodebuild -exportArchive \
-  -archivePath "$ARCHIVE_PATH" \
-  -exportOptionsPlist "$BUILD_DIR/ExportOptions-upload.plist" \
-  -exportPath "$UPLOAD_DIR" \
-  -allowProvisioningUpdates \
-  "${AUTH_ARGS[@]}"
+# set -u 에서 빈 배열 "${AUTH_ARGS[@]}" 가 unbound 로 터지지 않게 분기한다.
+if [[ ${#AUTH_ARGS[@]} -gt 0 ]]; then
+  xcodebuild -exportArchive \
+    -archivePath "$ARCHIVE_PATH" \
+    -exportOptionsPlist "$BUILD_DIR/ExportOptions-upload.plist" \
+    -exportPath "$UPLOAD_DIR" \
+    -allowProvisioningUpdates \
+    "${AUTH_ARGS[@]}"
+else
+  xcodebuild -exportArchive \
+    -archivePath "$ARCHIVE_PATH" \
+    -exportOptionsPlist "$BUILD_DIR/ExportOptions-upload.plist" \
+    -exportPath "$UPLOAD_DIR" \
+    -allowProvisioningUpdates
+fi
 UPLOAD_STATUS=$?
 set -e
 
