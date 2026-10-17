@@ -23,11 +23,12 @@ const looksLikeRawRsc =
   !hasHtmlShell &&
   (trimmed.startsWith("0:") ||
     trimmed.includes("text/x-component") ||
+    trimmed.includes("$Sreact.fragment") ||
     /^[0-9]+:/.test(trimmed));
 
 if (looksLikeRawRsc) {
   console.error(
-    "out/index.html이 Next RSC 원문처럼 보입니다. server.url/라이브 리로드 없이 STATIC_EXPORT=1 로 다시 빌드하세요.",
+    "out/index.html이 Next RSC 원문처럼 보입니다. server.url/라이브 리로드 없이 정적보내기(npm run build / mobile:build-web)로 다시 빌드하세요.",
   );
   process.exit(1);
 }
