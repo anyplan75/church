@@ -2,7 +2,11 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const pages = process.env.GITHUB_PAGES === "1";
-const staticExport = pages || process.env.STATIC_EXPORT === "1";
+// Capacitor·데스크톱·Surge는 STATIC_EXPORT=1 → out/ 정적보내기.
+// next start 서버 시험만 할 때는 NEXT_SERVER=1 npm run start:server.
+const staticExport =
+  pages ||
+  (process.env.STATIC_EXPORT === "1" && process.env.NEXT_SERVER !== "1");
 
 const nextConfig: NextConfig = {
   ...(staticExport

@@ -23,9 +23,11 @@ git clone https://github.com/anyplan75/church.git
 cd church
 cp .env.example .env.local   # Firebase 값 채운 뒤
 npm install
-npm run mobile:sync
+npm run mobile:sync   # STATIC_EXPORT=1 → out/ → webDir, server.url 제거
 npx cap open ios
 ```
+
+시뮬레이터에 빈 화면이나 RSC 원문이 보이면 Next 개발 서버(`localhost:3000`)를 가리킨 것이다. `capacitor.config.ts`에 `server.url`을 넣지 말고, `CAPACITOR_DEBUG=false`인 채 `npm run mobile:sync` 후 다시 Run 한다.
 
 Xcode에서 시뮬레이터(또는 내 iPhone)를 고르고 Run합니다.
 

@@ -8,8 +8,9 @@
   "productName": "은혜로운 예배",
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/surge-fallback.mjs",
-    "start": "next start",
+    "build": "STATIC_EXPORT=1 next build && node scripts/surge-fallback.mjs",
+    "start": "npx --yes serve@14 out",
+    "start:server": "NEXT_SERVER=1 STATIC_EXPORT=0 next build && next start",
     "test": "tsx --test lib/*.test.ts",
     "smoke:lan": "node scripts/smoke-lan-link.mjs",
     "mirror:firebase": "node scripts/mirror-firebase.mjs",
@@ -22,8 +23,8 @@
     "desktop:pack:mac:current": "npm run desktop:build-web && electron-builder --config desktop/builder.json --mac dmg zip",
     "desktop:pack:linux": "npm run desktop:build-web && electron-builder --config desktop/builder.json --linux",
     "desktop:dir": "npm run desktop:build-web && electron-builder --config desktop/builder.json --dir",
-    "mobile:build-web": "STATIC_EXPORT=1 next build",
-    "mobile:sync": "npm run mobile:build-web && npx cap sync ios",
+    "mobile:build-web": "STATIC_EXPORT=1 next build && node scripts/ensure-capacitor-out.mjs",
+    "mobile:sync": "npm run mobile:build-web && npx cap sync ios && node scripts/strip-capacitor-server-url.mjs",
     "mobile:ios": "npm run mobile:sync && npx cap open ios",
     "mobile:ios:sim": "npm run mobile:sync && npx cap run ios --target \"iPhone 17\""
   },
