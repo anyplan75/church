@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 은혜로운 예배 조작 iOS → App Store Connect / TestFlight 업로드
+# 은혜로운 예배 Remote iOS → App Store Connect / TestFlight 업로드
 # 개발 프로파일(기기 등록)이 없어도 되도록: 서명 없이 Archive → export에서 Distribution 서명.
 # 시크릿은 커밋하지 않는다. ASC API 키가 필요하면 환경 변수로만 넘긴다.
 set -euo pipefail

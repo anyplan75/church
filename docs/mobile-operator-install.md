@@ -7,7 +7,7 @@
 ## TestFlight로 설치 (권장)
 
 1. iPhone·iPad에 **TestFlight** 앱을 설치합니다.
-2. App Store Connect에서 초청 메일을 받거나, 내부 테스트 그룹에 이미 들어가 있으면 TestFlight에 **은혜로운 예배 조작**이 보입니다.
+2. App Store Connect에서 초청 메일을 받거나, 내부 테스트 그룹에 이미 들어가 있으면 TestFlight에 **은혜로운 예배 Remote**가 보입니다.
 3. TestFlight에서 **설치** → 앱을 엽니다.
 4. 아래 [한 번에 하는 일](#한-번에-하는-일)대로 로그인·송출 연결·슬라이드 넘기기를 합니다.
 
@@ -16,7 +16,7 @@
 ## 한 번에 하는 일
 
 1. 송출 컴퓨터에서 **은혜로운 예배 송출**을 켭니다.
-2. iPhone·iPad에서 **은혜로운 예배 조작**을 엽니다.
+2. iPhone·iPad에서 **은혜로운 예배 Remote**를 엽니다.
 3. 로그인합니다.
 4. 처음이거나 연결이 없으면 오른쪽 위 **송출**을 눌러 송출 컴퓨터 IP를 넣고 **저장하고 연결**을 누릅니다. (예: `192.168.0.10`) 이미 저장돼 있으면 자동으로 붙습니다.
 5. **현재 예배**를 고르거나(진행 중이면 자동), **이전 / 다음**으로 슬라이드를 넘깁니다.
@@ -29,7 +29,7 @@ Node.js 20+, Xcode, 유료 Apple Developer 팀이 있는 Mac에서. Xcode → Se
 
 **먼저** [App Store Connect](https://appstoreconnect.apple.com)에 iOS 앱을 만듭니다.
 
-- 이름: `은혜로운 예배 조작`
+- 이름: `은혜로운 예배 Remote` (홈 화면·TestFlight 표시 이름. ASC 앱 레코드 이름도 같게 바꿔 두면 목록이 맞춰집니다.)
 - 번들 ID: `org.eunhye.worship.operator` (이미 Developer에 있으면 그걸 고름)
 
 그다음:
