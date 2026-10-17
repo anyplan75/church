@@ -23,11 +23,11 @@ git clone https://github.com/anyplan75/church.git
 cd church
 cp .env.example .env.local   # Firebase 값 채운 뒤
 npm install
-npm run mobile:sync   # STATIC_EXPORT=1 → out/ → webDir, server.url 제거
+npm run mobile:sync   # 정적 out/ 빌드 → webDir, server.url 제거, public HTML 검증
 npx cap open ios
 ```
 
-시뮬레이터에 빈 화면이나 RSC 원문이 보이면 Next 개발 서버(`localhost:3000`)를 가리킨 것이다. `capacitor.config.ts`에 `server.url`을 넣지 말고, `CAPACITOR_DEBUG=false`인 채 `npm run mobile:sync` 후 다시 Run 한다.
+시뮬레이터에 `$Sreact.fragment` 같은 RSC 원문이 보이면 (1) `server.url`/라이브 리로드로 Next 서버를 가리켰거나 (2) 클라이언트 이동이 `/…/index.txt` 문서로 떨어진 것이다. `capacitor.config.ts`에 `server.url`을 넣지 말고, `CAPACITOR_DEBUG=false`인 채 `npm run mobile:sync` 후 앱을 삭제·재설치한다. iOS는 하위 `index.html` 라우터와 `.txt` 문서 차단을 쓴다.
 
 Xcode에서 시뮬레이터(또는 내 iPhone)를 고르고 Run합니다.
 

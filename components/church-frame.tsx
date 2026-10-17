@@ -7,6 +7,7 @@ import { SessionGuard } from "@/components/session-guard";
 import { ReminderWatcher } from "@/components/reminder-watcher";
 import { useChurch } from "@/components/church-state";
 import { isMobileOperatorApp, isMobileOperatorPath, MOBILE_REMOTE_HOME } from "@/lib/mobile-app";
+import { appNavigate } from "@/lib/mobile-nav";
 import { cleanPath } from "@/lib/page-path";
 import { rememberLanHost, restoreLanHost } from "@/lib/lan-link";
 import { saveOutputHost } from "@/lib/output-host";
@@ -56,42 +57,43 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     const path = cleanPath(window.location.pathname || pathname || "/");
     if (isOutputPath(path)) return;
+    const go = (href: string) => appNavigate(href, router, "replace");
     if (!user) {
-      if (path !== "/login") router.replace("/login");
+      if (path !== "/login") go("/login");
       return;
     }
     if (path === "/login" || path === "/setup") {
-      router.replace(landing(user));
+      go(landing(user));
       return;
     }
     if (isMobileOperatorApp()) {
       if (!isMobileOperatorPath(path)) {
-        router.replace(MOBILE_REMOTE_HOME);
+        go(MOBILE_REMOTE_HOME);
         return;
       }
       if (path === MOBILE_REMOTE_HOME || /^\/services\/[^/]+\/live$/.test(path)) {
         if (!can(user.roles, "screen.live")) {
-          router.replace("/denied");
+          go("/denied");
           return;
         }
       }
       return;
     }
     if (user.kind === "platform" && !user.churchId && path !== "/platform" && path !== "/activity") {
-      router.replace("/platform");
+      go("/platform");
       return;
     }
     if (path === "/activity") {
       if (user.kind === "platform" || can(user.roles, "screen.activity")) return;
-      router.replace("/denied");
+      go("/denied");
       return;
     }
     if (user.kind === "church" && path === "/platform") {
-      router.replace(homeFor(user.roles));
+      go(homeFor(user.roles));
       return;
     }
     if (path === "/platform") return;
-    if (!canOpenPath(user.roles, path)) router.replace("/denied");
+    if (!canOpenPath(user.roles, path)) go("/denied");
   }, [ready, user, pathname, router]);
 
   const path = cleanPath(pathname || "/");
