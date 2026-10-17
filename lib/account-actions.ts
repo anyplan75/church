@@ -42,8 +42,9 @@ export async function login(formData: FormData) {
   if (!email || !normalizePassword(password)) go("/login?error=1");
   const user = await loginWithPassword(email!, password.trim());
   if (!user) go("/login?error=1");
-  if (user!.kind === "platform" && !user!.churchId) go("/platform");
+  // Capacitor 앱은 역할·플랫폼 홈과 무관하게 항상 슬라이드 리모컨으로 갑니다.
   if (isMobileOperatorApp()) go(MOBILE_REMOTE_HOME);
+  if (user!.kind === "platform" && !user!.churchId) go("/platform");
   go(homeFor(user!.roles));
 }
 

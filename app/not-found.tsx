@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { BulletinScreen, LiveScreen, OutputScreen, ServiceEditorScreen, SlidesScreen } from "@/components/service-screens";
 import { useChurch } from "@/components/church-state";
 import { cleanPath } from "@/lib/page-path";
+import { operatorHome } from "@/lib/mobile-app";
 import { homeFor } from "@/lib/roles";
 
 export default function NotFound() {
@@ -24,7 +25,7 @@ export default function NotFound() {
   }
   const service = path.match(/^\/services\/([^/]+)$/);
   if (service && service[1] !== "new") return <ServiceEditorScreen id={decodeURIComponent(service[1])} />;
-  const home = user ? homeFor(user.roles) : "/login";
+  const home = user ? operatorHome(homeFor(user.roles)) : "/login";
   return (
     <div className="page text-center">
       <p className="text-sm text-gold">404</p>

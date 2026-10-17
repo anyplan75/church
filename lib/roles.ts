@@ -101,7 +101,6 @@ const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] 
   { test: (pathname) => pathname === "/activity", caps: ["screen.activity"] },
   { test: (pathname) => pathname === "/attendance", caps: ["screen.attendance"] },
   { test: (pathname) => pathname === "/inventory", caps: ["screen.inventory"] },
-  { test: (pathname) => pathname === "/remote", caps: ["screen.live"] },
   { test: (pathname) => /^\/services\/[^/]+\/bulletin$/.test(pathname), caps: ["screen.bulletin"] },
   { test: (pathname) => /^\/services\/[^/]+\/live$/.test(pathname), caps: ["screen.live"] },
   { test: (pathname) => /^\/services\/[^/]+\/output$/.test(pathname), caps: ["screen.output"] },
@@ -127,7 +126,8 @@ export function can(roles: readonly Role[], capability: Capability): boolean {
 
 export function canOpenPath(roles: readonly Role[], pathname: string): boolean {
   const path = pathname.split("?")[0] || "/";
-  if (path === "/login" || path === "/setup" || path === "/denied" || path === "/receive") return true;
+  // /remote 는 로그인한 교회 사용자면 역할과 무관하게 엽니다(모바일 슬라이드 리모컨).
+  if (path === "/login" || path === "/setup" || path === "/denied" || path === "/receive" || path === "/remote") return true;
   const rule = PATH_RULES.find((item) => item.test(path));
   if (!rule) return false;
   return rule.caps.some((capability) => can(roles, capability));

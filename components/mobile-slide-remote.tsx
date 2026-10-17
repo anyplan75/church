@@ -9,7 +9,6 @@ import { formatKoreanDate, formatTime } from "@/lib/format";
 import { kickOperatorLink, publishLinesNow, startOperatorLink } from "@/lib/output-link";
 import { currentOutputHost, hostEntry, saveOutputHost } from "@/lib/output-host";
 import { rememberLanHost, subscribeLanStatus } from "@/lib/lan-link";
-import { can } from "@/lib/roles";
 import { buildDesk, type DeskSlide } from "@/lib/slide-show";
 import { START_BLOCKED, settingsReady } from "@/lib/simple";
 import { clampLiveIndex, nextService, splitServices, todayISO } from "@/lib/worship";
@@ -44,19 +43,6 @@ export function MobileSlideRemote({ serviceId = "" }: { serviceId?: string }) {
   }, [serviceId]);
 
   if (!ready || !user || !db) return <p className="page text-muted">불러오는 중</p>;
-  if (!can(user.roles, "screen.live")) {
-    return (
-      <div className="page">
-        <h1 className="font-serif text-3xl">슬라이드 넘기기</h1>
-        <p className="mt-3 text-muted">진행 권한이 있는 계정으로 로그인해 주세요.</p>
-        <form action={logout} className="mt-6">
-          <button type="submit" className="btn btn-quiet">
-            나가기
-          </button>
-        </form>
-      </div>
-    );
-  }
 
   const today = todayISO();
   const liveOrNext = nextService(db.services, today);
