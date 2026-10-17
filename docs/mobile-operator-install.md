@@ -4,6 +4,15 @@
 
 주보·사람·라이브러리·전체 설정은 **데스크톱 조작 앱**에서만 씁니다.
 
+## TestFlight로 설치 (권장)
+
+1. iPhone·iPad에 **TestFlight** 앱을 설치합니다.
+2. App Store Connect에서 초청 메일을 받거나, 내부 테스트 그룹에 이미 들어가 있으면 TestFlight에 **은혜로운 예배 조작**이 보입니다.
+3. TestFlight에서 **설치** → 앱을 엽니다.
+4. 아래 [한 번에 하는 일](#한-번에-하는-일)대로 로그인·송출 연결·슬라이드 넘기기를 합니다.
+
+처리 중인 빌드는 App Store Connect → TestFlight에 몇 분~수십 분 뒤에 나타납니다. 내부 테스트 그룹이 있으면 그 그룹에 빌드를 넣습니다.
+
 ## 한 번에 하는 일
 
 1. 송출 컴퓨터에서 **은혜로운 예배 송출**을 켭니다.
@@ -14,30 +23,34 @@
 
 로컬 네트워크 권한을 물으면 **허용**합니다.
 
-## Mac에서 빌드·시뮬레이터
+## Mac에서 TestFlight용 빌드·업로드
 
-Node.js 20+, Xcode, CocoaPods가 있는 Mac에서:
+Node.js 20+, Xcode, 유료 Apple Developer 팀이 있는 Mac에서. Xcode → Settings → Accounts에 팀이 로그인돼 있어야 합니다.
+
+**먼저** [App Store Connect](https://appstoreconnect.apple.com)에 iOS 앱을 만듭니다.
+
+- 이름: `은혜로운 예배 조작`
+- 번들 ID: `org.eunhye.worship.operator` (이미 Developer에 있으면 그걸 고름)
+
+그다음:
 
 ```bash
 git clone https://github.com/anyplan75/church.git
 cd church
-cp .env.example .env.local   # Firebase 값 채운 뒤
+cp .env.example .env.local   # Firebase 값 채운 뒤 (커밋 금지)
 npm install
-npm run mobile:sync   # 정적 out/ 빌드 → webDir, server.url 제거, public HTML 검증
-npx cap open ios
+bash scripts/ios-testflight-upload.sh
 ```
 
-시뮬레이터에 `$Sreact.fragment` 같은 RSC 원문이 보이면 (1) `server.url`/라이브 리로드로 Next 서버를 가리켰거나 (2) 클라이언트 이동이 `/…/index.txt` 문서로 떨어진 것이다. `capacitor.config.ts`에 `server.url`을 넣지 말고, `CAPACITOR_DEBUG=false`인 채 `npm run mobile:sync` 후 앱을 삭제·재설치한다. iOS는 하위 `index.html` 라우터와 `.txt` 문서 차단을 쓴다.
+스크립트는 `STATIC_EXPORT` 정적 빌드 → `cap sync` → 서명 없는 Archive → Distribution 서명 IPA → App Store Connect 업로드까지 합니다. (연결된 iPhone이 없어도 됩니다.)
 
-Xcode에서 시뮬레이터(또는 내 iPhone)를 고르고 Run합니다.
+업로드 후 App Store Connect → TestFlight에서 빌드 처리가 끝나면 내부 테스터에게 보입니다.
 
-터미널에서 시뮬레이터만 바로 띄우려면:
+선택: App Store Connect API 키를 쓰려면 셸에만 `APP_STORE_CONNECT_API_KEY_PATH`, `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`를 두고 같은 스크립트를 실행합니다. 키 파일은 저장소에 넣지 않습니다.
 
-```bash
-npm run mobile:ios:sim
-```
+## 개발용 시뮬레이터
 
-실기기에 넣을 때는 Xcode에서 Signing Team을 본인 Apple ID로 맞춘 뒤 Run합니다. App Store 배포는 이 문서 범위를 넘습니다.
+로컬에서 화면만 확인할 때: `npm run mobile:sync` 후 `npm run mobile:ios:sim` (또는 Xcode Run).
 
 ## 웹만 다시 넣고 싶을 때
 
@@ -47,7 +60,7 @@ npm run mobile:ios:sim
 npm run mobile:sync
 ```
 
-`out/`을 iOS 프로젝트에 다시 복사합니다.
+`out/`을 iOS 프로젝트에 다시 복사합니다. TestFlight에 다시 올리려면 `bash scripts/ios-testflight-upload.sh`를 실행합니다.
 
 ## 되는 것 / 안 되는 것
 
