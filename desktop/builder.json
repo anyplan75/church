@@ -1,0 +1,56 @@
+{
+  "appId": "kr.eunhye.worship",
+  "productName": "은혜로운 예배",
+  "copyright": "Copyright notices in the app are retained.",
+  "directories": {
+    "output": "desktop-dist",
+    "buildResources": "desktop/resources"
+  },
+  "files": [
+    "desktop/**/*",
+    "out/**/*",
+    "package.json",
+    "node_modules/ws/**/*",
+    "node_modules/bonjour-service/**/*",
+    "node_modules/multicast-dns/**/*",
+    "node_modules/dns-packet/**/*",
+    "node_modules/dns-equal/**/*",
+    "node_modules/multicast-dns-service-types/**/*",
+    "node_modules/thunky/**/*",
+    "!desktop-dist/**/*"
+  ],
+  "extraMetadata": {
+    "main": "desktop/main.cjs"
+  },
+  "asar": true,
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "EunhyeWorship-${version}-${os}-${arch}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "은혜로운 예배 조작",
+    "include": "desktop/installer.nsh",
+    "license": "desktop/license.txt"
+  },
+  "portable": {
+    "artifactName": "EunhyeWorship-${version}-portable.${ext}"
+  },
+  "linux": {
+    "target": ["AppImage", "dir"],
+    "category": "Office",
+    "artifactName": "EunhyeWorship-${version}-${os}-${arch}.${ext}"
+  }
+}

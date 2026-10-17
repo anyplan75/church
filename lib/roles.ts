@@ -126,7 +126,7 @@ export function can(roles: readonly Role[], capability: Capability): boolean {
 
 export function canOpenPath(roles: readonly Role[], pathname: string): boolean {
   const path = pathname.split("?")[0] || "/";
-  if (path === "/login" || path === "/setup" || path === "/denied") return true;
+  if (path === "/login" || path === "/setup" || path === "/denied" || path === "/receive") return true;
   const rule = PATH_RULES.find((item) => item.test(path));
   if (!rule) return false;
   return rule.caps.some((capability) => can(roles, capability));

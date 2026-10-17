@@ -5,3 +5,7 @@ data/*.json
 data/*.tmp
 data/backgrounds
 tsconfig.tsbuildinfo
+desktop-dist
+dist
+*.exe
+*.AppImage
