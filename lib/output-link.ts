@@ -1,5 +1,5 @@
 import { churchSnapshot, patchOutputDirect, readDb, readOutputDirect } from "./app-db";
-import { cueLines, keepSlideSeq, rememberedCue, readSlidePacket, slideMessage, type OutputLinkStatus } from "./output-cue";
+import { cueLines, keepSlideSeq, publishCue, readIncomingSlide, rememberedCue, readSlidePacket, slideMessage, subscribeCue, type OutputLinkStatus } from "./output-cue";
 import { cleanServiceId, currentOutputHost, detectPrivateAddress, directCandidate, directDescription, isPrivateIpv4, OPERATOR_SERVICE_KEY, OUTPUT_HOST_KEY, outputSignalHost, readStoredHost, thisComputer } from "./output-host";
 
 const ICE: RTCConfiguration = { iceServers: [] };
@@ -59,6 +59,7 @@ function warnOnce(error: unknown) {
 export function publishLinesNow(serviceId: string, lines: string[]) {
   latest = { serviceId, lines: cueLines(lines), seq: latest.seq + 1 };
   rememberLines(serviceId, latest.lines);
+  publishCue(serviceId, latest.lines);
   if (typeof RTCPeerConnection === "undefined") return;
   sendLatest(serviceId, true);
 }
@@ -156,7 +157,23 @@ export function startViewerLink(
   onLines: (lines: string[]) => void,
   onStatus?: (status: OutputLinkStatus) => void,
 ): () => void {
-  if (typeof RTCPeerConnection === "undefined") return () => undefined;
+  const showRemembered = () => {
+    const lines = rememberedCue(storedItem(OPERATOR_LINES_KEY), serviceId);
+    if (lines.length > 0) onLines(lines);
+  };
+  showRemembered();
+  const onStore = (event: StorageEvent) => {
+    if (event.key === OPERATOR_LINES_KEY) showRemembered();
+  };
+  if (typeof window !== "undefined") window.addEventListener("storage", onStore);
+  const stopCue = subscribeCue(serviceId, (lines) => {
+    if (lines.length > 0) onLines(lines);
+  });
+  const stopLocal = () => {
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStore);
+    stopCue();
+  };
+  if (typeof RTCPeerConnection === "undefined") return stopLocal;
   let host = "";
   let started = Date.now();
   const localIce: RTCIceCandidateInit[] = [];
@@ -313,6 +330,7 @@ export function startViewerLink(
   const timer = window.setInterval(() => void tick(), 400);
   return () => {
     stop = true;
+    stopLocal();
     window.clearInterval(timer);
     window.clearTimeout(iceTimer);
     pc.close();
@@ -373,6 +391,7 @@ function slidePacket(raw: string, serviceId: string): { lines: string[]; seq: nu
     const packet = readSlidePacket(raw, id);
     if (packet) return packet;
   }
+  if (ids.length === 0) return readIncomingSlide(raw);
   return null;
 }
 

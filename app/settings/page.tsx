@@ -7,7 +7,8 @@ import { useChurch, useClientQuery } from "@/components/church-state";
 import { deleteGroup, finishSetup, saveGroup, updateSettings } from "@/lib/actions";
 import { listAccounts, storedBackgroundUrl } from "@/lib/app-db";
 import { hostEntry } from "@/lib/output-host";
-import { captionSize, formatVisit, settingsReady, setupComplete } from "@/lib/simple";
+import { outputComputerHref } from "@/lib/roles";
+import { CAPTION_FONTS, captionFont, captionSize, formatVisit, fullscreenStep, settingsReady, setupComplete } from "@/lib/simple";
 
 const OVERLAYS = [
   { id: "bottom", label: "아래" },
@@ -16,15 +17,28 @@ const OVERLAYS = [
   { id: "right", label: "오른쪽" },
 ] as const;
 
+const STEPS = ["맨 위", "위", "가운데", "아래", "맨 아래"];
+
 export default function SettingsPage() {
   const { ready, user, db } = useChurch();
   const query = useClientQuery();
   const [hostDraft, setHostDraft] = useState("");
   const [hostTouched, setHostTouched] = useState(false);
+  const [overlayFontId, setOverlayFontId] = useState("noto-sans-kr");
+  const [fullFontId, setFullFontId] = useState("noto-sans-kr");
+  const [step, setStep] = useState(2);
+  const [primed, setPrimed] = useState(false);
   useEffect(() => {
     if (!db || hostTouched) return;
     setHostDraft(db.settings.outputHost || "");
   }, [db, hostTouched]);
+  useEffect(() => {
+    if (!db || primed) return;
+    setOverlayFontId(captionFont(db.settings.overlayFont).id);
+    setFullFontId(captionFont(db.settings.fullscreenFont).id);
+    setStep(fullscreenStep(db.settings.fullscreenStep));
+    setPrimed(true);
+  }, [db, primed]);
   if (!ready || !user || !db) return null;
   const settings = db.settings;
   const accounts = listAccounts();
@@ -74,11 +88,14 @@ export default function SettingsPage() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={storedBackgroundUrl(settings.backgroundFile) || ""} alt="현재 배경" className="h-32 w-full rounded-xl object-cover" />
         ) : null}
-        <label className="field">
-          <span>송출 컴퓨터</span>
-          <input className="input" name="outputHost" value={hostDraft} onChange={(event) => { setHostTouched(true); setHostDraft(event.target.value); }} inputMode="decimal" autoComplete="off" placeholder="이 컴퓨터의 192.168 주소를 입력" maxLength={200} aria-label="이 송출 컴퓨터의 IP" />
-        </label>
-        <p className="text-sm text-muted">송출 컴퓨터의 IP는 이 설정에만 넣습니다. 예: 192.168.0.10</p>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="field min-w-0 flex-1">
+            <span>송출 컴퓨터</span>
+            <input className="input" name="outputHost" value={hostDraft} onChange={(event) => { setHostTouched(true); setHostDraft(event.target.value); }} inputMode="decimal" autoComplete="off" placeholder="이 컴퓨터의 192.168 주소를 입력" maxLength={200} aria-label="이 송출 컴퓨터의 IP" />
+          </label>
+          <a className="btn btn-quiet" href={outputComputerHref()} target="_blank" rel="noreferrer">송출용 링크</a>
+        </div>
+        <p className="text-sm text-muted">송출 컴퓨터의 IP는 이 칸에만 넣습니다. 옆의 링크를 그 컴퓨터에서 열면 자기 주소를 확인하고 받을 준비를 합니다.</p>
         <label className="field">
           <span>메인 글자 크기</span>
           <input className="input" name="mainFontSize" type="number" min={16} max={200} step={1} defaultValue={captionSize(settings.mainFontSize)} aria-label="메인 글자 크기" />
@@ -88,6 +105,44 @@ export default function SettingsPage() {
           <input className="input" name="overlayFontSize" type="number" min={16} max={200} step={1} defaultValue={captionSize(settings.overlayFontSize)} aria-label="오버레이 글자 크기" />
         </label>
         <p className="text-sm text-muted">픽셀입니다. 메인의 첫째 줄과 둘째 줄은 이 크기로 같습니다.</p>
+        <label className="field">
+          <span>오버레이 폰트</span>
+          <select className="select" name="overlayFont" value={overlayFontId} onChange={(event) => setOverlayFontId(event.target.value)} aria-label="오버레이 폰트">
+            {CAPTION_FONTS.map((font) => (
+              <option key={font.id} value={font.id}>{font.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>메인 폰트</span>
+          <select className="select" name="fullscreenFont" value={fullFontId} onChange={(event) => setFullFontId(event.target.value)} aria-label="메인 폰트">
+            {CAPTION_FONTS.map((font) => (
+              <option key={font.id} value={font.id}>{font.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>메인 세로 위치</span>
+          <select className="select" name="fullscreenStep" value={String(step)} onChange={(event) => setStep(fullscreenStep(Number(event.target.value)))} aria-label="메인 세로 위치">
+            {STEPS.map((label, index) => (
+              <option key={label} value={index}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <div className="grid gap-3 sm:grid-cols-5">
+          {(settings.backgrounds ?? ["배경 1", "배경 2", "배경 3", "배경 4", "배경 5"]).slice(0, 5).map((name, index) => (
+            <label key={index} className="field">
+              <span>배경 {index + 1}</span>
+              <input className="input" name={`background${index + 1}`} defaultValue={name} maxLength={40} />
+            </label>
+          ))}
+        </div>
+        <div className="relative h-36 overflow-hidden rounded-xl bg-pine text-center text-white" style={{ fontFamily: captionFont(fullFontId).family }}>
+          <div className="absolute inset-x-0" style={{ top: `${8 + step * 16}%` }}>
+            <p className="font-semibold" style={{ fontSize: captionSize(settings.mainFontSize) }}>첫째 줄</p>
+            <p className="mt-1" style={{ fontSize: captionSize(settings.mainFontSize) }}>둘째 줄</p>
+          </div>
+        </div>
         <label className="field">
           <span>오버레이 자막 위치</span>
           <select className="select" name="overlay" defaultValue={settings.overlay}>
