@@ -1,0 +1,49 @@
+# 은혜로운 예배 — Firebase `/church` 일일 미러 (스케치)
+# Secrets: FIREBASE_SERVICE_ACCOUNT_JSON (서비스 계정 JSON 전체)
+# Optional: MIRROR_INCLUDE_FILES=1, MIRROR_CHURCH_IDS=c....
+# force push 금지. 규칙 JSON·다른 앱 경로는 건드리지 않음.
+
+name: firebase-daily-mirror
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # UTC 18:00 ≈ KST 03:00
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Mirror RTDB /church
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          MIRROR_OUT_DIR: mirror-out
+          MIRROR_INCLUDE_FILES: ${{ vars.MIRROR_INCLUDE_FILES }}
+          MIRROR_CHURCH_IDS: ${{ vars.MIRROR_CHURCH_IDS }}
+        run: node scripts/mirror-firebase.mjs
+
+      - name: Commit mirror snapshot
+        run: |
+          git config user.name "church-mirror-bot"
+          git config user.email "mirror-bot@users.noreply.github.com"
+          mkdir -p backups/firebase
+          STAMP=$(node -e "console.log(JSON.parse(require('fs').readFileSync('mirror-out/latest-pointer.json','utf8')).stamp)")
+          DEST="backups/firebase/${STAMP}"
+          mkdir -p "$DEST"
+          cp -R "mirror-out/${STAMP}/." "$DEST/"
+          git add backups/firebase
+          if git diff --cached --quiet; then
+            echo "변경 없음"
+            exit 0
+          fi
+          git commit -m "chore: firebase church mirror ${STAMP}"
+          git push origin HEAD

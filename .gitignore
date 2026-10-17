@@ -7,8 +7,8 @@ data/backgrounds
 tsconfig.tsbuildinfo
 desktop-dist
 dist
-mirror-out
-backups
+mirror-out/
+backups/
 *.exe
 *.AppImage
 *.dmg
@@ -26,6 +26,7 @@ backups
 *-firebase-adminsdk*.json
 *serviceAccount*.json
 *service-account*.json
+*.serviceAccount.json
 firebase-adminsdk*.json
 google-services.json
 GoogleService-Info.plist
