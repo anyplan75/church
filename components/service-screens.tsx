@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LiveConsole } from "@/components/live-console";
+import { MobileSlideRemote } from "@/components/mobile-slide-remote";
 import { PrintButton } from "@/components/print-button";
 import { Projector } from "@/components/projector";
 import { ServiceEditor } from "@/components/service-editor";
@@ -17,6 +18,7 @@ import { updateDb } from "@/lib/app-db";
 import { COPYRIGHT_NOTE } from "@/lib/checklist";
 import { formatKoreanDate, formatTime } from "@/lib/format";
 import { emptyLiveView, liveView } from "@/lib/live-view";
+import { isMobileOperatorApp } from "@/lib/mobile-app";
 import { settingsReady } from "@/lib/simple";
 import { can } from "@/lib/roles";
 import { syncReminders } from "@/lib/reminders";
@@ -61,6 +63,7 @@ export function LiveScreen({ id }: { id?: string }) {
   const serviceId = useServiceId(id);
   const { ready, user, db } = useChurch();
   if (!ready || !user || !db) return null;
+  if (isMobileOperatorApp()) return <MobileSlideRemote serviceId={serviceId} />;
   const service = db.services.find((item) => item.id === serviceId);
   if (!service) return <Missing />;
   return (

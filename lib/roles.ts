@@ -101,6 +101,7 @@ const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] 
   { test: (pathname) => pathname === "/activity", caps: ["screen.activity"] },
   { test: (pathname) => pathname === "/attendance", caps: ["screen.attendance"] },
   { test: (pathname) => pathname === "/inventory", caps: ["screen.inventory"] },
+  { test: (pathname) => pathname === "/remote", caps: ["screen.live"] },
   { test: (pathname) => /^\/services\/[^/]+\/bulletin$/.test(pathname), caps: ["screen.bulletin"] },
   { test: (pathname) => /^\/services\/[^/]+\/live$/.test(pathname), caps: ["screen.live"] },
   { test: (pathname) => /^\/services\/[^/]+\/output$/.test(pathname), caps: ["screen.output"] },

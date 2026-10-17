@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/account-actions";
 import { backToChurches } from "@/lib/platform-actions";
+import { isMobileOperatorApp, MOBILE_REMOTE_HOME } from "@/lib/mobile-app";
 import { cleanPath } from "@/lib/page-path";
 import { can, homeFor, type Capability, type Role } from "@/lib/roles";
 
@@ -34,7 +35,9 @@ export function Nav({
 }) {
   const pathname = usePathname();
   const path = cleanPath(pathname || "/");
-  if (path.endsWith("/live") || path.endsWith("/output")) return null;
+  if (path.endsWith("/live") || path.endsWith("/output") || path === MOBILE_REMOTE_HOME) return null;
+  // iPhone·iPad 조작 앱은 슬라이드 리모컨만 쓰므로 주 메뉴를 숨깁니다.
+  if (isMobileOperatorApp()) return null;
   const links = LINKS.filter((link) => can(roles, link.capability));
 
   return (
