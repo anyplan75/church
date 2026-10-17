@@ -6,6 +6,7 @@ import { Nav } from "@/components/nav";
 import { SessionGuard } from "@/components/session-guard";
 import { ReminderWatcher } from "@/components/reminder-watcher";
 import { useChurch } from "@/components/church-state";
+import { isMobileOperatorApp, isMobileOperatorPath, MOBILE_REMOTE_HOME } from "@/lib/mobile-app";
 import { cleanPath } from "@/lib/page-path";
 import { rememberLanHost, restoreLanHost } from "@/lib/lan-link";
 import { saveOutputHost } from "@/lib/output-host";
@@ -13,6 +14,7 @@ import { readOperatorService, startOperatorLink } from "@/lib/output-link";
 import { can, canOpenPath, homeFor } from "@/lib/roles";
 
 function landing(user: { kind: "platform" | "church"; churchId: string | null; roles: Parameters<typeof homeFor>[0] }) {
+  if (isMobileOperatorApp()) return MOBILE_REMOTE_HOME;
   if (user.kind === "platform" && !user.churchId) return "/platform";
   return homeFor(user.roles);
 }
@@ -62,6 +64,19 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
       router.replace(landing(user));
       return;
     }
+    if (isMobileOperatorApp()) {
+      if (!isMobileOperatorPath(path)) {
+        router.replace(MOBILE_REMOTE_HOME);
+        return;
+      }
+      if (path === MOBILE_REMOTE_HOME || /^\/services\/[^/]+\/live$/.test(path)) {
+        if (!can(user.roles, "screen.live")) {
+          router.replace("/denied");
+          return;
+        }
+      }
+      return;
+    }
     if (user.kind === "platform" && !user.churchId && path !== "/platform" && path !== "/activity") {
       router.replace("/platform");
       return;
@@ -85,10 +100,10 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {user && db && path !== "/platform" && !output ? (
+      {user && db && path !== "/platform" && !output && !isMobileOperatorApp() ? (
         <Nav churchName={db.settings.churchName} email={user.email} roles={user.roles} platform={user.kind === "platform"} />
       ) : null}
-      {user && !output && can(user.roles, "screen.prepare") ? <ReminderWatcher /> : null}
+      {user && !output && !isMobileOperatorApp() && can(user.roles, "screen.prepare") ? <ReminderWatcher /> : null}
       {user && !output ? <SessionGuard /> : null}
       {children}
     </>

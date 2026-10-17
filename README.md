@@ -8,9 +8,9 @@
 
 전체 구조는 루트 [`전체구조안내서.md`](./전체구조안내서.md)를 보세요.
 
-## iPhone·iPad 조작 앱
+## iPhone·iPad 슬라이드 리모컨
 
-조작만 모바일에서 할 수 있습니다. 송출은 Mac/Windows 데스크톱 앱을 그대로 씁니다. 설치·시뮬레이터·실기기 단계는 [`docs/mobile-operator-install.md`](./docs/mobile-operator-install.md)에 있습니다.
+모바일은 **현재 예배 슬라이드를 넘기는 일만** 합니다. 주보·사람·라이브러리·전체 설정은 데스크톱 조작 앱에서 합니다. 송출은 Mac/Windows 데스크톱 앱을 그대로 씁니다. 설치·시뮬레이터·실기기 단계는 [`docs/mobile-operator-install.md`](./docs/mobile-operator-install.md)에 있습니다.
 
 ```bash
 npm run mobile:sync

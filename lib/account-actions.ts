@@ -11,6 +11,7 @@ import {
   updateChurchMember,
   updateDb,
 } from "./app-db";
+import { isMobileOperatorApp, MOBILE_REMOTE_HOME } from "./mobile-app";
 import { go } from "./page-path";
 import { stopOperatorLink } from "./output-link";
 import { closeVisit } from "./simple";
@@ -42,6 +43,7 @@ export async function login(formData: FormData) {
   const user = await loginWithPassword(email!, password.trim());
   if (!user) go("/login?error=1");
   if (user!.kind === "platform" && !user!.churchId) go("/platform");
+  if (isMobileOperatorApp()) go(MOBILE_REMOTE_HOME);
   go(homeFor(user!.roles));
 }
 
