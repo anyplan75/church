@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build && node scripts/surge-fallback.mjs",
     "start": "next start",
-    "test": "tsx --test lib/*.test.ts"
+    "test": "tsx --test lib/*.test.ts",
+    "mirror:firebase": "node scripts/mirror-firebase.mjs"
   },
   "dependencies": {
     "cfb": "^1.2.2",

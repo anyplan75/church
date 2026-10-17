@@ -5,3 +5,11 @@ data/*.json
 data/*.tmp
 data/backgrounds
 tsconfig.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.serviceAccount.json
+service-account*.json
+*-firebase-adminsdk*.json
+mirror-out/
+backups/
