@@ -4,7 +4,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // server.url 절대 금지 — Next RSC 원문($Sreact.fragment)이 시뮬에 그대로 보인다.
 const config: CapacitorConfig = {
   appId: "org.eunhye.worship.operator",
-  appName: "은혜로운 예배 조작",
+  appName: "은혜로운 예배 Remote",
   webDir: "out",
   server: {
     androidScheme: "https",

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 은혜로운 예배 조작 iOS → App Store Connect / TestFlight 업로드
+# 은혜로운 예배 Remote iOS → App Store Connect / TestFlight 업로드
 # 개발 프로파일(기기 등록)이 없어도 되도록: 서명 없이 Archive → export에서 Distribution 서명.
 # 시크릿은 커밋하지 않는다. ASC API 키가 필요하면 환경 변수로만 넘긴다.
 set -euo pipefail
@@ -87,12 +87,21 @@ if [[ -n "${APP_STORE_CONNECT_API_KEY_PATH:-}" && -n "${APP_STORE_CONNECT_KEY_ID
 fi
 
 set +e
-xcodebuild -exportArchive \
-  -archivePath "$ARCHIVE_PATH" \
-  -exportOptionsPlist "$BUILD_DIR/ExportOptions-upload.plist" \
-  -exportPath "$UPLOAD_DIR" \
-  -allowProvisioningUpdates \
-  "${AUTH_ARGS[@]}"
+# set -u 에서 빈 배열 "${AUTH_ARGS[@]}" 가 unbound 로 터지지 않게 분기한다.
+if [[ ${#AUTH_ARGS[@]} -gt 0 ]]; then
+  xcodebuild -exportArchive \
+    -archivePath "$ARCHIVE_PATH" \
+    -exportOptionsPlist "$BUILD_DIR/ExportOptions-upload.plist" \
+    -exportPath "$UPLOAD_DIR" \
+    -allowProvisioningUpdates \
+    "${AUTH_ARGS[@]}"
+else
+  xcodebuild -exportArchive \
+    -archivePath "$ARCHIVE_PATH" \
+    -exportOptionsPlist "$BUILD_DIR/ExportOptions-upload.plist" \
+    -exportPath "$UPLOAD_DIR" \
+    -allowProvisioningUpdates
+fi
 UPLOAD_STATUS=$?
 set -e
 
