@@ -7,6 +7,7 @@ import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
 import { START_BLOCKED, captionFont, captionSize, categoryMembership, fullscreenStep, settingsReady, setupComplete } from "./simple";
 import { BULLETIN_UPLOAD_BYTES, extractUploadedText } from "./extract-text";
+import { isMobileOperatorApp } from "./mobile-app";
 import { go, stay } from "./page-path";
 import { syncReminders } from "./reminders";
 import { isOverlayPosition } from "./db-shape";
@@ -88,6 +89,16 @@ export async function saveService(input: Service): Promise<{ ok: true } | { ok: 
   }
 }
 
+/** 모바일 리모컨은 로그인한 교회 사용자면 슬라이드를 넘길 수 있습니다. */
+function liveControlAuth() {
+  if (isMobileOperatorApp()) {
+    const user = currentUser();
+    if (!user) return { ok: false as const, message: "로그인이 필요합니다." };
+    return { ok: true as const, user };
+  }
+  return mutationUser("mutate.run");
+}
+
 export async function saveLiveCue(
   id: string,
   liveIndex: number,
@@ -96,7 +107,7 @@ export async function saveLiveCue(
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   publishLinesNow(id, lines);
   try {
-    const auth = await mutationUser("mutate.run");
+    const auth = liveControlAuth();
     if (!auth.ok) return auth;
     updateDb((db) => {
       const service = db.services.find((item) => item.id === id);
@@ -119,7 +130,7 @@ export async function saveLiveProgress(
   liveSlide?: number,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
-    const auth = await mutationUser("mutate.run");
+    const auth = liveControlAuth();
     if (!auth.ok) return auth;
     updateDb((db) => {
       const service = db.services.find((item) => item.id === id);

@@ -125,6 +125,14 @@ describe("역할 조합", () => {
     assert.equal(can(roles, "mutate.prepare"), false);
     assert.equal(can(roles, "mutate.directory"), false);
   });
+
+  it("슬라이드 리모컨(/remote)은 진행 역할 없이도 연다", () => {
+    assert.equal(canOpenPath(["view"] satisfies Role[], "/remote"), true);
+    assert.equal(canOpenPath(["output"], "/remote"), true);
+    assert.equal(canOpenPath(["prepare"], "/remote"), true);
+    assert.equal(canOpenPath([], "/remote"), true);
+    assert.equal(can(["view"], "screen.live"), false);
+  });
 });
 
 describe("이메일 계정", () => {

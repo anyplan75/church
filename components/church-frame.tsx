@@ -67,15 +67,10 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
       return;
     }
     if (isMobileOperatorApp()) {
+      // 패드는 슬라이드 리모컨만. 데스크톱 역할(진행 등)로 /remote 를 막지 않습니다.
       if (!isMobileOperatorPath(path)) {
         go(MOBILE_REMOTE_HOME);
         return;
-      }
-      if (path === MOBILE_REMOTE_HOME || /^\/services\/[^/]+\/live$/.test(path)) {
-        if (!can(user.roles, "screen.live")) {
-          go("/denied");
-          return;
-        }
       }
       return;
     }
