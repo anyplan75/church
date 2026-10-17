@@ -438,6 +438,10 @@ export async function updateSettings(formData: FormData) {
     db.settings.outputHost = outputHost || undefined;
     db.settings.mainFontSize = captionSize(formData.get("mainFontSize"));
     db.settings.overlayFontSize = captionSize(formData.get("overlayFontSize"));
+    db.settings.overlayFont = captionFont(cleanText(formData.get("overlayFont"), 40)).id;
+    db.settings.fullscreenFont = captionFont(cleanText(formData.get("fullscreenFont"), 40)).id;
+    db.settings.fullscreenStep = fullscreenStep(Number(cleanText(formData.get("fullscreenStep"), 2)));
+    db.settings.backgrounds = [1, 2, 3, 4, 5].map((index) => cleanText(formData.get(`background${index}`), 40) || `배경 ${index}`);
     syncReminders(db);
   });
   kickOperatorLink();
@@ -454,12 +458,6 @@ export async function saveLibrary(formData: FormData) {
       hymn: cleanText(formData.get("hymn"), 80),
       praise: cleanText(formData.get("praise"), 80),
     };
-    db.settings.overlayFont = captionFont(cleanText(formData.get("overlayFont"), 40)).id;
-    db.settings.fullscreenFont = captionFont(cleanText(formData.get("fullscreenFont"), 40)).id;
-    db.settings.fullscreenStep = fullscreenStep(Number(cleanText(formData.get("fullscreenStep"), 2)));
-    const overlayValue = cleanText(formData.get("overlay"), 12);
-    if (isOverlayPosition(overlayValue)) db.settings.overlay = overlayValue;
-    db.settings.backgrounds = [1, 2, 3, 4, 5].map((index) => cleanText(formData.get(`background${index}`), 40) || `배경 ${index}`);
     db.settings.mainReady = db.settings.mainReady === true && setupComplete(db.settings);
   });
   go("/library?saved=1");

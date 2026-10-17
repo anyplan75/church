@@ -98,6 +98,8 @@ const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] 
   { test: (pathname) => pathname === "/people", caps: ["screen.people"] },
   { test: (pathname) => pathname === "/songs", caps: ["screen.songs"] },
   { test: (pathname) => pathname === "/settings", caps: ["screen.settings"] },
+  { test: (pathname) => pathname === "/output-computer" || pathname === "/overlay", caps: ["screen.output", "screen.settings"] },
+  { test: (pathname) => pathname === "/operator", caps: ["screen.live", "screen.settings"] },
   { test: (pathname) => pathname === "/activity", caps: ["screen.activity"] },
   { test: (pathname) => pathname === "/attendance", caps: ["screen.attendance"] },
   { test: (pathname) => pathname === "/inventory", caps: ["screen.inventory"] },
@@ -146,6 +148,18 @@ export function homeFor(roles: readonly Role[]): string {
 }
 
 export const WEB_OUTPUT_ORIGIN = "https://eunhye-church.surge.sh";
+
+export function outputComputerHref(): string {
+  return `${WEB_OUTPUT_ORIGIN}/output-computer`;
+}
+
+export function operatorComputerHref(): string {
+  return `${WEB_OUTPUT_ORIGIN}/operator`;
+}
+
+export function overlayComputerHref(): string {
+  return `${WEB_OUTPUT_ORIGIN}/overlay`;
+}
 
 export type ServiceLink = { href: string; label: string };
 
