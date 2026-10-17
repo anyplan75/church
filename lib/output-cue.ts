@@ -1,3 +1,14 @@
+export function acceptedCueLines(serviceId: string, messageServiceId: unknown, lines: unknown): string[] {
+  if (typeof messageServiceId !== "string" || !SERVICE_ID.test(messageServiceId) || !Array.isArray(lines)) return [];
+  if (serviceId && messageServiceId !== serviceId) return [];
+  return cueLines(lines.map((line) => String(line)));
+}
+
+export function linesForViewer(raw: string, serviceId: string): string[] {
+  if (serviceId) return rememberedCue(raw, serviceId);
+  return readIncomingSlide(raw)?.lines ?? [];
+}
+
 export function rememberedCue(raw: string, serviceId: string): string[] {
   let data: unknown;
   try {
@@ -88,8 +99,9 @@ export function subscribeCue(serviceId: string, onCue: (lines: string[]) => void
   if (typeof BroadcastChannel === "undefined") return () => undefined;
   const channel = new BroadcastChannel(CHANNEL);
   channel.onmessage = (event: MessageEvent<CueMessage>) => {
-    if (!event.data || event.data.serviceId !== serviceId || !Array.isArray(event.data.lines)) return;
-    onCue(cueLines(event.data.lines));
+    const lines = acceptedCueLines(serviceId, event.data?.serviceId, event.data?.lines);
+    if (lines.length === 0) return;
+    onCue(lines);
   };
   return () => channel.close();
 }

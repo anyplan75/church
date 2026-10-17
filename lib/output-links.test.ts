@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { outputComputerHref, outputLinks, WEB_OUTPUT_ORIGIN } from "./roles.ts";
+import { operatorComputerHref, outputComputerHref, outputLinks, WEB_OUTPUT_ORIGIN } from "./roles.ts";
 
 describe("자막 링크", () => {
   it("오버레이와 메인을 웹과 로컬로 나눈다", () => {
@@ -20,6 +20,7 @@ describe("자막 링크", () => {
   it("송출 컴퓨터 링크는 설정의 IP 칸 옆에 두는 주소다", () => {
     assert.equal(outputComputerHref(), `${WEB_OUTPUT_ORIGIN}/output-computer`);
     assert.equal(outputComputerHref().includes("mode="), false);
+    assert.equal(operatorComputerHref(), `${WEB_OUTPUT_ORIGIN}/operator`);
   });
 
   it("로컬 주소가 없으면 같은 경로만 남긴다", () => {

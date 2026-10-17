@@ -67,6 +67,7 @@ describe("송출 컴퓨터 주소", () => {
     assert.equal(outputReturnPath("/services/service-1/output"), "/services/service-1/output?mode=main");
     assert.equal(outputReturnPath("/output-computer"), "/output-computer");
     assert.equal(outputReturnPath("/output-computer/?mode=main"), "/output-computer");
+    assert.equal(outputReturnPath("/operator"), "/operator");
     assert.equal(outputReturnPath("/services/service-1/output?mode=overlay&next=https://evil.example"), "/services/service-1/output?mode=overlay");
     assert.equal(outputReturnPath("https://evil.example/services/service-1/output?mode=main"), "");
     assert.equal(outputReturnPath("/settings"), "");

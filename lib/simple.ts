@@ -151,6 +151,7 @@ export function screenLabel(pathname: string): string {
   if (path === "/people") return "사람";
   if (path === "/library" || path === "/songs") return "라이브러리";
   if (path === "/settings") return "설정";
+  if (path === "/operator") return "조작";
   if (path.startsWith("/services")) return "예배";
   return "";
 }

@@ -1,5 +1,5 @@
 import { churchSnapshot, patchOutputDirect, readDb, readOutputDirect } from "./app-db";
-import { cueLines, keepSlideSeq, publishCue, readIncomingSlide, rememberedCue, readSlidePacket, slideMessage, subscribeCue, type OutputLinkStatus } from "./output-cue";
+import { cueLines, keepSlideSeq, linesForViewer, publishCue, readIncomingSlide, rememberedCue, readSlidePacket, slideMessage, subscribeCue, type OutputLinkStatus } from "./output-cue";
 import { cleanServiceId, currentOutputHost, detectPrivateAddress, directCandidate, directDescription, isPrivateIpv4, OPERATOR_SERVICE_KEY, OUTPUT_HOST_KEY, outputSignalHost, readStoredHost, thisComputer } from "./output-host";
 
 const ICE: RTCConfiguration = { iceServers: [] };
@@ -119,6 +119,7 @@ function restoreLines(serviceId: string) {
   const lines = rememberedCue(storedItem(OPERATOR_LINES_KEY), serviceId);
   if (lines.length === 0) return;
   latest = { serviceId, lines, seq: latest.seq + 1 };
+  publishCue(serviceId, lines);
 }
 
 function storedItem(key: string): string {
@@ -158,7 +159,7 @@ export function startViewerLink(
   onStatus?: (status: OutputLinkStatus) => void,
 ): () => void {
   const showRemembered = () => {
-    const lines = rememberedCue(storedItem(OPERATOR_LINES_KEY), serviceId);
+    const lines = linesForViewer(storedItem(OPERATOR_LINES_KEY), serviceId);
     if (lines.length > 0) onLines(lines);
   };
   showRemembered();

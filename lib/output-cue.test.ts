@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cueLines, keepSlideSeq, outputHoldText, readIncomingSlide, rememberedCue, readSlideMessage, readSlidePacket, slideMessage } from "./output-cue.ts";
+import { acceptedCueLines, cueLines, keepSlideSeq, linesForViewer, outputHoldText, readIncomingSlide, rememberedCue, readSlideMessage, readSlidePacket, slideMessage } from "./output-cue.ts";
 
 describe("송출 두 줄", () => {
   it("지금 내보내는 두 줄만 남긴다", () => {
@@ -30,6 +30,15 @@ describe("송출 두 줄", () => {
     assert.deepEqual(rememberedCue(raw, "service-1"), ["하늘이 맑다", "들이 푸르다"]);
     assert.deepEqual(rememberedCue(raw, "other"), []);
     assert.deepEqual(rememberedCue("not-json", "service-1"), []);
+  });
+
+  it("같은 컴퓨터의 송출은 조작이 보낸 지금 두 줄을 받는다", () => {
+    const raw = JSON.stringify({ serviceId: "service-9", lines: ["하늘이 맑다", "들이 푸르다"] });
+    assert.deepEqual(linesForViewer(raw, ""), ["하늘이 맑다", "들이 푸르다"]);
+    assert.deepEqual(linesForViewer(raw, "other"), []);
+    assert.deepEqual(acceptedCueLines("", "service-9", ["하늘이 맑다", "들이 푸르다"]), ["하늘이 맑다", "들이 푸르다"]);
+    assert.deepEqual(acceptedCueLines("service-9", "service-9", ["하늘이 맑다", "들이 푸르다"]), ["하늘이 맑다", "들이 푸르다"]);
+    assert.deepEqual(acceptedCueLines("other", "service-9", ["하늘이 맑다", "들이 푸르다"]), []);
   });
 
   it("송출 컴퓨터는 예배 번호가 적어도 지금 두 줄을 받는다", () => {

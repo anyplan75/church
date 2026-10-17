@@ -103,7 +103,7 @@ export function outputReturnPath(value: unknown): string {
   const queryAt = bare.indexOf("?");
   let path = queryAt === -1 ? bare : bare.slice(0, queryAt);
   if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-  if (path === "/output-computer") return path;
+  if (path === "/output-computer" || path === "/operator") return path;
   if (!/^\/services\/[A-Za-z0-9-]{1,80}\/output$/.test(path)) return "";
   const params = new URLSearchParams(queryAt === -1 ? "" : bare.slice(queryAt + 1));
   const mode = params.get("mode") === "overlay" ? "overlay" : "main";
