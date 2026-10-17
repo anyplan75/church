@@ -60,8 +60,115 @@ export function publishLanLines(serviceId: string, lines: string[], style?: Styl
     seq: latest.seq + 1,
     style,
   };
+  const api = desktopApi();
+  if (api?.pushLines) {
+    void api.pushLines({
+      serviceId: latest.serviceId,
+      lines: latest.lines,
+      seq: latest.seq,
+      style: latest.style,
+    });
+  }
   ensureLanSocket();
   sendLatest(true);
+}
+
+/** 크롬 송출: 조작 PC(from)의 18765에 붙어 지금 두 줄만 받는다. IP 입력 UI 없음. */
+export function startLanViewer(
+  targetHost: string,
+  onLines: (lines: string[], style?: Style) => void,
+  onStatus?: (status: LanStatus) => void,
+): () => void {
+  const target = cleanHost(targetHost);
+  if (!target || typeof WebSocket === "undefined") {
+    onStatus?.("idle");
+    return () => undefined;
+  }
+  let stop = false;
+  let socket: WebSocket | null = null;
+  let timer = 0;
+  let gen = 0;
+
+  function report(next: LanStatus) {
+    onStatus?.(next);
+  }
+
+  function connect() {
+    if (stop) return;
+    const round = ++gen;
+    report("connecting");
+    const next = new WebSocket(`ws://${target}:${LAN_OUTPUT_PORT}`);
+    socket = next;
+    next.onopen = () => {
+      if (stop || round !== gen || socket !== next) return;
+      report("direct");
+      try {
+        next.send(JSON.stringify({ type: "hello", role: "output", name: "chrome" }));
+      } catch {
+        /* 다음 재연결에서 다시 시도 */
+      }
+    };
+    next.onmessage = (event) => {
+      if (stop || round !== gen || socket !== next) return;
+      const message = readLanMessage(event.data);
+      if (!message) return;
+      if (message.type === "ready") {
+        report("direct");
+        return;
+      }
+      if (message.type !== "lines") return;
+      report("direct");
+      onLines(message.lines, message.style);
+    };
+    next.onerror = () => {
+      if (stop || round !== gen || socket !== next) return;
+      report("error");
+    };
+    next.onclose = () => {
+      if (stop || round !== gen) return;
+      socket = null;
+      report("error");
+      timer = window.setTimeout(connect, 1200);
+    };
+  }
+
+  connect();
+  return () => {
+    stop = true;
+    gen += 1;
+    if (timer) window.clearTimeout(timer);
+    timer = 0;
+    if (socket) {
+      socket.onopen = null;
+      socket.onclose = null;
+      socket.onerror = null;
+      socket.onmessage = null;
+      try {
+        socket.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    socket = null;
+  };
+}
+
+function readLanMessage(raw: unknown): { type: string; lines: string[]; style?: Style } | null {
+  let data: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const record = data as { type?: unknown; lines?: unknown; style?: unknown };
+  const type = typeof record.type === "string" ? record.type : Array.isArray(record.lines) ? "lines" : "";
+  if (type === "ready" || type === "ping" || type === "pong" || type === "hello") return { type, lines: [] };
+  if (type !== "lines" || !Array.isArray(record.lines)) return null;
+  const style = record.style && typeof record.style === "object" ? (record.style as Style) : undefined;
+  return { type: "lines", lines: cueLines(record.lines.map((line) => String(line))), style };
 }
 
 function ensureLanSocket() {

@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { deleteGroup, finishSetup, saveGroup, updateSettings } from "@/lib/actions";
 import { listAccounts, storedBackgroundUrl } from "@/lib/app-db";
+import { ChromeOutputLinks } from "@/components/chrome-output-links";
 import { OutputTargetField } from "@/components/output-target";
 import { hostEntry } from "@/lib/output-host";
 import { captionSize, formatVisit, settingsReady, setupComplete } from "@/lib/simple";
@@ -82,6 +83,13 @@ export default function SettingsPage() {
             setHostDraft(host);
           }}
         />
+        <div className="rounded-xl border border-line p-3">
+          <h3 className="font-serif text-lg">크롬용 송출 링크</h3>
+          <p className="mt-1 text-sm text-muted">앱이 본선입니다. 송출 앱이 아직 없으면 크롬으로 메인·오버레이를 엽니다.</p>
+          <div className="mt-3">
+            <ChromeOutputLinks />
+          </div>
+        </div>
         <label className="field">
           <span>메인 글자 크기</span>
           <input className="input" name="mainFontSize" type="number" min={16} max={200} step={1} defaultValue={captionSize(settings.mainFontSize)} aria-label="메인 글자 크기" />

@@ -62,8 +62,9 @@ export function publishLinesNow(serviceId: string, lines: string[]) {
   latest = { serviceId, lines: cueLines(lines), seq: latest.seq + 1 };
   rememberLines(serviceId, latest.lines);
   const host = currentOutputHost(readDb().settings.outputHost);
-  if (host) {
-    rememberLanHost(host);
+  if (host) rememberLanHost(host);
+  // 조작 앱 로컬 18765(크롬 폴백)와 송출 앱(설정 IP) 모두에 같은 두 줄을 보낸다.
+  if (host || isDesktopApp()) {
     const settings = readDb().settings;
     publishLanLines(serviceId, latest.lines, {
       backgroundColor: settings.backgroundColor,
@@ -88,7 +89,8 @@ export function startOperatorLink(serviceId: string): () => void {
   rememberOperatorService(serviceId);
   restoreLines(serviceId);
   void restoreLanHost(readDb().settings.outputHost).then((host) => {
-    if (!host || latest.serviceId !== serviceId || latest.lines.length === 0) return;
+    if (latest.serviceId !== serviceId || latest.lines.length === 0) return;
+    if (!host && !isDesktopApp()) return;
     publishLanLines(serviceId, latest.lines);
   });
   if (isDesktopApp()) return () => undefined;

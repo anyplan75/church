@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { readDb, refreshChurchNow } from "@/lib/app-db";
 import { desktopApi, isDesktopApp } from "@/lib/desktop-api";
+import { startLanViewer } from "@/lib/lan-link";
 import { liveView, type LiveView } from "@/lib/live-view";
 import { outputHoldText, type OutputLinkStatus } from "@/lib/output-cue";
+import { cleanHost } from "@/lib/output-host";
 import { lineFontSize } from "@/lib/simple";
 import { startViewerLink } from "@/lib/output-link";
 
@@ -25,6 +27,25 @@ export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?
       });
     }
     if (isDesktopApp()) return;
+
+    const from = cleanHost(new URLSearchParams(window.location.search).get("from"));
+    if (from) {
+      setLink("waiting");
+      return startLanViewer(
+        from,
+        (lines) => {
+          setCue((current) => (sameLines(current, lines) ? current : lines));
+          setLink("direct");
+        },
+        (status) => {
+          if (status === "direct") setLink("direct");
+          else if (status === "connecting") setLink("waiting");
+          else if (status === "error") setLink("retry");
+          else setLink("waiting");
+        },
+      );
+    }
+
     return startViewerLink(
       initial.serviceId,
       mode,
@@ -53,7 +74,7 @@ export function Projector({ initial, mode = "main" }: { initial: LiveView; mode?
   }, [initial.serviceId]);
 
   const lines = cue ?? [];
-  const hold = lines.length === 0 ? outputHoldText(link) : "";
+  const hold = lines.length === 0 ? outputHoldText(link) || (shown === "main" ? "받을 준비" : "") : "";
   const style = {
     backgroundColor: view.backgroundColor,
     backgroundImage: view.backgroundUrl ? `url("${view.backgroundUrl}")` : undefined,

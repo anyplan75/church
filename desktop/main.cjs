@@ -113,6 +113,11 @@ function bindIpc() {
   });
   ipcMain.handle("desktop:localAddresses", () => privateAddresses());
   ipcMain.handle("desktop:outputStatus", () => outputStatus);
+  ipcMain.handle("desktop:pushLines", (_event, payload) => {
+    if (!outputServer || !payload || typeof payload !== "object") return false;
+    outputServer.pushLines(payload.serviceId, payload.lines, payload.seq, payload.style);
+    return true;
+  });
 }
 
 async function startOutputSide() {
@@ -140,6 +145,30 @@ async function startOutputSide() {
   advertiser.start();
 }
 
+/** 조작 앱도 18765를 열어 크롬 폴백이 같은 프로토콜로 받게 한다. mDNS 광고는 하지 않는다. */
+async function startOperatorPublisher() {
+  try {
+    outputServer = createOutputServer({
+      port: DEFAULT_PORT,
+      onStatus: (status) => {
+        outputStatus = status;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("desktop:output-status", status);
+        }
+      },
+    });
+    await outputServer.listen();
+    outputStatus = {
+      clients: 0,
+      host: outputServer.preferredHost(),
+      port: DEFAULT_PORT,
+    };
+  } catch (error) {
+    outputServer = null;
+    console.warn("크롬 송출 대기 포트를 열지 못했습니다.", error);
+  }
+}
+
 function startOperatorSide() {
   browser = createBrowser({
     onUpdate: (list) => {
@@ -158,7 +187,10 @@ app.whenReady().then(async () => {
   bindIpc();
   appBase = await resolveAppBase();
   if (MODE === "output") await startOutputSide();
-  else startOperatorSide();
+  else {
+    await startOperatorPublisher();
+    startOperatorSide();
+  }
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

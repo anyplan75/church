@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChromeOutputLinks } from "@/components/chrome-output-links";
 import { isDesktopApp } from "@/lib/desktop-api";
 import { subscribeLanStatus } from "@/lib/lan-link";
 import { isPrivateIpv4 } from "@/lib/output-host";
@@ -17,18 +18,24 @@ export function OutputLinks({ id, className = "btn btn-quiet" }: { id: string; c
   useEffect(() => subscribeLanStatus(setLanStatus), []);
   if (desktop) {
     return (
-      <p className="text-sm text-muted" data-desktop-output-status={lanStatus}>
-        {lanStatus === "direct" ? "송출 앱에 연결됨" : lanStatus === "connecting" ? "송출 앱에 연결 중" : lanStatus === "error" ? "송출 앱 다시 연결 중" : "설정에서 송출 컴퓨터를 고르세요"}
-      </p>
+      <div className="space-y-2">
+        <p className="text-sm text-muted" data-desktop-output-status={lanStatus}>
+          {lanStatus === "direct" ? "송출 앱에 연결됨" : lanStatus === "connecting" ? "송출 앱에 연결 중" : lanStatus === "error" ? "송출 앱 다시 연결 중" : "설정에서 송출 컴퓨터를 고르세요"}
+        </p>
+        <ChromeOutputLinks serviceId={id} className={className.includes("btn-small") ? className : `${className} btn-small`} />
+      </div>
     );
   }
   return (
-    <div className="flex flex-wrap gap-2">
-      {outputLinks(id, localOrigin).map((link) => (
-        <a key={link.label} href={link.href} target="_blank" rel="noreferrer" className={className}>
-          {link.label}
-        </a>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {outputLinks(id, localOrigin).map((link) => (
+          <a key={link.label} href={link.href} target="_blank" rel="noreferrer" className={className}>
+            {link.label}
+          </a>
+        ))}
+      </div>
+      <ChromeOutputLinks serviceId={id} className={className.includes("btn-small") ? className : `${className} btn-small`} />
     </div>
   );
 }
