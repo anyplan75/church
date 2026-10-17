@@ -1,5 +1,5 @@
 import { churchSnapshot, patchOutputDirect, readDb, readOutputDirect } from "./app-db";
-import { cueLines, keepSlideSeq, publishCue, rememberedCue, readSlidePacket, slideMessage, subscribeCue, type OutputLinkStatus } from "./output-cue";
+import { cueLines, keepSlideSeq, publishCue, readIncomingSlide, rememberedCue, readSlidePacket, slideMessage, subscribeCue, type OutputLinkStatus } from "./output-cue";
 import { cleanServiceId, currentOutputHost, detectPrivateAddress, directCandidate, directDescription, isPrivateIpv4, OPERATOR_SERVICE_KEY, OUTPUT_HOST_KEY, outputSignalHost, readStoredHost, thisComputer } from "./output-host";
 
 const ICE: RTCConfiguration = { iceServers: [] };
@@ -391,6 +391,7 @@ function slidePacket(raw: string, serviceId: string): { lines: string[]; seq: nu
     const packet = readSlidePacket(raw, id);
     if (packet) return packet;
   }
+  if (ids.length === 0) return readIncomingSlide(raw);
   return null;
 }
 

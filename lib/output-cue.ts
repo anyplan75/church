@@ -33,6 +33,24 @@ export function readSlideMessage(raw: string, serviceId: string): string[] | nul
   return readSlidePacket(raw, serviceId)?.lines ?? null;
 }
 
+const SERVICE_ID = /^[A-Za-z0-9-]{1,80}$/;
+
+export function readIncomingSlide(raw: string): { lines: string[]; seq: number } | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const record = data as { serviceId?: unknown; lines?: unknown; seq?: unknown };
+  if (typeof record.serviceId !== "string" || !SERVICE_ID.test(record.serviceId) || !Array.isArray(record.lines)) return null;
+  const lines = cueLines(record.lines.map((line) => String(line)));
+  if (lines.length === 0) return null;
+  const seq = typeof record.seq === "number" && record.seq > 0 ? record.seq : 0;
+  return { seq, lines };
+}
+
 export function readSlidePacket(raw: string, serviceId: string): { lines: string[]; seq: number } | null {
   let data: unknown;
   try {
