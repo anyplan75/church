@@ -35,6 +35,38 @@
           }
         }
       }
+    },
+    "community": {
+      ".read": "auth != null && root.child('church/accounts').child(auth.uid).exists()",
+      "regions": {
+        "$regionId": {
+          ".write": "auth != null && root.child('church/accounts').child(auth.uid).exists() && $regionId.matches(/^[0-9A-Za-z가-힣\\-]{1,48}$/)"
+        }
+      },
+      "memberships": {
+        "$uid": {
+          ".write": "auth != null && auth.uid == $uid && root.child('church/accounts').child(auth.uid).exists() && newData.child('churchId').val() == root.child('church/accounts').child(auth.uid).child('churchId').val() && newData.child('regionId').isString() && newData.child('sido').isString()"
+        }
+      },
+      "posts": {
+        "$regionId": {
+          "$postId": {
+            ".write": "auth != null && root.child('church/accounts').child(auth.uid).exists() && $regionId.matches(/^[0-9A-Za-z가-힣\\-]{1,48}$/) && $postId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)",
+            "comments": {
+              "$commentId": {
+                ".write": "auth != null && root.child('church/accounts').child(auth.uid).exists() && $commentId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)"
+              }
+            }
+          }
+        }
+      },
+      "resources": {
+        "$regionId": {
+          "$resourceId": {
+            ".write": "auth != null && root.child('church/accounts').child(auth.uid).exists() && $regionId.matches(/^[0-9A-Za-z가-힣\\-]{1,48}$/) && $resourceId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)"
+          }
+        }
+      }
     }
   }
 }

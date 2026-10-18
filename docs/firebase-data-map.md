@@ -81,6 +81,21 @@
 키는 파일명을 URL 인코딩한 형태.  
 쓰기: 슈퍼관리자 또는 그 교회 admin.
 
+### 2.6b `church/community/…` (지역 커뮤니티)
+
+로그인한 `church/accounts/{uid}` 계정만 읽기·쓰기. 모바일 Remote에는 연결하지 않는다.  
+자료실은 **링크·짧은 메모만** 두고, 성경 txt 전문 업로드는 하지 않는다.
+
+| 경로 | 내용 |
+| --- | --- |
+| `community/regions/{regionId}` | `name`, `sido`, `district` |
+| `community/memberships/{uid}` | `regionId`, `sido`, `district`, `churchId`, `updatedAt` — 본인만 쓰기 |
+| `community/posts/{regionId}/{postId}` | `title`, `body`, `category`(`notice`\|`question`\|`share`\|`promo`), 작성자·시각 |
+| `community/posts/…/comments/{commentId}` | 댓글 본문·작성자·시각 |
+| `community/resources/{regionId}/{resourceId}` | `title`, `url`, `note`, 작성자·시각 |
+
+코드: `lib/community.ts`, `lib/community-db.ts`.
+
 ### 2.7 `church/churches/{churchId}/data/…`
 
 교회 업무 데이터. 키별로 PUT한다. 읽기는 교회 단위로 한 번에 받는다.
