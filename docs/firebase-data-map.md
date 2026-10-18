@@ -163,7 +163,7 @@
 | `announcements[]` | `{ id, text }` |
 | `liveIndex` | 숫자 |
 | `liveSlide` | 숫자(선택) |
-| `outputLines` | 문자열 배열(선택) |
+| `outputLines` | 문자열 배열(선택). 조작 리모컨 활성 자막 줄(최대 2줄). 성도 앱 **자막** 탭이 우선 사용 |
 | `startedAt` | 문자열 또는 `null` |
 | `checks` | `{ [키]: boolean }` |
 | `source` | `manual` \| `bulletin` |
@@ -230,7 +230,7 @@
 
 읽기: 작성자 본인, 또는 `pastorUid == auth.uid`, 또는 같은 교회 `admin`/`prepare`/`run`, 또는 슈퍼관리자.  
 쓰기: 신규는 `authorUid == auth.uid` + `status == new`(+ `pastorUid` 선택); 상태 변경은 담당 목사 또는 `admin`/`prepare`/`run`(본문·작성자·pastorUid 유지).  
-UI 받은기도함은 `pastorUid`(또는 설정 `pastorUid`)가 본인인 항목만 보여 줍니다.
+담당 목사 기도함(`/prayers`)은 `pastorUid`(또는 설정 `pastorUid`)가 본인인 항목만 보여 줍니다. 성도 앱(`/member`)에는 받은기도 탭이 없고 보내기만 합니다.
 
 ---
 

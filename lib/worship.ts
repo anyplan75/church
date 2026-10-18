@@ -297,7 +297,8 @@ export function normalizeService(input: Service): Service {
   };
 }
 
-function normalizeOutputLines(value: unknown): string[] {
+/** 송출·성도 자막에 올릴 짧은 활성 문구(최대 2줄). */
+export function normalizeOutputLines(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
     .map((line) => String(line ?? "").replace(/\s+/g, " ").trim().slice(0, 80))

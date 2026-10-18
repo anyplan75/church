@@ -2,12 +2,28 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildMemberBulletin,
+  memberLiveCaption,
   memberLyricsFor,
   memberServiceOptions,
   pickMemberService,
   pickReasonLabel,
+  serviceOptionLabel,
 } from "./member-bulletin.ts";
-import type { Person, Service, Song } from "./types.ts";
+import type { Person, Service, Song, WorshipItem } from "./types.ts";
+
+function item(partial: Partial<WorshipItem> & Pick<WorshipItem, "id" | "kind" | "title">): WorshipItem {
+  return {
+    note: "",
+    scripture: "",
+    scriptureText: "",
+    scriptureLicensed: false,
+    screenCue: "",
+    personId: null,
+    pendingName: "",
+    songId: null,
+    ...partial,
+  };
+}
 
 function service(partial: Partial<Service> & Pick<Service, "id" | "title" | "date" | "time">): Service {
   return {
@@ -60,7 +76,7 @@ describe("member-bulletin", () => {
         date: "2026-10-18",
         time: "19:00",
         status: "live",
-        items: [{ id: "i1", kind: "hymn", title: "찬송", note: "", scripture: "", scriptureText: "", scriptureLicensed: false, screenCue: "", personId: null, pendingName: "", songId: "s1" }],
+        items: [item({ id: "i1", kind: "hymn", title: "찬송", songId: "s1" })],
       }),
       service({ id: "d", title: "다음주", date: "2026-10-25", time: "11:00", status: "planning" }),
     ];
@@ -68,6 +84,19 @@ describe("member-bulletin", () => {
     assert.equal(pickMemberService(list.filter((s) => s.id !== "c"), "", "2026-10-18")?.reason, "today");
     assert.equal(pickMemberService(list, "d", "2026-10-18")?.reason, "selected");
     assert.equal(pickReasonLabel("live"), "지금 진행 중");
+  });
+
+  it("lists same-day youth and young-adult bulletins together", () => {
+    const list = [
+      service({ id: "youth", title: "청소년부", date: "2026-10-18", time: "09:30", status: "ready" }),
+      service({ id: "young", title: "청년부", date: "2026-10-18", time: "14:00", status: "ready" }),
+      service({ id: "main", title: "주일 2부", date: "2026-10-18", time: "11:00", status: "live" }),
+    ];
+    const options = memberServiceOptions(list, "2026-10-18");
+    assert.equal(options.length, 3);
+    assert.ok(options.some((row) => row.id === "youth"));
+    assert.ok(options.some((row) => row.id === "young"));
+    assert.match(serviceOptionLabel(list[2]!), /진행 중/);
   });
 
   it("builds bulletin order and notices from service data", () => {
@@ -82,32 +111,15 @@ describe("member-bulletin", () => {
         { id: "n2", text: "  " },
       ],
       items: [
-        {
-          id: "i1",
-          kind: "hymn",
-          title: "찬송",
-          note: "",
-          scripture: "",
-          scriptureText: "",
-          scriptureLicensed: false,
-          screenCue: "",
-          personId: null,
-          pendingName: "",
-          songId: "s1",
-        },
-        {
+        item({ id: "i1", kind: "hymn", title: "찬송", songId: "s1" }),
+        item({
           id: "i2",
           kind: "sermon",
           title: "설교",
           note: "은혜의 말씀",
           scripture: "요한복음 3:16",
-          scriptureText: "",
-          scriptureLicensed: false,
-          screenCue: "",
           personId: "p1",
-          pendingName: "",
-          songId: null,
-        },
+        }),
       ],
     });
     const view = buildMemberBulletin(svc, people, songs, "은혜교회");
@@ -126,32 +138,8 @@ describe("member-bulletin", () => {
       date: "2026-10-18",
       time: "11:00",
       items: [
-        {
-          id: "i1",
-          kind: "hymn",
-          title: "찬송",
-          note: "",
-          scripture: "",
-          scriptureText: "",
-          scriptureLicensed: false,
-          screenCue: "",
-          personId: null,
-          pendingName: "",
-          songId: "s1",
-        },
-        {
-          id: "i2",
-          kind: "hymn",
-          title: "찬송",
-          note: "",
-          scripture: "",
-          scriptureText: "",
-          scriptureLicensed: false,
-          screenCue: "",
-          personId: null,
-          pendingName: "",
-          songId: "s2",
-        },
+        item({ id: "i1", kind: "hymn", title: "찬송", songId: "s1" }),
+        item({ id: "i2", kind: "hymn", title: "찬송", songId: "s2" }),
       ],
     });
     const lyrics = memberLyricsFor(svc, people, songs);
@@ -159,5 +147,43 @@ describe("member-bulletin", () => {
     assert.equal(lyrics[1]?.lines.length, 0);
     assert.match(lyrics[1]?.footer || "", /가사 없이/);
     assert.equal(memberServiceOptions([svc], "2026-10-18")[0]?.id, "svc");
+  });
+
+  it("builds live praise and word captions from liveIndex and outputLines", () => {
+    const praise = service({
+      id: "live-praise",
+      title: "청년부",
+      date: "2026-10-18",
+      time: "14:00",
+      status: "live",
+      liveIndex: 0,
+      outputLines: ["주 예수 이름 높이어"],
+      items: [
+        item({ id: "i1", kind: "praise", title: "찬양", songId: "s1" }),
+        item({
+          id: "i2",
+          kind: "sermon",
+          title: "설교",
+          note: "은혜의 말씀",
+          scripture: "요한복음 3:16",
+          scriptureText: "하나님이 세상을 이처럼 사랑하사",
+          scriptureLicensed: true,
+          personId: "p1",
+        }),
+      ],
+    });
+    const praiseCaption = memberLiveCaption(praise, people, songs);
+    assert.equal(praiseCaption.mode, "praise");
+    assert.equal(praiseCaption.source, "output");
+    assert.equal(praiseCaption.lines[0], "주 예수 이름 높이어");
+
+    const word = {
+      ...praise,
+      liveIndex: 1,
+      outputLines: [],
+    };
+    const wordCaption = memberLiveCaption(word, people, songs);
+    assert.equal(wordCaption.mode, "word");
+    assert.ok(wordCaption.lines.some((line) => /요한복음|하나님이/.test(line)));
   });
 });

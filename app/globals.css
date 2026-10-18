@@ -619,8 +619,14 @@ a:focus-visible {
   margin-top: 1.1rem;
 }
 
+.member-select {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
 .member-select select {
-  max-width: min(100%, 16rem);
+  width: 100%;
+  max-width: min(100%, 22rem);
   border: 1px solid rgba(246, 241, 230, 0.28);
   background: rgba(0, 0, 0, 0.2);
   color: #f6f1e6;
@@ -644,12 +650,18 @@ a:focus-visible {
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(4.2rem, 1fr));
-  gap: 0.15rem;
-  padding: 0.55rem 0.65rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.1rem;
+  padding: 0.5rem 0.45rem;
   background: rgba(255, 252, 247, 0.92);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--color-line);
+}
+
+@media (max-width: 420px) {
+  .member-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .member-tabs button {
@@ -675,6 +687,7 @@ a:focus-visible {
 .member-bulletin,
 .member-lyrics article,
 .member-info,
+.member-ads,
 .member-prayer,
 .member-inbox {
   background: rgba(255, 252, 247, 0.92);
@@ -686,11 +699,145 @@ a:focus-visible {
 .member-bulletin h2,
 .member-lyrics h2,
 .member-info h2,
+.member-ads h2,
 .member-prayer h2,
 .member-inbox h2 {
   font-family: var(--font-serif);
   font-size: clamp(1.55rem, 4.5vw, 1.9rem);
   line-height: 1.3;
+}
+
+.member-ads-list {
+  margin-top: 1rem;
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.member-ads-list li {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.85rem 0.15rem;
+  border-bottom: 1px solid rgba(224, 214, 198, 0.7);
+}
+
+.member-ads-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 0.45rem;
+  background: var(--color-pine-soft);
+  color: var(--color-pine);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.member-live {
+  min-height: min(72dvh, 36rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 1.75rem 1.2rem 2rem;
+  border-radius: 1.15rem;
+  color: #f6f1e6;
+  background:
+    linear-gradient(165deg, rgba(18, 40, 34, 0.96) 0%, rgba(28, 42, 38, 0.94) 48%, rgba(52, 30, 34, 0.95) 100%),
+    #142820;
+  animation: member-live-in 480ms ease-out both;
+}
+
+.member-live.is-praise {
+  background:
+    linear-gradient(165deg, rgba(22, 48, 40, 0.97) 0%, rgba(30, 52, 44, 0.95) 50%, rgba(40, 36, 28, 0.94) 100%),
+    #163228;
+}
+
+.member-live.is-word {
+  background:
+    linear-gradient(165deg, rgba(36, 28, 32, 0.97) 0%, rgba(42, 34, 38, 0.95) 55%, rgba(28, 36, 40, 0.94) 100%),
+    #2a2226;
+}
+
+.member-live-kicker {
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: rgba(232, 196, 120, 0.92);
+}
+
+.member-live-order {
+  margin-top: 0.45rem;
+  font-size: 0.9rem;
+  color: rgba(246, 241, 230, 0.72);
+}
+
+.member-live-heading {
+  margin-top: 1.1rem;
+  font-family: "Song Myung", "Noto Serif KR", serif;
+  font-size: clamp(1.45rem, 5.5vw, 2rem);
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.member-live-lines {
+  margin-top: 1.35rem;
+  width: min(100%, 28rem);
+  display: grid;
+  gap: 0.85rem;
+}
+
+.member-live-line {
+  font-family: "Song Myung", "Noto Serif KR", serif;
+  font-size: clamp(1.55rem, 7.2vw, 2.35rem);
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  animation: member-caption-pulse 420ms ease-out both;
+}
+
+.member-live-empty {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: rgba(246, 241, 230, 0.7);
+}
+
+.member-live-footer {
+  margin-top: 1.25rem;
+  font-size: 0.85rem;
+  color: rgba(232, 196, 120, 0.85);
+}
+
+.member-live-hint {
+  margin-top: 1.5rem;
+  max-width: 22rem;
+  color: rgba(246, 241, 230, 0.55);
+}
+
+@keyframes member-live-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes member-caption-pulse {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .member-bulletin h3,
