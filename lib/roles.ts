@@ -129,7 +129,9 @@ export function can(roles: readonly Role[], capability: Capability): boolean {
 }
 
 export function canOpenPath(roles: readonly Role[], pathname: string): boolean {
-  const path = pathname.split("?")[0] || "/";
+  // Surge 정적 배포의 /community/ 처럼 끝 슬래시를 없앱니다.
+  let path = pathname.split("?")[0] || "/";
+  if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
   // /remote 는 로그인한 교회 사용자면 역할과 무관하게 엽니다(모바일 슬라이드 리모컨).
   if (path === "/login" || path === "/setup" || path === "/denied" || path === "/receive" || path === "/remote") return true;
   const rule = PATH_RULES.find((item) => item.test(path));

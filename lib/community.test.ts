@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { canUseCommunity } from "./community-access.ts";
 import {
   cleanResourceUrl,
   isPostCategory,
@@ -60,6 +61,15 @@ describe("community access", () => {
     for (const role of ["view", "prepare", "run", "output", "directory", "admin"] as Role[]) {
       assert.equal(can([role], "screen.community"), true);
       assert.equal(canOpenPath([role], "/community"), true);
+      assert.equal(canOpenPath([role], "/community/"), true);
     }
+  });
+
+  it("lets church staff and platform-with-church use community", () => {
+    assert.equal(canUseCommunity({ kind: "church", churchId: "c11m8kdmenw" }), true);
+    assert.equal(canUseCommunity({ kind: "platform", churchId: "ce21dxgt7nc" }), true);
+    assert.equal(canUseCommunity({ kind: "platform", churchId: null }), false);
+    assert.equal(canUseCommunity({ kind: "church", churchId: null }), false);
+    assert.equal(canUseCommunity(null), false);
   });
 });
