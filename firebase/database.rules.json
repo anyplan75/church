@@ -228,6 +228,51 @@
               ".write": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).exists()) && $regionId.matches(/^[0-9A-Za-z가-힣\\-]{1,48}$/) && $resourceId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)"
             }
           }
+        },
+        "profiles": {
+          "$uid": {
+            ".write": "auth != null && auth.uid == $uid && newData.child('churchId').isString() && (((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) && newData.child('churchId').val().matches(/^c[a-z0-9]{6,16}$/)) || (root.child('church/accounts').child(auth.uid).exists() && newData.child('churchId').val() == root.child('church/accounts').child(auth.uid).child('churchId').val()))"
+          }
+        },
+        "groups": {
+          "$regionId": {
+            "$groupId": {
+              ".write": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).exists()) && $regionId.matches(/^[0-9A-Za-z가-힣\\-]{1,48}$/) && $groupId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)",
+              "members": {
+                "$uid": {
+                  ".write": "auth != null && auth.uid == $uid && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).exists())"
+                }
+              }
+            }
+          }
+        },
+        "bookmarks": {
+          "$uid": {
+            "$key": {
+              ".write": "auth != null && auth.uid == $uid && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).exists()) && $key.matches(/^[0-9A-Za-z가-힣_\\-]{3,120}$/)"
+            }
+          }
+        },
+        "churches": {
+          "$churchId": {
+            "notices": {
+              "$noticeId": {
+                ".write": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || (root.child('church/accounts').child(auth.uid).exists() && root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId)) && $churchId.matches(/^c[a-z0-9]{6,16}$/) && $noticeId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)"
+              }
+            },
+            "schedule": {
+              "$scheduleId": {
+                ".write": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || (root.child('church/accounts').child(auth.uid).exists() && root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId)) && $churchId.matches(/^c[a-z0-9]{6,16}$/) && $scheduleId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)"
+              }
+            }
+          }
+        },
+        "chats": {
+          "$uid": {
+            "$threadId": {
+              ".write": "auth != null && auth.uid == $uid && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).exists()) && $threadId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)"
+            }
+          }
         }
       }
     }

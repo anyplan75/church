@@ -1,29 +1,47 @@
 import { authToken, currentUser } from "./app-db";
 import { canUseCommunity } from "./community-access";
 import {
+  bookmarkKeysFromMap,
+  chatsFromMap,
   cleanCommentBody,
   cleanDistrict,
+  cleanGroupTitle,
+  cleanNickname,
   cleanPostBody,
   cleanPostTitle,
   cleanResourceNote,
   cleanResourceTitle,
   cleanResourceUrl,
+  cleanShort,
   commentsFromMap,
+  groupsFromMap,
+  isBoardCategory,
   isCommunitySido,
-  isPostCategory,
+  isGroupCategory,
   membershipFromRaw,
   newCommunityId,
+  nicknameFromEmail,
+  noticesFromMap,
+  postBookmarkKey,
   postsFromMap,
+  profileFromRaw,
   regionIdFrom,
   regionLabel,
   resourcesFromMap,
+  scheduleFromMap,
+  type BoardCategory,
+  type ChatThread,
+  type ChurchNotice,
+  type ChurchScheduleItem,
   type CommunityComment,
+  type CommunityGroup,
   type CommunityMembership,
   type CommunityPost,
+  type CommunityProfile,
   type CommunityResource,
   type PostCategory,
 } from "./community";
-import { DatabasePermissionError, dbGet, dbSet } from "./firebase-db";
+import { DatabasePermissionError, dbGet, dbPatch, dbSet } from "./firebase-db";
 
 function requireCommunityUser() {
   const user = currentUser();
@@ -39,6 +57,10 @@ function rethrowCommunity(error: unknown): never {
     throw new Error("커뮤니티 권한이 없습니다. 교회 계정으로 다시 로그인해 주세요.");
   }
   throw error;
+}
+
+function churchNameOf(user: { churchId: string | null }, fallback = ""): string {
+  return cleanShort(fallback, 40);
 }
 
 export async function loadMembership(): Promise<CommunityMembership | null> {
@@ -75,6 +97,52 @@ export async function saveMembership(sido: string, district = ""): Promise<Commu
   }
 }
 
+export async function loadProfile(): Promise<CommunityProfile | null> {
+  const user = requireCommunityUser();
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/profiles/${user.id}`, token);
+    return profileFromRaw(raw, user.id);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function saveProfile(input: {
+  nickname: string;
+  churchName: string;
+  verificationStatus?: CommunityProfile["verificationStatus"];
+}): Promise<CommunityProfile> {
+  const user = requireCommunityUser();
+  const nick = cleanNickname(input.nickname) || nicknameFromEmail(user.email);
+  const status = input.verificationStatus ?? "none";
+  const row: CommunityProfile = {
+    uid: user.id,
+    nickname: nick,
+    churchId: user.churchId!,
+    churchName: cleanShort(input.churchName, 40),
+    verified: status === "verified",
+    verificationStatus: status,
+    updatedAt: Date.now(),
+  };
+  try {
+    const token = await authToken();
+    await dbSet(`community/profiles/${user.id}`, row, token);
+    return row;
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function requestMemberVerification(churchName: string): Promise<CommunityProfile> {
+  const existing = await loadProfile();
+  return saveProfile({
+    nickname: existing?.nickname || nicknameFromEmail(requireCommunityUser().email),
+    churchName: churchName || existing?.churchName || "",
+    verificationStatus: "pending",
+  });
+}
+
 export async function loadPosts(regionId: string): Promise<CommunityPost[]> {
   requireCommunityUser();
   if (!regionId) return [];
@@ -87,10 +155,23 @@ export async function loadPosts(regionId: string): Promise<CommunityPost[]> {
   }
 }
 
-export async function createPost(regionId: string, title: string, body: string, category: PostCategory): Promise<CommunityPost> {
+export async function createPost(
+  regionId: string,
+  title: string,
+  body: string,
+  category: BoardCategory | PostCategory,
+  meta?: { churchName?: string; authorNick?: string; verified?: boolean },
+): Promise<CommunityPost> {
   const user = requireCommunityUser();
   if (!regionId) throw new Error("지역을 먼저 정해 주세요.");
-  if (!isPostCategory(category)) throw new Error("글 종류를 골라 주세요.");
+  const normalized: BoardCategory | null = isBoardCategory(category)
+    ? category
+    : category === "question"
+      ? "qna"
+      : category === "share"
+        ? "free"
+        : null;
+  if (!normalized) throw new Error("글 종류를 골라 주세요.");
   const cleanTitle = cleanPostTitle(title);
   const cleanBody = cleanPostBody(body);
   if (!cleanTitle) throw new Error("제목을 입력해 주세요.");
@@ -100,16 +181,94 @@ export async function createPost(regionId: string, title: string, body: string, 
     id,
     title: cleanTitle,
     body: cleanBody,
-    category,
+    category: normalized,
     authorUid: user.id,
     authorEmail: user.email,
+    authorNick: cleanNickname(meta?.authorNick || "") || nicknameFromEmail(user.email),
     churchId: user.churchId!,
+    churchName: churchNameOf(user, meta?.churchName || ""),
+    verified: Boolean(meta?.verified),
+    likes: 0,
+    views: 0,
+    commentCount: 0,
     createdAt: Date.now(),
   };
   try {
     const token = await authToken();
     await dbSet(`community/posts/${regionId}/${id}`, row, token);
     return row;
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function bumpPostView(regionId: string, postId: string, currentViews: number): Promise<void> {
+  requireCommunityUser();
+  if (!regionId || !postId) return;
+  try {
+    const token = await authToken();
+    await dbPatch(`community/posts/${regionId}/${postId}`, { views: Math.max(0, currentViews) + 1 }, token);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function togglePostLike(
+  regionId: string,
+  postId: string,
+  currentLikes: number,
+  liked: boolean,
+): Promise<{ likes: number; liked: boolean }> {
+  const user = requireCommunityUser();
+  if (!regionId || !postId) throw new Error("글을 다시 열어 주세요.");
+  const nextLiked = !liked;
+  const likes = Math.max(0, currentLikes + (nextLiked ? 1 : -1));
+  try {
+    const token = await authToken();
+    await dbSet(`community/posts/${regionId}/${postId}/likedBy/${user.id}`, nextLiked ? true : null, token);
+    await dbPatch(`community/posts/${regionId}/${postId}`, { likes }, token);
+    return { likes, liked: nextLiked };
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadLiked(regionId: string, postId: string): Promise<boolean> {
+  const user = requireCommunityUser();
+  if (!regionId || !postId) return false;
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/posts/${regionId}/${postId}/likedBy/${user.id}`, token);
+    return Boolean(raw);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadBookmarks(): Promise<Set<string>> {
+  const user = requireCommunityUser();
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/bookmarks/${user.id}`, token);
+    return new Set(bookmarkKeysFromMap(raw));
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function toggleBookmark(regionId: string, postId: string, bookmarked: boolean): Promise<boolean> {
+  const user = requireCommunityUser();
+  if (!regionId || !postId) throw new Error("글을 다시 열어 주세요.");
+  const key = postBookmarkKey(regionId, postId);
+  const next = !bookmarked;
+  try {
+    const token = await authToken();
+    await dbSet(
+      `community/bookmarks/${user.id}/${key}`,
+      next ? { regionId, postId, createdAt: Date.now() } : null,
+      token,
+    );
+    return next;
   } catch (error) {
     rethrowCommunity(error);
   }
@@ -127,7 +286,12 @@ export async function loadComments(regionId: string, postId: string): Promise<Co
   }
 }
 
-export async function createComment(regionId: string, postId: string, body: string): Promise<CommunityComment> {
+export async function createComment(
+  regionId: string,
+  postId: string,
+  body: string,
+  authorNick?: string,
+): Promise<CommunityComment> {
   const user = requireCommunityUser();
   if (!regionId || !postId) throw new Error("글을 다시 열어 주세요.");
   const cleanBody = cleanCommentBody(body);
@@ -138,6 +302,7 @@ export async function createComment(regionId: string, postId: string, body: stri
     body: cleanBody,
     authorUid: user.id,
     authorEmail: user.email,
+    authorNick: cleanNickname(authorNick || "") || nicknameFromEmail(user.email),
     createdAt: Date.now(),
   };
   try {
@@ -182,6 +347,199 @@ export async function createResource(regionId: string, title: string, url: strin
   try {
     const token = await authToken();
     await dbSet(`community/resources/${regionId}/${id}`, row, token);
+    return row;
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadGroups(regionId: string): Promise<CommunityGroup[]> {
+  requireCommunityUser();
+  if (!regionId) return [];
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/groups/${regionId}`, token);
+    return groupsFromMap(raw);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function createGroup(
+  regionId: string,
+  input: {
+    title: string;
+    category: string;
+    place: string;
+    schedule: string;
+    capacity: number;
+    churchName?: string;
+  },
+): Promise<CommunityGroup> {
+  const user = requireCommunityUser();
+  if (!regionId) throw new Error("지역을 먼저 정해 주세요.");
+  if (!isGroupCategory(input.category)) throw new Error("모임 종류를 골라 주세요.");
+  const title = cleanGroupTitle(input.title);
+  if (!title) throw new Error("모임 제목을 입력해 주세요.");
+  const id = newCommunityId("grp");
+  const row: CommunityGroup = {
+    id,
+    title,
+    category: input.category,
+    place: cleanShort(input.place || "미정", 40) || "미정",
+    schedule: cleanShort(input.schedule || "협의", 40) || "협의",
+    capacity: Math.max(1, Math.min(200, Math.floor(input.capacity) || 10)),
+    memberCount: 1,
+    authorUid: user.id,
+    churchId: user.churchId!,
+    churchName: churchNameOf(user, input.churchName || ""),
+    createdAt: Date.now(),
+  };
+  try {
+    const token = await authToken();
+    await dbSet(`community/groups/${regionId}/${id}`, { ...row, members: { [user.id]: true } }, token);
+    return row;
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function joinGroup(regionId: string, group: CommunityGroup): Promise<CommunityGroup> {
+  const user = requireCommunityUser();
+  if (!regionId || !group.id) throw new Error("모임을 다시 열어 주세요.");
+  if (group.memberCount >= group.capacity) throw new Error("정원이 가득 찼습니다.");
+  const memberCount = group.memberCount + 1;
+  try {
+    const token = await authToken();
+    await dbSet(`community/groups/${regionId}/${group.id}/members/${user.id}`, true, token);
+    await dbPatch(`community/groups/${regionId}/${group.id}`, { memberCount }, token);
+    return { ...group, memberCount };
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadMyGroupIds(regionId: string): Promise<Set<string>> {
+  const user = requireCommunityUser();
+  if (!regionId) return new Set();
+  try {
+    const token = await authToken();
+    const groups = await loadGroups(regionId);
+    const mine = new Set<string>();
+    await Promise.all(
+      groups.map(async (g) => {
+        const raw = await dbGet<unknown>(`community/groups/${regionId}/${g.id}/members/${user.id}`, token);
+        if (raw) mine.add(g.id);
+      }),
+    );
+    return mine;
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadChurchNotices(churchId: string): Promise<ChurchNotice[]> {
+  requireCommunityUser();
+  if (!churchId) return [];
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/churches/${churchId}/notices`, token);
+    return noticesFromMap(raw);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function createChurchNotice(churchId: string, title: string, body: string): Promise<ChurchNotice> {
+  const user = requireCommunityUser();
+  if (!churchId) throw new Error("교회를 먼저 열어 주세요.");
+  const cleanTitle = cleanPostTitle(title);
+  const cleanBody = cleanPostBody(body);
+  if (!cleanTitle) throw new Error("제목을 입력해 주세요.");
+  if (!cleanBody) throw new Error("내용을 입력해 주세요.");
+  const id = newCommunityId("ntc");
+  const row: ChurchNotice = {
+    id,
+    title: cleanTitle,
+    body: cleanBody,
+    authorUid: user.id,
+    createdAt: Date.now(),
+  };
+  try {
+    const token = await authToken();
+    await dbSet(`community/churches/${churchId}/notices/${id}`, row, token);
+    return row;
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadChurchSchedule(churchId: string): Promise<ChurchScheduleItem[]> {
+  requireCommunityUser();
+  if (!churchId) return [];
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/churches/${churchId}/schedule`, token);
+    return scheduleFromMap(raw);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function createChurchSchedule(
+  churchId: string,
+  title: string,
+  when: string,
+  place: string,
+): Promise<ChurchScheduleItem> {
+  const user = requireCommunityUser();
+  if (!churchId) throw new Error("교회를 먼저 열어 주세요.");
+  const cleanTitle = cleanPostTitle(title);
+  if (!cleanTitle) throw new Error("일정 제목을 입력해 주세요.");
+  const id = newCommunityId("sch");
+  const row: ChurchScheduleItem = {
+    id,
+    title: cleanTitle,
+    when: cleanShort(when || "", 60) || "미정",
+    place: cleanShort(place || "", 40) || "미정",
+    authorUid: user.id,
+    createdAt: Date.now(),
+  };
+  try {
+    const token = await authToken();
+    await dbSet(`community/churches/${churchId}/schedule/${id}`, row, token);
+    return row;
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadChats(): Promise<ChatThread[]> {
+  const user = requireCommunityUser();
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/chats/${user.id}`, token);
+    return chatsFromMap(raw);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+/** 채팅 MVP: 스레드 껍데기만 만듭니다. 실시간 메시지는 이후 단계. */
+export async function createChatShell(title: string, kind: "personal" | "group" = "personal"): Promise<ChatThread> {
+  const user = requireCommunityUser();
+  const id = newCommunityId("chat");
+  const row: ChatThread = {
+    id,
+    kind,
+    title: cleanShort(title || "새 채팅", 40) || "새 채팅",
+    peerUid: "",
+    unread: false,
+    updatedAt: Date.now(),
+  };
+  try {
+    const token = await authToken();
+    await dbSet(`community/chats/${user.id}/${id}`, row, token);
     return row;
   } catch (error) {
     rethrowCommunity(error);

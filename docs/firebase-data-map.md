@@ -85,18 +85,23 @@
 
 공유 지역 커뮤니티. **교회별 하위 경로가 아님** (`churches/{id}/community` 아님).  
 읽기·쓰기: `church/accounts/{uid}` 교회 계정, 또는 전체 운영자(`anyplan@me.com` / `platform/adminUid`).  
-`memberships` 쓰기는 본인 uid만. 교회 계정은 `churchId`가 자기 계정과 같아야 하고, 전체 운영자는 유효한 `c…` 교회 id를 넣는다. 모바일 Remote에는 연결하지 않는다.  
-자료실은 **링크·짧은 메모만** 두고, 성경 txt 전문 업로드는 하지 않는다.
+`memberships`/`profiles`/`bookmarks`/`chats` 쓰기는 본인 uid만. 교회 계정은 `churchId`가 자기 계정과 같아야 하고, 전체 운영자는 유효한 `c…` 교회 id를 넣는다. 모바일 Remote에는 연결하지 않는다.  
+화면은 코니아 형식(모임·게시판·나의 교회·채팅·MY). 채팅은 스레드 껍데기 MVP.
 
 | 경로 | 내용 |
 | --- | --- |
 | `community/regions/{regionId}` | `name`, `sido`, `district` |
 | `community/memberships/{uid}` | `regionId`, `sido`, `district`, `churchId`, `updatedAt` — 본인만 쓰기 |
-| `community/posts/{regionId}/{postId}` | `title`, `body`, `category`(`notice`\|`question`\|`share`\|`promo`), 작성자·시각 |
+| `community/profiles/{uid}` | 닉네임·교인 인증 상태 |
+| `community/groups/{regionId}/{groupId}` | 모임(+ `members/{uid}`) |
+| `community/posts/{regionId}/{postId}` | 게시판 글(`free`\|`faith`\|`pray`\|`qna`\|`notice`\|`promo` 등, 예전 분류 호환), likes·views |
 | `community/posts/…/comments/{commentId}` | 댓글 본문·작성자·시각 |
-| `community/resources/{regionId}/{resourceId}` | `title`, `url`, `note`, 작성자·시각 |
+| `community/bookmarks/{uid}/{key}` | 북마크 |
+| `community/churches/{churchId}/notices` · `schedule` | 나의 교회 공지·일정 |
+| `community/chats/{uid}/{threadId}` | 채팅 스레드 껍데기 |
+| `community/resources/{regionId}/{resourceId}` | (예전) `title`, `url`, `note` |
 
-코드: `lib/community.ts`, `lib/community-db.ts`.
+코드: `lib/community.ts`, `lib/community-db.ts`, `components/community/community-app.tsx`.
 
 ### 2.7 `church/churches/{churchId}/data/…`
 
