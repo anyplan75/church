@@ -46,7 +46,7 @@
 | `lng` | 숫자(선택, 경도 −180~180) |
 
 읽기·쓰기: 슈퍼관리자(`anyplan@me.com` 또는 `platform/adminUid`)만.  
-주소·좌표는 플랫폼「주소로 교회 찾기」에서 채운다. 예전 교회는 좌표가 없을 수 있다.
+주소·좌표는 플랫폼「주변 교회 찾기」·「교회 정보 수정」또는 설정(`/settings`)에서 채운다. 예전 교회는 좌표가 없을 수 있다.
 
 ### 2.3 `church/accounts/{uid}`
 
@@ -73,8 +73,8 @@
 | `address` | 문자열(선택) |
 | `lat`, `lng` | 숫자(선택). `churchIndex`와 동일 |
 
-코드가 쓸 때 `operatorEmail`은 넣지 않는다. 목록용 이메일은 `churchIndex`에만 둔다.  
-쓰기: 슈퍼관리자만. 읽기: 슈퍼관리자 또는 그 교회 소속 계정.
+생성·수정 시 `operatorEmail`을 meta에도 둔다. 목록용은 `churchIndex`와 같다.  
+쓰기: 슈퍼관리자, 또는 해당 교회 `admin`(기존 meta의 `createdAt` 유지). 읽기: 슈퍼관리자 또는 그 교회 소속 계정.
 
 ### 2.5 `church/churches/{churchId}/members/{uid}`
 
@@ -271,6 +271,6 @@
 | 브라우저 IndexedDB | `church-worship` | 예전 로컬 DB. 부팅 시 `deleteDatabase`로 지움. 더 이상 업무 데이터에 안 씀 |
 | 시드 샘플 | `lib/seed.ts`의 샘플 예배·사람 | 빈 DB 폴백·테스트용. Firebase에 자동 업로드하지 않음 |
 | 규칙 조각 | `firebase/church.rules.json` | `church`만 담은 조각. 배포는 `database.rules.json` / 붙여넣기 파일 기준 |
-| meta 불일치 | `churches/*/meta.operatorEmail` | 읽기 폴백만 있음. 생성 시 meta에는 안 넣고 `churchIndex`에만 `operatorEmail` 기록 |
+| meta 불일치 | `churches/*/meta.operatorEmail` | 예전 행은 없을 수 있음. 지금은 생성·수정 시 meta에도 `operatorEmail`을 넣음 |
 
 Firestore 존재하지 않거나 값이 없으면 “나중에 지울 후보”로만 보면 된다.

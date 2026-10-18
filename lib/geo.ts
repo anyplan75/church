@@ -77,3 +77,26 @@ export function formatDistanceKm(km: number): string {
   if (km < 10) return `${km.toFixed(1)}km`;
   return `${Math.round(km)}km`;
 }
+
+export type ChurchLocationFields = {
+  address?: string;
+  lat?: number;
+  lng?: number;
+};
+
+/**
+ * 폼·Firebase에 넣을 주소·좌표만 골라 냅니다.
+ * 빈 주소·잘못된 좌표는 넣지 않습니다.
+ */
+export function churchLocationFromInput(input: { address?: unknown; lat?: unknown; lng?: unknown }): ChurchLocationFields {
+  const address = String(input.address ?? "")
+    .trim()
+    .slice(0, 200);
+  const lat = Number(input.lat);
+  const lng = Number(input.lng);
+  const hasGeo = isValidGeoPoint({ lat, lng });
+  return {
+    ...(address ? { address } : {}),
+    ...(hasGeo ? { lat, lng } : {}),
+  };
+}

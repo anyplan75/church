@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DEFAULT_NEARBY_RADIUS_KM,
+  churchLocationFromInput,
   distanceKm,
   filterNearbyChurches,
   formatDistanceKm,
@@ -66,5 +67,17 @@ describe("거리 표시", () => {
     assert.equal(formatDistanceKm(0.35), "350m");
     assert.equal(formatDistanceKm(3.2), "3.2km");
     assert.equal(formatDistanceKm(18.4), "18km");
+  });
+});
+
+describe("교회 주소·좌표 정리", () => {
+  it("주소와 유효한 좌표만 남긴다", () => {
+    assert.deepEqual(churchLocationFromInput({ address: "  제주시  ", lat: "33.5", lng: "126.5" }), {
+      address: "제주시",
+      lat: 33.5,
+      lng: 126.5,
+    });
+    assert.deepEqual(churchLocationFromInput({ address: "   ", lat: 91, lng: 126 }), {});
+    assert.deepEqual(churchLocationFromInput({ address: "주소만" }), { address: "주소만" });
   });
 });

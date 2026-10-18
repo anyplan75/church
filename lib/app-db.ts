@@ -10,6 +10,7 @@ import {
   firebaseUpdateAccount,
   type FirebaseSession,
 } from "./firebase-auth";
+import { churchLocationFromInput } from "./geo";
 import { hostKey } from "./output-host";
 import { go } from "./page-path";
 import {
@@ -48,6 +49,17 @@ export type ChurchRow = {
   lng?: number;
 };
 
+/** 지금 연 교회의 meta(이름·주소·좌표). 설정·수정 화면에 씁니다. */
+export type ChurchProfile = {
+  id: string;
+  name: string;
+  operatorEmail: string;
+  createdAt: number;
+  address?: string;
+  lat?: number;
+  lng?: number;
+};
+
 export type CurrentUser = {
   id: string;
   email: string;
@@ -79,6 +91,7 @@ type Snapshot = {
   user: CurrentUser | null;
   db: Db | null;
   churches: ChurchRow[];
+  churchProfile: ChurchProfile | null;
   error: string;
 };
 
@@ -87,6 +100,7 @@ const listeners = new Set<() => void>();
 let db: Db | null = null;
 let accounts: LocalAccount[] = [];
 let churches: ChurchRow[] = [];
+let churchProfile: ChurchProfile | null = null;
 let session: Session | null = null;
 let files = new Map<string, string>();
 let ready = false;
@@ -96,7 +110,7 @@ let loadGeneration = 0;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let writeChain: Promise<void> = Promise.resolve();
 let writing = false;
-const initialSnapshot: Snapshot = { ready: false, user: null, db: null, churches: [], error: "" };
+const initialSnapshot: Snapshot = { ready: false, user: null, db: null, churches: [], churchProfile: null, error: "" };
 let snapshot: Snapshot = initialSnapshot;
 
 export function subscribeChurch(listener: () => void) {
@@ -113,7 +127,7 @@ export function serverChurchSnapshot(): Snapshot {
 }
 
 function emit() {
-  snapshot = { ready, user: currentUser(), db, churches: churches.slice(), error };
+  snapshot = { ready, user: currentUser(), db, churches: churches.slice(), churchProfile, error };
   for (const listener of listeners) listener();
 }
 
@@ -264,16 +278,7 @@ export async function loginWithPassword(email: string, password: string): Promis
 }
 
 function churchLocationFields(input: { address?: string; lat?: number; lng?: number }) {
-  const address = String(input.address || "")
-    .trim()
-    .slice(0, 200);
-  const lat = Number(input.lat);
-  const lng = Number(input.lng);
-  const hasGeo = Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-  return {
-    ...(address ? { address } : {}),
-    ...(hasGeo ? { lat, lng } : {}),
-  };
+  return churchLocationFromInput(input);
 }
 
 export async function addChurchWithOperator(input: {
@@ -312,7 +317,7 @@ export async function addChurchWithOperator(input: {
   const row: ChurchRow = { id, name, operatorEmail: created.session.email, createdAt: Date.now(), ...location };
   try {
     const token = await currentToken();
-    await dbSet(`churches/${id}/meta`, { name, createdAt: row.createdAt, ...location }, token);
+    await dbSet(`churches/${id}/meta`, { name, operatorEmail: row.operatorEmail, createdAt: row.createdAt, ...location }, token);
     await dbSet(`churches/${id}/data`, churchDb, token);
     await dbSet(`churches/${id}/members/${created.session.localId}`, memberBody(created.session.email, id, roles, null), token);
     await dbSet(`accounts/${created.session.localId}`, memberBody(created.session.email, id, roles, null), token);
@@ -324,6 +329,84 @@ export async function addChurchWithOperator(input: {
   } catch (reason) {
     await firebaseDeleteAccount(created.session.idToken).catch(() => undefined);
     error = reason instanceof DatabasePermissionError ? "데이터베이스 권한이 없습니다." : "교회를 저장하지 못했습니다.";
+    emit();
+    return { ok: false, code: "denied" };
+  }
+}
+
+/**
+ * 기존 교회 이름·주소를 고칩니다.
+ * `churchIndex`와 `churches/{id}/meta`에 저장하고, 지금 연 교회면 설정의 교회 이름도 맞춥니다.
+ */
+export async function updateChurchProfile(input: {
+  churchId: string;
+  name: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+}): Promise<{ ok: true } | { ok: false; code: string }> {
+  const actor = actorOf(session);
+  if (!session || !actor) return { ok: false, code: "denied" };
+  const id = String(input.churchId || "").trim();
+  if (!isChurchId(id) || !canSeeChurch(actor, id)) return { ok: false, code: "denied" };
+  if (actor.kind !== "platform") {
+    if (session.churchId !== id || !can(session.roles, "mutate.admin")) return { ok: false, code: "denied" };
+  }
+  const name = String(input.name || "")
+    .trim()
+    .slice(0, 40);
+  if (!name) return { ok: false, code: "name" };
+  const location = churchLocationFields({
+    address: input.address,
+    lat: input.lat,
+    lng: input.lng,
+  });
+  try {
+    const token = await currentToken();
+    const indexed = churches.find((row) => row.id === id);
+    const meta = await dbGet<{
+      name?: unknown;
+      operatorEmail?: unknown;
+      createdAt?: unknown;
+      address?: unknown;
+      lat?: unknown;
+      lng?: unknown;
+    }>(`churches/${id}/meta`, token).catch((reason: unknown) => {
+      if (reason instanceof DatabasePermissionError) throw reason;
+      return null;
+    });
+    const createdAt = Number(indexed?.createdAt || meta?.createdAt || Date.now());
+    const operatorEmail = String(indexed?.operatorEmail || meta?.operatorEmail || session.email || "")
+      .trim()
+      .toLowerCase()
+      .slice(0, 120);
+    const row: ChurchRow = { id, name, operatorEmail, createdAt, ...location };
+    const metaBody = { name, operatorEmail, createdAt, ...location };
+    if (meta && Number(meta.createdAt) > 0) {
+      await dbSet(`churches/${id}/meta`, { ...metaBody, createdAt: Number(meta.createdAt) }, token);
+      row.createdAt = Number(meta.createdAt);
+    } else if (actor.kind === "platform") {
+      await dbSet(`churches/${id}/meta`, metaBody, token);
+    } else {
+      await dbPatch(`churches/${id}/meta`, { name, operatorEmail, ...location }, token);
+    }
+    if (actor.kind === "platform" || indexed) {
+      await dbSet(`churchIndex/${id}`, { ...row, createdAt: row.createdAt }, token);
+    } else {
+      // 교회 운영자는 목록 전체를 못 읽으므로, 이름·주소·좌표만 덮어 씁니다.
+      await dbPatch(`churchIndex/${id}`, { name, ...location }, token);
+    }
+    churches = [...churches.filter((item) => item.id !== id), row].sort((a, b) => a.name.localeCompare(b.name, "ko"));
+    churchProfile = { ...row };
+    if (db && session.churchId === id) {
+      db.settings.churchName = name;
+      scheduleChurchWrite();
+    }
+    error = "";
+    emit();
+    return { ok: true };
+  } catch (reason) {
+    error = reason instanceof DatabasePermissionError ? "데이터베이스 권한이 없습니다." : "교회 정보를 저장하지 못했습니다.";
     emit();
     return { ok: false, code: "denied" };
   }
@@ -347,6 +430,7 @@ export function leaveChurch() {
   if (!session || session.kind !== "platform") return;
   session = { ...session, churchId: null, roles: [] };
   db = null;
+  churchProfile = null;
   accounts = [];
   files = new Map();
   persistSession();
@@ -547,11 +631,7 @@ async function loadChurchIndex(authToken: string): Promise<ChurchRow[]> {
 }
 
 function parseChurchLocation(row: { address?: unknown; lat?: unknown; lng?: unknown }) {
-  return churchLocationFields({
-    address: row?.address != null ? String(row.address) : "",
-    lat: row?.lat != null ? Number(row.lat) : undefined,
-    lng: row?.lng != null ? Number(row.lng) : undefined,
-  });
+  return churchLocationFromInput(row || {});
 }
 
 function churchRows(index: Record<string, Partial<ChurchRow>> | null): ChurchRow[] {
@@ -596,10 +676,17 @@ async function loadChurch(id: string) {
   const actor = actorOf(session);
   if (!session || !actor || !canSeeChurch(actor, id)) return;
   const authToken = await currentToken();
-  const [data, members, storedFiles] = await Promise.all([
+  const [data, members, storedFiles, meta] = await Promise.all([
     dbGet<Db>(`churches/${id}/data`, authToken),
     dbGet<Record<string, RemoteAccount>>(`churches/${id}/members`, authToken),
     dbGet<Record<string, string>>(`churches/${id}/files`, authToken),
+    dbGet<{ name?: unknown; operatorEmail?: unknown; createdAt?: unknown; address?: unknown; lat?: unknown; lng?: unknown }>(
+      `churches/${id}/meta`,
+      authToken,
+    ).catch((reason: unknown) => {
+      if (reason instanceof DatabasePermissionError) throw reason;
+      return null;
+    }),
   ]);
   db = data ? normalizeDb(data) : null;
   if (db) syncReminders(db);
@@ -607,6 +694,25 @@ async function loadChurch(id: string) {
     .map(([memberId, member]) => toAccount(memberId, member))
     .filter((account): account is LocalAccount => account !== null);
   files = new Map(Object.entries(storedFiles || {}).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+  const indexed = churches.find((row) => row.id === id);
+  if (meta && typeof meta === "object") {
+    churchProfile = {
+      id,
+      name: String(meta.name || indexed?.name || db?.settings.churchName || "교회").slice(0, 40),
+      operatorEmail: String(meta.operatorEmail || indexed?.operatorEmail || "").trim().toLowerCase(),
+      createdAt: Number(meta.createdAt || indexed?.createdAt || 0),
+      ...parseChurchLocation(meta),
+    };
+  } else if (indexed) {
+    churchProfile = { ...indexed };
+  } else {
+    churchProfile = {
+      id,
+      name: db?.settings.churchName || "교회",
+      operatorEmail: "",
+      createdAt: 0,
+    };
+  }
   if (session.kind === "church") {
     const mine = accounts.find((account) => account.id === session?.accountId);
     if (mine) session = { ...session, roles: mine.roles, email: mine.email };
@@ -813,6 +919,7 @@ function readStoredSession(): Session | null {
 function clearSession() {
   session = null;
   db = null;
+  churchProfile = null;
   accounts = [];
   churches = [];
   files = new Map();
