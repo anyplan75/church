@@ -83,7 +83,9 @@
 
 ### 2.6b `church/community/…` (지역 커뮤니티)
 
-로그인한 `church/accounts/{uid}` 계정만 읽기·쓰기. 모바일 Remote에는 연결하지 않는다.  
+공유 지역 커뮤니티. **교회별 하위 경로가 아님** (`churches/{id}/community` 아님).  
+읽기·쓰기: `church/accounts/{uid}` 교회 계정, 또는 전체 운영자(`anyplan@me.com` / `platform/adminUid`).  
+`memberships` 쓰기는 본인 uid만. 교회 계정은 `churchId`가 자기 계정과 같아야 하고, 전체 운영자는 유효한 `c…` 교회 id를 넣는다. 모바일 Remote에는 연결하지 않는다.  
 자료실은 **링크·짧은 메모만** 두고, 성경 txt 전문 업로드는 하지 않는다.
 
 | 경로 | 내용 |
