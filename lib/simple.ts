@@ -147,6 +147,8 @@ export function settingsReady(settings: Settings): boolean {
 export function screenLabel(pathname: string): string {
   const path = pathname.replace(/\/$/, "") || "/";
   if (path === "/") return "주보";
+  if (path === "/member" || path.startsWith("/member/")) return "성도";
+  if (path === "/prayers") return "기도함";
   if (path === "/week") return "이번 주";
   if (path === "/people") return "사람";
   if (path === "/library" || path === "/songs") return "라이브러리";

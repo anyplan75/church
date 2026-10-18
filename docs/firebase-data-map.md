@@ -207,6 +207,23 @@
 
 `data` 쓰기 권한: 슈퍼관리자, 또는 그 교회에 `prepare` / `run` / `output` / `directory` / `admin` 중 하나. (`view`만 있으면 쓰기 불가.)
 
+### 2.8 `church/churches/{churchId}/prayerRequests/{id}`
+
+성도가 목회자에게 보내는 기도제목. `data/` 밖 별도 경로(성도 `view`도 본인 글 생성 가능).
+
+| 필드 | 형 |
+| --- | --- |
+| `id` | 문자열 (`pr_` + 영숫자, 6~64) |
+| `authorUid`, `authorEmail`, `authorName` | 문자열 |
+| `text` | 문자열(2~800자) |
+| `serviceId`, `serviceTitle` | 문자열(선택) |
+| `createdAt`, `updatedAt` | 숫자(ms) |
+| `status` | `new` \| `read` \| `prayed` |
+
+읽기: 작성자 본인, 또는 같은 교회 `admin`/`prepare`/`run`, 또는 슈퍼관리자.  
+쓰기: 같은 교회 계정이 **신규**로 `authorUid == auth.uid` + `status == new` 생성; 상태 변경은 `admin`/`prepare`/`run`(본문·작성자 유지).  
+참고: `$churchId` 단위 읽기 규칙 때문에 같은 교회 로그인 계정은 경로를 직접 조회할 수 있다. UI는 본인/기도함만 보여 주고, 운영 계정은 신뢰 전제로 둔다.
+
 ---
 
 ## 3. Authentication (경로 아님)

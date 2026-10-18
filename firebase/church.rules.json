@@ -33,6 +33,12 @@
           "$uid": {
             ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && newData.child('churchId').val() == $churchId))"
           }
+        },
+        "prayerRequests": {
+          "$requestId": {
+            ".read": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && (data.child('authorUid').val() == auth.uid || root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true || root.child('church/accounts').child(auth.uid).child('roles/prepare').val() == true || root.child('church/accounts').child(auth.uid).child('roles/run').val() == true)))",
+            ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && $requestId.matches(/^[A-Za-z0-9_\\-]{6,64}$/) && ((!data.exists() && newData.child('authorUid').val() == auth.uid && newData.child('text').isString() && newData.child('text').val().length >= 2 && newData.child('text').val().length <= 800 && newData.child('status').val() == 'new') || (data.exists() && (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true || root.child('church/accounts').child(auth.uid).child('roles/prepare').val() == true || root.child('church/accounts').child(auth.uid).child('roles/run').val() == true) && newData.child('authorUid').val() == data.child('authorUid').val() && newData.child('text').val() == data.child('text').val() && (newData.child('status').val() == 'new' || newData.child('status').val() == 'read' || newData.child('status').val() == 'prayed')))))"
+          }
         }
       }
     },

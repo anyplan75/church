@@ -58,10 +58,12 @@ export type Capability =
   | "screen.inventory"
   | "mutate.attendance.leader"
   | "mutate.inventory"
-  | "screen.activity";
+  | "screen.activity"
+  | "screen.member"
+  | "screen.prayers";
 
 const GRANTS: Record<Role, readonly Capability[]> = {
-  view: ["screen.week", "screen.services", "screen.bulletin", "screen.attendance", "screen.inventory", "screen.community"],
+  view: ["screen.week", "screen.services", "screen.bulletin", "screen.attendance", "screen.inventory", "screen.community", "screen.member"],
   prepare: [
     "screen.week",
     "screen.services",
@@ -75,9 +77,30 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "screen.inventory",
     "mutate.inventory",
     "screen.community",
+    "screen.member",
+    "screen.prayers",
   ],
-  run: ["screen.week", "screen.services", "screen.live", "mutate.run", "screen.attendance", "mutate.attendance.leader", "screen.community"],
-  output: ["screen.week", "screen.services", "screen.output", "screen.slides", "mutate.output", "screen.attendance", "screen.community"],
+  run: [
+    "screen.week",
+    "screen.services",
+    "screen.live",
+    "mutate.run",
+    "screen.attendance",
+    "mutate.attendance.leader",
+    "screen.community",
+    "screen.member",
+    "screen.prayers",
+  ],
+  output: [
+    "screen.week",
+    "screen.services",
+    "screen.output",
+    "screen.slides",
+    "mutate.output",
+    "screen.attendance",
+    "screen.community",
+    "screen.member",
+  ],
   directory: [
     "screen.people",
     "screen.songs",
@@ -87,8 +110,20 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "screen.inventory",
     "mutate.inventory",
     "screen.community",
+    "screen.member",
   ],
-  admin: ["screen.settings", "mutate.admin", "screen.attendance", "mutate.attendance.leader", "screen.inventory", "mutate.inventory", "screen.activity", "screen.community"],
+  admin: [
+    "screen.settings",
+    "mutate.admin",
+    "screen.attendance",
+    "mutate.attendance.leader",
+    "screen.inventory",
+    "mutate.inventory",
+    "screen.activity",
+    "screen.community",
+    "screen.member",
+    "screen.prayers",
+  ],
 };
 
 const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] = [
@@ -105,6 +140,8 @@ const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] 
   { test: (pathname) => pathname === "/activity", caps: ["screen.activity"] },
   { test: (pathname) => pathname === "/attendance", caps: ["screen.attendance"] },
   { test: (pathname) => pathname === "/inventory", caps: ["screen.inventory"] },
+  { test: (pathname) => pathname === "/member" || pathname.startsWith("/member/"), caps: ["screen.member"] },
+  { test: (pathname) => pathname === "/prayers", caps: ["screen.prayers"] },
   { test: (pathname) => /^\/services\/[^/]+\/bulletin$/.test(pathname), caps: ["screen.bulletin"] },
   { test: (pathname) => /^\/services\/[^/]+\/live$/.test(pathname), caps: ["screen.live"] },
   { test: (pathname) => /^\/services\/[^/]+\/output$/.test(pathname), caps: ["screen.output"] },
@@ -132,8 +169,18 @@ export function canOpenPath(roles: readonly Role[], pathname: string): boolean {
   // Surge 정적 배포의 /community/ 처럼 끝 슬래시를 없앱니다.
   let path = pathname.split("?")[0] || "/";
   if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-  // /remote 는 로그인한 교회 사용자면 역할과 무관하게 엽니다(모바일 슬라이드 리모컨).
-  if (path === "/login" || path === "/setup" || path === "/denied" || path === "/receive" || path === "/remote") return true;
+  // /remote · /member 는 로그인한 교회 사용자면 역할과 무관하게 엽니다(리모컨·성도 앱).
+  if (
+    path === "/login" ||
+    path === "/setup" ||
+    path === "/denied" ||
+    path === "/receive" ||
+    path === "/remote" ||
+    path === "/member" ||
+    path.startsWith("/member/")
+  ) {
+    return true;
+  }
   const rule = PATH_RULES.find((item) => item.test(path));
   if (!rule) return false;
   return rule.caps.some((capability) => can(roles, capability));

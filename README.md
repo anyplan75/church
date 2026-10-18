@@ -17,6 +17,17 @@ npm run mobile:sync
 npx cap open ios
 ```
 
+## 성도(교인) 앱
+
+성도용 화면은 **`/member`** 입니다. 주보·가사·예배 안내·기도제목(목회자 전달)을 다룹니다. Remote·송출 앱과 분리되어 있습니다. 목회자·운영자는 **`/prayers`**(기도함)에서 받은 기도를 확인합니다. 안내: [`docs/member-app.md`](./docs/member-app.md).
+
+- 웹: `/member` (예: Surge 배포 후 `/member/`)
+- iOS 골격: 번들 `org.eunhye.worship.member`, 표시 이름 **은혜로운 예배 성도** (`capacitor.member.config.ts`, `ios-member/`)
+
+```bash
+npm run member:mobile:sync
+```
+
 ## 데스크톱 앱 설치
 
 송출은 Windows·Mac 모두 같은 로컬 직접연결(포트 `18765`)입니다. 조작 / 송출(메인) / 오버레이 세 가지로 실행합니다. 자세한 단계는 [`docs/desktop-install.md`](./docs/desktop-install.md)에 있습니다.

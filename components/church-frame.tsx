@@ -6,7 +6,14 @@ import { Nav } from "@/components/nav";
 import { SessionGuard } from "@/components/session-guard";
 import { ReminderWatcher } from "@/components/reminder-watcher";
 import { useChurch } from "@/components/church-state";
-import { isMobileOperatorApp, isMobileOperatorPath, MOBILE_REMOTE_HOME } from "@/lib/mobile-app";
+import {
+  isMobileMemberApp,
+  isMobileMemberPath,
+  isMobileOperatorApp,
+  isMobileOperatorPath,
+  MOBILE_MEMBER_HOME,
+  MOBILE_REMOTE_HOME,
+} from "@/lib/mobile-app";
 import { appNavigate } from "@/lib/mobile-nav";
 import { cleanPath } from "@/lib/page-path";
 import { rememberLanHost, restoreLanHost } from "@/lib/lan-link";
@@ -15,9 +22,14 @@ import { readOperatorService, startOperatorLink } from "@/lib/output-link";
 import { can, canOpenPath, homeFor } from "@/lib/roles";
 
 function landing(user: { kind: "platform" | "church"; churchId: string | null; roles: Parameters<typeof homeFor>[0] }) {
+  if (isMobileMemberApp()) return MOBILE_MEMBER_HOME;
   if (isMobileOperatorApp()) return MOBILE_REMOTE_HOME;
   if (user.kind === "platform" && !user.churchId) return "/platform";
   return homeFor(user.roles);
+}
+
+function isMemberShellPath(path: string): boolean {
+  return path === "/member" || path.startsWith("/member/") || path === "/prayers";
 }
 
 function isOutputPath(path: string): boolean {
@@ -66,6 +78,13 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
       go(landing(user));
       return;
     }
+    if (isMobileMemberApp()) {
+      if (!isMobileMemberPath(path)) {
+        go(MOBILE_MEMBER_HOME);
+        return;
+      }
+      return;
+    }
     if (isMobileOperatorApp()) {
       // 패드는 슬라이드 리모컨만. 데스크톱 역할(진행 등)로 /remote 를 막지 않습니다.
       if (!isMobileOperatorPath(path)) {
@@ -97,10 +116,10 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {user && db && path !== "/platform" && !output && !isMobileOperatorApp() ? (
+      {user && db && path !== "/platform" && !output && !isMobileOperatorApp() && !isMobileMemberApp() && !isMemberShellPath(path) ? (
         <Nav churchName={db.settings.churchName} email={user.email} roles={user.roles} platform={user.kind === "platform"} />
       ) : null}
-      {user && !output && !isMobileOperatorApp() && can(user.roles, "screen.prepare") ? <ReminderWatcher /> : null}
+      {user && !output && !isMobileOperatorApp() && !isMobileMemberApp() && can(user.roles, "screen.prepare") ? <ReminderWatcher /> : null}
       {user && !output ? <SessionGuard /> : null}
       {children}
     </>

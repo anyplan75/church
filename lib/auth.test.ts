@@ -133,6 +133,19 @@ describe("역할 조합", () => {
     assert.equal(canOpenPath([], "/remote"), true);
     assert.equal(can(["view"], "screen.live"), false);
   });
+
+  it("성도 앱(/member)은 로그인 사용자면 열고, 기도함은 목회·준비·진행·설정만", () => {
+    assert.equal(canOpenPath(["view"] satisfies Role[], "/member"), true);
+    assert.equal(canOpenPath(["view"], "/member/"), true);
+    assert.equal(canOpenPath([], "/member"), true);
+    assert.equal(can(["view"], "screen.member"), true);
+    assert.equal(can(["view"], "screen.prayers"), false);
+    assert.equal(canOpenPath(["view"], "/prayers"), false);
+    assert.equal(can(["admin"], "screen.prayers"), true);
+    assert.equal(canOpenPath(["admin"], "/prayers"), true);
+    assert.equal(can(["prepare"], "screen.prayers"), true);
+    assert.equal(can(["run"], "screen.prayers"), true);
+  });
 });
 
 describe("이메일 계정", () => {

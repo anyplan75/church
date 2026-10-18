@@ -544,6 +544,341 @@ a:focus-visible {
   font-size: 1.05rem;
 }
 
+/* —— 성도 앱 (/member) —— */
+.member-shell {
+  min-height: 100dvh;
+  width: min(42rem, 100%);
+  margin: 0 auto;
+  padding: 0 0 5rem;
+  background:
+    radial-gradient(720px 320px at 80% -8%, rgba(124, 48, 64, 0.12), transparent 55%),
+    radial-gradient(640px 280px at 10% 0%, rgba(27, 58, 50, 0.14), transparent 50%),
+    linear-gradient(180deg, #ebe4d6 0%, var(--color-paper) 38%, #e8efe9 100%);
+}
+
+.member-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 2.25rem 1.25rem 1.5rem;
+  color: #f6f1e6;
+  background:
+    linear-gradient(155deg, rgba(27, 58, 50, 0.92) 0%, rgba(33, 48, 42, 0.88) 45%, rgba(74, 38, 42, 0.9) 100%),
+    #1b3a32;
+}
+
+.member-hero-glow {
+  position: absolute;
+  inset: -20% 20% auto -10%;
+  height: 12rem;
+  background: radial-gradient(circle, rgba(232, 196, 120, 0.28), transparent 68%);
+  pointer-events: none;
+}
+
+.member-brand {
+  position: relative;
+  font-family: "Song Myung", "Noto Serif KR", serif;
+  font-size: clamp(1.85rem, 6vw, 2.35rem);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.member-title {
+  position: relative;
+  margin-top: 0.55rem;
+  font-family: var(--font-serif);
+  font-size: clamp(1.15rem, 3.5vw, 1.45rem);
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.member-lede {
+  position: relative;
+  margin-top: 0.65rem;
+  max-width: 22rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(246, 241, 230, 0.82);
+}
+
+.member-chip {
+  position: relative;
+  display: inline-block;
+  margin-top: 1rem;
+  font-size: 0.82rem;
+  color: #e8c478;
+}
+
+.member-hero-actions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.1rem;
+}
+
+.member-select select {
+  max-width: min(100%, 16rem);
+  border: 1px solid rgba(246, 241, 230, 0.28);
+  background: rgba(0, 0, 0, 0.2);
+  color: #f6f1e6;
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.member-link {
+  border: none;
+  background: transparent;
+  color: rgba(246, 241, 230, 0.85);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.member-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(4.2rem, 1fr));
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  background: rgba(255, 252, 247, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.member-tabs button {
+  border: none;
+  background: transparent;
+  border-radius: 0.65rem;
+  padding: 0.55rem 0.35rem;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.member-tabs button.is-on {
+  background: var(--color-pine-soft);
+  color: var(--color-pine);
+  font-weight: 700;
+}
+
+.member-main {
+  padding: 1.25rem 1.15rem 2rem;
+}
+
+.member-bulletin,
+.member-lyrics article,
+.member-info,
+.member-prayer,
+.member-inbox {
+  background: rgba(255, 252, 247, 0.92);
+  border: 1px solid rgba(224, 214, 198, 0.85);
+  border-radius: 1.1rem;
+  padding: 1.35rem 1.2rem 1.5rem;
+}
+
+.member-bulletin h2,
+.member-lyrics h2,
+.member-info h2,
+.member-prayer h2,
+.member-inbox h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(1.55rem, 4.5vw, 1.9rem);
+  line-height: 1.3;
+}
+
+.member-bulletin h3,
+.member-notices h3,
+.member-mine h3 {
+  margin-top: 1.4rem;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  text-align: center;
+}
+
+.member-kicker {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-gold);
+  text-align: center;
+}
+
+.member-bulletin h2,
+.member-sermon,
+.member-meta {
+  text-align: center;
+}
+
+.member-sermon {
+  margin-top: 0.65rem;
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+}
+
+.member-meta {
+  margin-top: 0.45rem;
+  font-size: 0.92rem;
+  color: var(--color-muted);
+}
+
+.member-bulletin ol,
+.member-notices ul,
+.member-prayer-list {
+  margin-top: 0.85rem;
+  list-style: none;
+  padding: 0;
+}
+
+.member-bulletin li,
+.member-notices li,
+.member-prayer-list li {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid rgba(224, 214, 198, 0.7);
+}
+
+.member-order-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.member-aside {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  text-align: right;
+}
+
+.member-note {
+  margin-top: 0.25rem;
+  padding-left: 0.85rem;
+  font-size: 0.88rem;
+  color: var(--color-muted);
+}
+
+.member-hint {
+  margin-top: 0.45rem;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.member-lyric-list {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.member-lyrics article.is-song {
+  background:
+    linear-gradient(160deg, rgba(27, 58, 50, 0.94), rgba(33, 48, 42, 0.9)),
+    #1b3a32;
+  color: #f6f1e6;
+  border-color: transparent;
+}
+
+.member-lyrics article.is-song .member-kicker,
+.member-lyrics article.is-song .member-aside {
+  color: rgba(232, 196, 120, 0.9);
+}
+
+.member-lyric-line {
+  margin-top: 0.45rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.member-dl {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.member-dl div {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.member-dl dt {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.member-dl dd {
+  font-size: 1rem;
+}
+
+.member-ok {
+  margin: 0.75rem 1.15rem 0;
+  color: var(--color-pine);
+  font-size: 0.9rem;
+}
+
+.member-err {
+  margin: 0.75rem 1.15rem 0;
+  color: var(--color-wine);
+  font-size: 0.9rem;
+}
+
+.member-inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+
+.member-inbox-actions button {
+  border: 1px solid var(--color-line);
+  background: white;
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.member-shell .animate-in {
+  animation: member-rise 420ms ease-out both;
+}
+
+@keyframes member-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 720px) {
+  .member-hero {
+    padding: 2.75rem 2rem 1.85rem;
+    border-radius: 0 0 1.5rem 1.5rem;
+  }
+
+  .member-main {
+    padding: 1.5rem 1.5rem 2.5rem;
+  }
+}
+
 @media print {
   body {
     background: white;

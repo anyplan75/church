@@ -10,11 +10,13 @@ import { can, homeFor, type Capability, type Role } from "@/lib/roles";
 
 const LINKS: { href: string; label: string; capability: Capability }[] = [
   { href: "/", label: "주보", capability: "screen.bulletin" },
+  { href: "/member", label: "성도", capability: "screen.member" },
   { href: "/week", label: "이번 주", capability: "screen.week" },
   { href: "/services", label: "예배", capability: "screen.services" },
   { href: "/people", label: "사람", capability: "screen.people" },
   { href: "/library", label: "라이브러리", capability: "screen.songs" },
   { href: "/community", label: "커뮤니티", capability: "screen.community" },
+  { href: "/prayers", label: "기도함", capability: "screen.prayers" },
   { href: "/settings", label: "설정", capability: "screen.settings" },
 ];
 

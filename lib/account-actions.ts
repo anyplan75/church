@@ -11,7 +11,7 @@ import {
   updateChurchMember,
   updateDb,
 } from "./app-db";
-import { isMobileOperatorApp, MOBILE_REMOTE_HOME } from "./mobile-app";
+import { isMobileMemberApp, isMobileOperatorApp, MOBILE_MEMBER_HOME, MOBILE_REMOTE_HOME } from "./mobile-app";
 import { go } from "./page-path";
 import { stopOperatorLink } from "./output-link";
 import { closeVisit } from "./simple";
@@ -42,7 +42,8 @@ export async function login(formData: FormData) {
   if (!email || !normalizePassword(password)) go("/login?error=1");
   const user = await loginWithPassword(email!, password.trim());
   if (!user) go("/login?error=1");
-  // Capacitor 앱은 역할·플랫폼 홈과 무관하게 항상 슬라이드 리모컨으로 갑니다.
+  // Capacitor 셸은 역할·플랫폼 홈과 무관하게 전용 홈으로 갑니다.
+  if (isMobileMemberApp()) go(MOBILE_MEMBER_HOME);
   if (isMobileOperatorApp()) go(MOBILE_REMOTE_HOME);
   if (user!.kind === "platform" && !user!.churchId) go("/platform");
   go(homeFor(user!.roles));
