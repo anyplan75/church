@@ -93,7 +93,7 @@
 | `community/regions/{regionId}` | `name`, `sido`, `district` |
 | `community/memberships/{uid}` | `regionId`, `sido`, `district`, `churchId`, `updatedAt` — 본인만 쓰기 |
 | `community/profiles/{uid}` | 닉네임·교인 인증 상태 |
-| `community/groups/{regionId}/{groupId}` | 모임(+ `members/{uid}`) |
+| `community/groups/{regionId}/{groupId}` | 모임(+ `members`, `posts`, `schedule`, `album`) |
 | `community/posts/{regionId}/{postId}` | 게시판 글(`free`\|`faith`\|`pray`\|`qna`\|`notice`\|`promo` 등, 예전 분류 호환), likes·views |
 | `community/posts/…/comments/{commentId}` | 댓글 본문·작성자·시각 |
 | `community/bookmarks/{uid}/{key}` | 북마크 |
