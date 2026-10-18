@@ -3,9 +3,16 @@ import { describe, it } from "node:test";
 import { canUseCommunity } from "./community-access.ts";
 import {
   cleanResourceUrl,
+  groupAlbumFromMap,
+  groupFromRaw,
+  groupPostsFromMap,
+  groupRoomHref,
+  groupScheduleFromMap,
   groupsFromMap,
   isBoardCategory,
+  isGroupRoomTab,
   isPostCategory,
+  membersFromMap,
   membershipFromRaw,
   normalizeBoardCategory,
   postBookmarkKey,
@@ -94,6 +101,7 @@ describe("community helpers", () => {
         category: "hobby",
         place: "체육관",
         schedule: "토",
+        description: "함께 운동해요",
         capacity: 10,
         members: { a: true, b: true, c: true },
         authorUid: "u2",
@@ -103,7 +111,43 @@ describe("community helpers", () => {
     });
     assert.equal(groups.length, 2);
     assert.equal(groups.find((g) => g.id === "grp-2")?.memberCount, 3);
+    assert.equal(groups.find((g) => g.id === "grp-2")?.description, "함께 운동해요");
     assert.equal(sortGroups(groups, "popular")[0]?.id, "grp-2");
+    assert.equal(groupFromRaw(groups.find((g) => g.id === "grp-1"), "grp-1")?.title, "QT");
+  });
+
+  it("parses group room members, posts, schedule, album", () => {
+    const members = membersFromMap(
+      {
+        owner: { nickname: "모임장", churchId: "c1", churchName: "은혜", joinedAt: 1, isOwner: true },
+        guest: true,
+        later: { nickname: "조집사", churchId: "c1", joinedAt: 3 },
+      },
+      "owner",
+    );
+    assert.equal(members[0]?.uid, "owner");
+    assert.equal(members[0]?.isOwner, true);
+    assert.equal(members.find((m) => m.uid === "guest")?.nickname, "멤버");
+    assert.equal(members.find((m) => m.uid === "later")?.nickname, "조집사");
+
+    const posts = groupPostsFromMap({
+      "gpost-1": { title: "인사", body: "안녕하세요", authorUid: "u1", authorNick: "A", churchId: "c1", createdAt: 2 },
+      "gpost-2": { title: "공지", body: "이번 주", authorUid: "u2", authorNick: "B", churchId: "c1", createdAt: 1 },
+    });
+    assert.equal(posts[0]?.id, "gpost-1");
+
+    const schedule = groupScheduleFromMap({
+      "gsch-1": { title: "첫 모임", when: "토 10시", place: "카페", authorUid: "u1", authorNick: "A", createdAt: 1 },
+    });
+    assert.equal(schedule[0]?.title, "첫 모임");
+
+    const album = groupAlbumFromMap({
+      "galb-1": { title: "사진", url: "https://example.com/a.jpg", note: "", authorUid: "u1", authorNick: "A", createdAt: 1 },
+    });
+    assert.equal(album[0]?.url, "https://example.com/a.jpg");
+    assert.equal(groupRoomHref("grp-1", "제주"), "/community/groups/?id=grp-1&region=%EC%A0%9C%EC%A3%BC");
+    assert.equal(isGroupRoomTab("board"), true);
+    assert.equal(isGroupRoomTab("other"), false);
   });
 
   it("parses profile and bookmark keys", () => {
@@ -124,11 +168,13 @@ describe("community helpers", () => {
 });
 
 describe("community access", () => {
-  it("lets every church role open /community", () => {
+  it("lets every church role open /community and group rooms", () => {
     for (const role of ["view", "prepare", "run", "output", "directory", "admin"] as Role[]) {
       assert.equal(can([role], "screen.community"), true);
       assert.equal(canOpenPath([role], "/community"), true);
       assert.equal(canOpenPath([role], "/community/"), true);
+      assert.equal(canOpenPath([role], "/community/groups"), true);
+      assert.equal(canOpenPath([role], "/community/groups/?id=grp-1&region=제주"), true);
     }
   });
 

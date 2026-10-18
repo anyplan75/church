@@ -18,7 +18,7 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="page !max-w-[480px] !pb-8">
+    <div className="page !max-w-3xl !pb-8">
       <CommunityApp />
     </div>
   );
