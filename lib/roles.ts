@@ -150,7 +150,7 @@ export function homeFor(roles: readonly Role[]): string {
   return "/denied";
 }
 
-export const WEB_OUTPUT_ORIGIN = "https://eunhye-church.surge.sh";
+export const WEB_OUTPUT_ORIGIN = "https://eunhye-church-app.surge.sh";
 
 export type ServiceLink = { href: string; label: string };
 

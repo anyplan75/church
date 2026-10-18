@@ -40,10 +40,10 @@ describe("송출 컴퓨터 주소", () => {
   });
 
   it("페이지 주소는 192.168 주소가 아니라고 가른다", () => {
-    const page = "https://eunhye-church.surge.sh/services/e554924c-79ae-47ff-8374-b43f55338c8b/output/?mode=overlay";
+    const page = "https://eunhye-church-app.surge.sh/services/e554924c-79ae-47ff-8374-b43f55338c8b/output/?mode=overlay";
     assert.equal(hostEntry(page).problem, "url");
     assert.equal(hostEntry(page).host, "");
-    assert.equal(hostEntry("eunhye-church.surge.sh/services/x/output").problem, "url");
+    assert.equal(hostEntry("eunhye-church-app.surge.sh/services/x/output").problem, "url");
     assert.deepEqual(hostEntry("192.168.0.10"), { host: "192.168.0.10", problem: "" });
     assert.equal(hostEntry("").problem, "");
     assert.equal(hostEntry("송출컴퓨터").problem, "invalid");
@@ -64,7 +64,7 @@ describe("송출 컴퓨터 주소", () => {
   it("설정에 넣은 송출 컴퓨터 IP를 자기 칸보다 먼저 쓴다", () => {
     assert.equal(outputSignalHost("192.168.0.10", "10.0.0.2", "10.1.1.1"), "192.168.0.10");
     assert.equal(outputSignalHost("", "10.0.0.2", "10.1.1.1"), "10.0.0.2");
-    assert.equal(outputSignalHost("https://eunhye-church.surge.sh/output", "", "192.168.0.10"), "192.168.0.10");
+    assert.equal(outputSignalHost("https://eunhye-church-app.surge.sh/output", "", "192.168.0.10"), "192.168.0.10");
     assert.equal(outputSignalHost("", "", ""), "");
   });
 });
