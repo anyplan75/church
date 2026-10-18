@@ -8,6 +8,9 @@ export type PrayerRequest = {
   authorUid: string;
   authorEmail: string;
   authorName: string;
+  /** 담당 목사 Firebase uid. 없으면 예전 공용 기도함. */
+  pastorUid: string;
+  pastorName: string;
   text: string;
   serviceId: string;
   serviceTitle: string;
@@ -55,6 +58,8 @@ export function buildPrayerRequest(input: {
   authorUid: string;
   authorEmail: string;
   authorName?: string;
+  pastorUid?: string;
+  pastorName?: string;
   text: string;
   serviceId?: string;
   serviceTitle?: string;
@@ -75,6 +80,12 @@ export function buildPrayerRequest(input: {
       .toLowerCase()
       .slice(0, 120),
     authorName: String(input.authorName || "")
+      .trim()
+      .slice(0, MAX_NAME),
+    pastorUid: String(input.pastorUid || "")
+      .trim()
+      .slice(0, 128),
+    pastorName: String(input.pastorName || "")
       .trim()
       .slice(0, MAX_NAME),
     text,
@@ -112,6 +123,12 @@ export function prayerFromRaw(id: string, raw: unknown): PrayerRequest | null {
     authorName: String(row.authorName || "")
       .trim()
       .slice(0, MAX_NAME),
+    pastorUid: String(row.pastorUid || "")
+      .trim()
+      .slice(0, 128),
+    pastorName: String(row.pastorName || "")
+      .trim()
+      .slice(0, MAX_NAME),
     text,
     serviceId: String(row.serviceId || "")
       .trim()
@@ -135,9 +152,20 @@ export function prayersFromMap(raw: unknown): PrayerRequest[] {
   return list.sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
 }
 
-/** 목회자·운영자가 받은 기도함에서 상태를 바꿀 수 있는지. */
+/** 목회·준비·진행 역할이면 기도함 메뉴를 열 수 있는지(설정·레거시). */
 export function canManagePrayers(roles: readonly string[]): boolean {
   return roles.some((role) => role === "admin" || role === "prepare" || role === "run");
+}
+
+/** 이 사용자가 그 기도제목의 담당 목사(또는 예전 공용 수신자)인지. */
+export function canSeePastorInbox(
+  user: { id: string; roles: readonly string[] },
+  row: PrayerRequest,
+  assignedPastorUid = "",
+): boolean {
+  if (row.pastorUid) return row.pastorUid === user.id;
+  if (assignedPastorUid) return assignedPastorUid === user.id;
+  return canManagePrayers(user.roles);
 }
 
 export function prayerStatusLabel(status: PrayerStatus): string {

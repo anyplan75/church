@@ -22,11 +22,10 @@ export const COMMUNITY_SIDO = [
 
 export type CommunitySido = (typeof COMMUNITY_SIDO)[number];
 
-/** 게시판 분류 (코니아 태그 스타일). 예전 notice/question/share/promo 도 읽기 호환 */
+/** 게시판 분류 (코니아 태그 스타일). 예전 notice/question/share/promo·pray 도 읽기 호환 */
 export const BOARD_CATEGORIES = [
   { id: "free", label: "자유게시판" },
   { id: "faith", label: "신앙" },
-  { id: "pray", label: "기도" },
   { id: "qna", label: "질문" },
   { id: "notice", label: "공지" },
   { id: "promo", label: "홍보" },
@@ -44,22 +43,29 @@ export const POST_CATEGORIES = [
 
 export type PostCategory = (typeof POST_CATEGORIES)[number]["id"] | BoardCategory;
 
+/** 모임 만들기·필터에 보이는 분류. 맛집·육아·연애·기도는 제외. */
 export const GROUP_CATEGORIES = [
   { id: "all", label: "전체", color: "#94a3b8", icon: "people" },
   { id: "faith", label: "신앙", color: "#a78bfa", icon: "church" },
   { id: "qt", label: "QT", color: "#60a5fa", icon: "book" },
-  { id: "pray", label: "기도", color: "#fb923c", icon: "hands" },
   { id: "praise", label: "찬양", color: "#f472b6", icon: "music" },
   { id: "sports", label: "운동", color: "#4ade80", icon: "dumbbell" },
-  { id: "dating", label: "연애", color: "#fb7185", icon: "heart" },
   { id: "jobs", label: "구인구직", color: "#818cf8", icon: "briefcase" },
   { id: "hobby", label: "취미", color: "#22d3ee", icon: "palette" },
   { id: "study", label: "스터디", color: "#c084fc", icon: "grad" },
+] as const;
+
+/** 예전에 만든 모임 표시용(새 만들기·필터에는 안 씀). */
+const LEGACY_GROUP_CATEGORIES = [
+  { id: "pray", label: "기도", color: "#fb923c", icon: "hands" },
+  { id: "dating", label: "연애", color: "#fb7185", icon: "heart" },
   { id: "parenting", label: "육아", color: "#fdba74", icon: "baby" },
   { id: "food", label: "맛집", color: "#f87171", icon: "utensils" },
 ] as const;
 
-export type GroupCategory = (typeof GROUP_CATEGORIES)[number]["id"];
+export type GroupCategory =
+  | (typeof GROUP_CATEGORIES)[number]["id"]
+  | (typeof LEGACY_GROUP_CATEGORIES)[number]["id"];
 
 export type CommunityMembership = {
   regionId: string;
@@ -244,7 +250,7 @@ const LEGACY_CATEGORY: Record<string, BoardCategory> = {
   promo: "promo",
   free: "free",
   faith: "faith",
-  pray: "pray",
+  pray: "faith",
   qna: "qna",
 };
 
@@ -266,12 +272,22 @@ export function categoryLabel(category: string): string {
   return POST_CATEGORIES.find((item) => item.id === category)?.label ?? "글";
 }
 
-export function isGroupCategory(value: string): value is Exclude<GroupCategory, "all"> {
+/** 새 모임 만들기에 쓸 수 있는 분류인지. */
+export function isGroupCategory(value: string): value is Exclude<(typeof GROUP_CATEGORIES)[number]["id"], "all"> {
   return GROUP_CATEGORIES.some((item) => item.id === value && item.id !== "all");
 }
 
+/** 예전 분류 포함, 저장된 모임을 읽을 때. */
+export function isStoredGroupCategory(value: string): value is Exclude<GroupCategory, "all"> {
+  return isGroupCategory(value) || LEGACY_GROUP_CATEGORIES.some((item) => item.id === value);
+}
+
 export function groupCategoryMeta(id: string) {
-  return GROUP_CATEGORIES.find((item) => item.id === id) ?? GROUP_CATEGORIES[0];
+  return (
+    GROUP_CATEGORIES.find((item) => item.id === id) ??
+    LEGACY_GROUP_CATEGORIES.find((item) => item.id === id) ??
+    GROUP_CATEGORIES[0]
+  );
 }
 
 export function cleanPostTitle(value: string): string {
@@ -432,7 +448,7 @@ export function groupsFromMap(raw: unknown): CommunityGroup[] {
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
     const row = value as Record<string, unknown>;
     const category = String(row.category || "");
-    if (!isGroupCategory(category)) continue;
+    if (!isStoredGroupCategory(category)) continue;
     const members = row.members;
     let memberCount = num(row.memberCount);
     if (!memberCount && members && typeof members === "object" && !Array.isArray(members)) {

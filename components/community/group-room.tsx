@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useChurch } from "@/components/church-state";
 import {
   GROUP_ROOM_TABS,
@@ -20,8 +21,10 @@ import {
   createGroupAlbumItem,
   createGroupPost,
   createGroupSchedule,
+  deleteCommunityGroup,
   deleteGroupSchedule,
   joinGroup,
+  leaveGroup,
   loadGroup,
   loadGroupAlbum,
   loadGroupMembers,
@@ -29,6 +32,7 @@ import {
   loadGroupSchedule,
   loadMembership,
   loadProfile,
+  removeGroupMember,
 } from "@/lib/community-db";
 import { canUseCommunity } from "@/lib/community-access";
 import { CategoryGlyph, IconPencil, IconPeople } from "./community-icons";
@@ -40,6 +44,7 @@ type Props = {
 
 export function GroupRoom({ groupId, regionId }: Props) {
   const { db, user, ready } = useChurch();
+  const router = useRouter();
   const churchName = db?.settings.churchName || "내 교회";
 
   const [tab, setTab] = useState<GroupRoomTab>("home");
@@ -51,6 +56,8 @@ export function GroupRoom({ groupId, regionId }: Props) {
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<GroupPost | null>(null);
   const [resolvedRegion, setResolvedRegion] = useState(regionId);
 
   const refresh = useCallback(async (rid: string, gid: string) => {
@@ -130,6 +137,7 @@ export function GroupRoom({ groupId, regionId }: Props) {
 
   const meta = groupCategoryMeta(group.category);
   const isMember = Boolean(user && members.some((m) => m.uid === user.id));
+  const isOwner = Boolean(user && group.authorUid === user.id);
   const nick = profile?.nickname || nicknameFromEmail(user?.email || "");
 
   async function handleJoin() {
@@ -148,6 +156,53 @@ export function GroupRoom({ groupId, regionId }: Props) {
     }
   }
 
+  async function handleLeave() {
+    if (!group || !resolvedRegion) return;
+    if (!window.confirm("이 모임에서 나가시겠어요?")) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      await leaveGroup(resolvedRegion, group);
+      setSettingsOpen(false);
+      router.push("/community/");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "나가지 못했습니다.");
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!group || !resolvedRegion) return;
+    if (!window.confirm("모임을 삭제하면 게시글·일정·앨범이 모두 사라집니다. 삭제할까요?")) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      await deleteCommunityGroup(resolvedRegion, group);
+      setSettingsOpen(false);
+      router.push("/community/");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "삭제하지 못했습니다.");
+      setBusy(false);
+    }
+  }
+
+  async function handleRemoveMember(uid: string) {
+    if (!group || !resolvedRegion) return;
+    if (!window.confirm("이 멤버를 모임에서 내보낼까요?")) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const next = await removeGroupMember(resolvedRegion, group, uid);
+      setGroup(next);
+      await refresh(resolvedRegion, group.id);
+      setNotice("멤버를 내보냈습니다.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "내보내지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-[#e8ecf2] bg-white shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
       <div className="relative overflow-hidden bg-gradient-to-br from-[#1a233a] via-[#243352] to-[#3d4f73] px-5 pb-5 pt-4 text-white sm:px-8 sm:pt-6">
@@ -157,25 +212,36 @@ export function GroupRoom({ groupId, regionId }: Props) {
           <Link href="/community/" className="text-sm text-white/80 hover:text-white">
             ← 모임 목록
           </Link>
-          {!isMember ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void handleJoin()}
-              className="rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-[#1a233a] disabled:opacity-60"
-            >
-              {busy ? "참여 중…" : "참여하기"}
-            </button>
-          ) : (
-            <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-white/90">참여 중</span>
-          )}
+          <div className="flex items-center gap-2">
+            {isMember ? (
+              <button
+                type="button"
+                onClick={() => setSettingsOpen((v) => !v)}
+                className="rounded-full bg-white/15 px-3 py-1 text-xs text-white/90 hover:bg-white/25"
+              >
+                설정
+              </button>
+            ) : null}
+            {!isMember ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleJoin()}
+                className="rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-[#1a233a] disabled:opacity-60"
+              >
+                {busy ? "참여 중…" : "참여하기"}
+              </button>
+            ) : (
+              <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-white/90">참여 중</span>
+            )}
+          </div>
         </div>
         <div className="relative mt-5 flex items-end gap-4">
           <div
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl shadow-lg sm:h-20 sm:w-20"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-lg sm:h-14 sm:w-14"
             style={{ background: meta.color }}
           >
-            <CategoryGlyph icon={meta.icon} className="h-8 w-8 text-white sm:h-9 sm:w-9" />
+            <CategoryGlyph icon={meta.icon} className="h-5 w-5 text-white sm:h-6 sm:w-6" />
           </div>
           <div className="min-w-0 flex-1 pb-1">
             <p className="text-xs font-medium text-white/70">{meta.label}</p>
@@ -186,6 +252,39 @@ export function GroupRoom({ groupId, regionId }: Props) {
           </div>
         </div>
       </div>
+
+      {settingsOpen && isMember ? (
+        <div className="border-b border-[#eef1f6] bg-[#fafbfc] px-4 py-4 sm:px-8">
+          <h2 className="text-sm font-bold text-[#1a233a]">모임 설정</h2>
+          <p className="mt-1 text-xs text-[#6b7280]">
+            {isOwner ? "모임장이면 모임을 삭제할 수 있습니다." : "나가면 더 이상 게시판·일정에 글을 쓸 수 없습니다."}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {!isOwner ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleLeave()}
+                className="rounded-lg border border-[#ef4444]/40 px-3 py-2 text-sm font-medium text-[#ef4444] disabled:opacity-60"
+              >
+                모임 나가기
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleDelete()}
+                className="rounded-lg bg-[#ef4444] px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+              >
+                모임 삭제
+              </button>
+            )}
+            <button type="button" className="rounded-lg bg-white px-3 py-2 text-sm text-[#6b7280]" onClick={() => setSettingsOpen(false)}>
+              닫기
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex gap-1 overflow-x-auto border-b border-[#eef1f6] px-2 sm:px-4">
         {GROUP_ROOM_TABS.map((item) => (
@@ -204,16 +303,31 @@ export function GroupRoom({ groupId, regionId }: Props) {
 
       <div className="min-h-[420px] px-4 py-5 sm:px-8 sm:py-6">
         {tab === "home" ? (
-          <HomePane group={group} members={members} posts={posts} schedule={schedule} />
+          <HomePane
+            group={group}
+            members={members}
+            posts={posts}
+            schedule={schedule}
+            isOwner={isOwner}
+            busy={busy}
+            onRemoveMember={(uid) => void handleRemoveMember(uid)}
+            onOpenPost={(post) => {
+              setSelectedPost(post);
+              setTab("board");
+            }}
+          />
         ) : null}
         {tab === "board" ? (
           <BoardPane
             posts={posts}
             canWrite={isMember}
             nick={nick}
+            selected={selectedPost}
+            onSelect={setSelectedPost}
             onCreate={async (title, body) => {
               const row = await createGroupPost(resolvedRegion, group.id, title, body, nick);
               setPosts((prev) => [row, ...prev]);
+              setSelectedPost(row);
             }}
             setNotice={setNotice}
           />
@@ -262,11 +376,19 @@ function HomePane({
   members,
   posts,
   schedule,
+  isOwner,
+  busy,
+  onRemoveMember,
+  onOpenPost,
 }: {
   group: CommunityGroup;
   members: GroupMember[];
   posts: GroupPost[];
   schedule: GroupScheduleItem[];
+  isOwner: boolean;
+  busy: boolean;
+  onRemoveMember: (uid: string) => void;
+  onOpenPost: (post: GroupPost) => void;
 }) {
   return (
     <div className="space-y-8">
@@ -302,11 +424,14 @@ function HomePane({
         </div>
         <ul className="mt-3 divide-y divide-[#f1f3f7]">
           {members.length === 0 ? (
-            <li className="py-6 text-center text-sm text-[#9aa3b2]">아직 멤버가 없습니다</li>
+            <li className="py-10 text-center">
+              <p className="text-sm text-[#9aa3b2]">아직 멤버가 없습니다</p>
+              <p className="mt-1 text-xs text-[#c4c9d4]">모임에 참여하면 여기에 이름이 보입니다</p>
+            </li>
           ) : (
             members.map((m) => (
               <li key={m.uid} className="flex items-center gap-3 py-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#eef2ff] text-xs font-semibold text-[#4338ca]">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eef2ff] text-xs font-semibold text-[#4338ca]">
                   {(m.nickname || "?").slice(0, 1)}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -316,6 +441,16 @@ function HomePane({
                   </p>
                   <p className="truncate text-xs text-[#9aa3b2]">{m.churchName || "교회"}</p>
                 </div>
+                {isOwner && !m.isOwner ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onRemoveMember(m.uid)}
+                    className="shrink-0 text-xs text-[#ef4444] disabled:opacity-60"
+                  >
+                    내보내기
+                  </button>
+                ) : null}
               </li>
             ))
           )}
@@ -332,17 +467,31 @@ function HomePane({
             </p>
           </div>
         </section>
-      ) : null}
+      ) : (
+        <section>
+          <h2 className="text-sm font-bold text-[#1a233a]">다가오는 일정</h2>
+          <p className="mt-3 py-6 text-center text-sm text-[#9aa3b2]">등록된 일정이 없습니다</p>
+        </section>
+      )}
 
       {posts[0] ? (
         <section>
           <h2 className="text-sm font-bold text-[#1a233a]">최근 게시글</h2>
-          <div className="mt-2 rounded-xl border border-[#eef1f6] px-4 py-3">
+          <button
+            type="button"
+            onClick={() => onOpenPost(posts[0]!)}
+            className="mt-2 w-full rounded-xl border border-[#eef1f6] px-4 py-3 text-left hover:bg-[#fafbfc]"
+          >
             <p className="font-medium text-[#111827]">{posts[0].title}</p>
             <p className="mt-1 line-clamp-2 text-sm text-[#6b7280]">{posts[0].body}</p>
-          </div>
+          </button>
         </section>
-      ) : null}
+      ) : (
+        <section>
+          <h2 className="text-sm font-bold text-[#1a233a]">최근 게시글</h2>
+          <p className="mt-3 py-6 text-center text-sm text-[#9aa3b2]">아직 게시글이 없습니다</p>
+        </section>
+      )}
     </div>
   );
 }
@@ -351,12 +500,16 @@ function BoardPane({
   posts,
   canWrite,
   nick,
+  selected,
+  onSelect,
   onCreate,
   setNotice,
 }: {
   posts: GroupPost[];
   canWrite: boolean;
   nick: string;
+  selected: GroupPost | null;
+  onSelect: (post: GroupPost | null) => void;
   onCreate: (title: string, body: string) => Promise<void>;
   setNotice: (v: string) => void;
 }) {
@@ -380,19 +533,39 @@ function BoardPane({
     }
   }
 
+  if (selected) {
+    return (
+      <div>
+        <button type="button" className="text-sm text-[#3b82f6]" onClick={() => onSelect(null)}>
+          ← 목록
+        </button>
+        <h2 className="mt-3 text-lg font-bold text-[#111827]">{selected.title}</h2>
+        <p className="mt-1 text-xs text-[#9aa3b2]">
+          {selected.authorNick || nick} · {formatCommunityWhen(selected.createdAt)}
+        </p>
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#4b5563]">{selected.body}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="relative pb-16">
       {posts.length === 0 ? (
-        <p className="py-12 text-center text-sm text-[#9aa3b2]">아직 게시글이 없습니다</p>
+        <div className="py-14 text-center">
+          <p className="text-sm text-[#9aa3b2]">아직 게시글이 없습니다</p>
+          <p className="mt-1 text-xs text-[#c4c9d4]">{canWrite ? "첫 글을 남겨 모임을 시작해 보세요" : "참여하면 글을 쓸 수 있습니다"}</p>
+        </div>
       ) : (
         <ul className="divide-y divide-[#f1f3f7]">
           {posts.map((p) => (
-            <li key={p.id} className="py-4">
-              <p className="font-semibold text-[#111827]">{p.title}</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[#4b5563]">{p.body}</p>
-              <p className="mt-2 text-xs text-[#9aa3b2]">
-                {p.authorNick || nick} · {formatCommunityWhen(p.createdAt)}
-              </p>
+            <li key={p.id}>
+              <button type="button" onClick={() => onSelect(p)} className="w-full py-4 text-left hover:bg-[#fafbfc]">
+                <p className="font-semibold text-[#111827]">{p.title}</p>
+                <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-[#4b5563]">{p.body}</p>
+                <p className="mt-2 text-xs text-[#9aa3b2]">
+                  {p.authorNick || nick} · {formatCommunityWhen(p.createdAt)}
+                </p>
+              </button>
             </li>
           ))}
         </ul>

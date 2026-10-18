@@ -466,6 +466,59 @@ export async function joinGroup(
   }
 }
 
+/** 모임 나가기. 모임장은 나가기 대신 모임을 삭제해야 합니다. */
+export async function leaveGroup(regionId: string, group: CommunityGroup): Promise<void> {
+  const user = requireCommunityUser();
+  if (!regionId || !group.id) throw new Error("모임을 다시 열어 주세요.");
+  if (group.authorUid === user.id) {
+    throw new Error("모임장은 나갈 수 없습니다. 모임을 삭제해 주세요.");
+  }
+  try {
+    const token = await authToken();
+    await dbSet(`community/groups/${regionId}/${group.id}/members/${user.id}`, null, token);
+    const nextCount = Math.max(0, group.memberCount - 1);
+    await dbPatch(`community/groups/${regionId}/${group.id}`, { memberCount: nextCount }, token);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+/** 모임장(또는 생성자)이 모임 전체를 삭제합니다. */
+export async function deleteCommunityGroup(regionId: string, group: CommunityGroup): Promise<void> {
+  const user = requireCommunityUser();
+  if (!regionId || !group.id) throw new Error("모임을 다시 열어 주세요.");
+  if (group.authorUid !== user.id) throw new Error("모임장만 모임을 삭제할 수 있습니다.");
+  try {
+    const token = await authToken();
+    await dbSet(`community/groups/${regionId}/${group.id}`, null, token);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+/** 모임장이 멤버를 내보냅니다. */
+export async function removeGroupMember(
+  regionId: string,
+  group: CommunityGroup,
+  memberUid: string,
+): Promise<CommunityGroup> {
+  const user = requireCommunityUser();
+  if (!regionId || !group.id) throw new Error("모임을 다시 열어 주세요.");
+  if (group.authorUid !== user.id) throw new Error("모임장만 멤버를 내보낼 수 있습니다.");
+  const uid = String(memberUid || "").trim();
+  if (!uid) throw new Error("멤버를 다시 확인해 주세요.");
+  if (uid === group.authorUid) throw new Error("모임장은 내보낼 수 없습니다.");
+  try {
+    const token = await authToken();
+    await dbSet(`community/groups/${regionId}/${group.id}/members/${uid}`, null, token);
+    const memberCount = Math.max(0, group.memberCount - 1);
+    await dbPatch(`community/groups/${regionId}/${group.id}`, { memberCount }, token);
+    return { ...group, memberCount };
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
 export async function loadGroup(regionId: string, groupId: string): Promise<CommunityGroup | null> {
   requireCommunityUser();
   if (!regionId || !groupId) return null;

@@ -67,11 +67,13 @@ export function isMobileOperatorPath(pathname: string): boolean {
   return false;
 }
 
-/** 성도 앱에서 열어 두는 경로. */
+/** 성도 앱에서 열어 두는 경로. 커뮤니티·기도함도 성도 셸 안에서만 켭니다. */
 export function isMobileMemberPath(pathname: string): boolean {
   const path = cleanPath(pathname);
   if (path === "/login" || path === "/setup" || path === "/denied") return true;
   if (path === MOBILE_MEMBER_HOME || path.startsWith(`${MOBILE_MEMBER_HOME}/`)) return true;
+  if (path === "/community" || path.startsWith("/community/")) return true;
+  if (path === "/prayers") return true;
   return false;
 }
 
