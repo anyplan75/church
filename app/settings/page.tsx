@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AccountPanel } from "@/components/account-panel";
+import { ChurchProfileEditor } from "@/components/church-profile-editor";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { deleteGroup, finishSetup, saveGroup, updateSettings } from "@/lib/actions";
@@ -9,6 +10,7 @@ import { listAccounts, storedBackgroundUrl } from "@/lib/app-db";
 import { ChromeOutputLinks } from "@/components/chrome-output-links";
 import { OutputTargetField } from "@/components/output-target";
 import { hostEntry } from "@/lib/output-host";
+import { can } from "@/lib/roles";
 import { captionSize, formatVisit, settingsReady, setupComplete } from "@/lib/simple";
 
 const OVERLAYS = [
@@ -19,7 +21,7 @@ const OVERLAYS = [
 ] as const;
 
 export default function SettingsPage() {
-  const { ready, user, db } = useChurch();
+  const { ready, user, db, churchProfile } = useChurch();
   const query = useClientQuery();
   const [hostDraft, setHostDraft] = useState("");
   const [hostTouched, setHostTouched] = useState(false);
@@ -32,6 +34,14 @@ export default function SettingsPage() {
   const accounts = listAccounts();
   const missing = setupGaps(settings);
   const hostProblem = hostEntry(hostDraft).problem;
+  const canEditProfile = Boolean(user.churchId) && (user.kind === "platform" || can(user.roles, "mutate.admin"));
+  const profileDraft = {
+    id: user.churchId || churchProfile?.id || "",
+    name: churchProfile?.name || settings.churchName,
+    address: churchProfile?.address,
+    lat: churchProfile?.lat,
+    lng: churchProfile?.lng,
+  };
 
   return (
     <div className="page max-w-3xl">
@@ -39,13 +49,22 @@ export default function SettingsPage() {
       <p className="mt-2 text-muted">예배마다 같은 기본값은 여기에 두고, 예배마다 다른 담당은 사람 그룹으로 고릅니다. 이 설정이 끝나기 전에는 예배를 시작할 수 없습니다.</p>
       {settingsReady(settings) ? <p className="mt-4 text-sm text-pine">메인 설정을 마쳤습니다.</p> : null}
       {query.saved ? <p className="mt-4 text-sm text-pine">설정을 저장했습니다.</p> : null}
+      {query.profileSaved ? <p className="mt-4 text-sm text-pine">교회 정보를 저장했습니다.</p> : null}
       {query.error === "empty" ? <p className="mt-4 text-sm text-wine">교회 이름을 입력해 주세요.</p> : null}
+      {query.error === "name" ? <p className="mt-4 text-sm text-wine">교회 이름을 입력해 주세요.</p> : null}
+      {query.error === "denied" ? <p className="mt-4 text-sm text-wine">교회 정보를 저장하지 못했습니다.</p> : null}
       {query.error === "host" ? <p className="mt-4 text-sm text-wine">이 송출 컴퓨터의 IP만 넣어 주세요. 예: 192.168.0.10</p> : null}
       {query.error === "url" || hostProblem === "url" ? <p className="mt-4 text-sm text-wine">192.168 주소를 넣어 주세요.</p> : null}
       {query.error === "image" ? <p className="mt-4 text-sm text-wine">배경 그림은 5MB 이하의 JPG, PNG, WEBP로 올려 주세요.</p> : null}
       {query.error === "group" ? <p className="mt-4 text-sm text-wine">그룹 이름과 사람을 한 명 이상 골라 주세요.</p> : null}
       {query.error === "setup" ? (
         <p className="mt-4 text-sm text-wine">아직 메인 설정을 마칠 수 없습니다. {missing.join(" ")}</p>
+      ) : null}
+
+      {canEditProfile && profileDraft.id ? (
+        <section className="card mt-6 space-y-4 p-5" id="church-profile-edit">
+          <ChurchProfileEditor key={`${profileDraft.id}-${profileDraft.address || ""}-${profileDraft.lat || ""}`} church={profileDraft} returnTo="/settings" />
+        </section>
       ) : null}
 
       <form action={updateSettings} autoComplete="off" className="card mt-6 space-y-4 p-5">

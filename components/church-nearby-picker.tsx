@@ -23,13 +23,15 @@ type Props = {
   churches: ChurchRow[];
   /** 주변 교회를 골랐을 때 (기존 교회 열기) */
   onSelectExisting?: (churchId: string) => void;
+  /** 주변 교회 정보 수정 */
+  onEditExisting?: (churchId: string) => void;
   /** 주소 검색 결과가 바뀌면 숨은 필드용 값 전달 */
   onGeocoded?: (fields: GeocodedChurchFields | null) => void;
   /** 기본 주소 (폼 초기값) */
   defaultAddress?: string;
 };
 
-export function ChurchNearbyPicker({ churches, onSelectExisting, onGeocoded, defaultAddress = "" }: Props) {
+export function ChurchNearbyPicker({ churches, onSelectExisting, onEditExisting, onGeocoded, defaultAddress = "" }: Props) {
   const [address, setAddress] = useState(defaultAddress);
   const [radiusKm, setRadiusKm] = useState<NearbyRadiusKm>(DEFAULT_NEARBY_RADIUS_KM);
   const [origin, setOrigin] = useState<{ lat: number; lng: number; displayName: string } | null>(null);
@@ -125,11 +127,18 @@ export function ChurchNearbyPicker({ churches, onSelectExisting, onGeocoded, def
                       {church.address ? ` · ${church.address}` : ""}
                     </p>
                   </div>
-                  {onSelectExisting ? (
-                    <button type="button" className="btn btn-quiet btn-small" onClick={() => onSelectExisting(church.id)}>
-                      이 교회 열기
-                    </button>
-                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    {onEditExisting ? (
+                      <button type="button" className="btn btn-quiet btn-small" onClick={() => onEditExisting(church.id)}>
+                        교회 정보 수정
+                      </button>
+                    ) : null}
+                    {onSelectExisting ? (
+                      <button type="button" className="btn btn-quiet btn-small" onClick={() => onSelectExisting(church.id)}>
+                        이 교회 열기
+                      </button>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>

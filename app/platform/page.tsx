@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { logout } from "@/lib/account-actions";
 import { addChurch, openChurch } from "@/lib/platform-actions";
 import { useChurch, useClientQuery } from "@/components/church-state";
 import { ChurchNearbyPicker, type GeocodedChurchFields } from "@/components/church-nearby-picker";
+import { ChurchProfileEditor } from "@/components/church-profile-editor";
 import { RoleFields } from "@/components/role-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { PRODUCT_NAME } from "@/lib/brand";
@@ -25,6 +26,18 @@ export default function PlatformPage() {
   const { ready, user, churches, error } = useChurch();
   const query = useClientQuery();
   const [geo, setGeo] = useState<GeocodedChurchFields | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (query.edit) setEditingId(query.edit);
+  }, [query.edit]);
+
+  const editing = useMemo(() => churches.find((church) => church.id === editingId) || null, [churches, editingId]);
+
+  useEffect(() => {
+    if (!editingId) return;
+    document.getElementById("church-profile-edit")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [editingId]);
 
   if (!ready || !user || user.kind !== "platform") return null;
 
@@ -35,7 +48,7 @@ export default function PlatformPage() {
           <p className="text-sm font-semibold text-gold">{PRODUCT_NAME}</p>
           <h1 className="mt-1 font-serif text-4xl">교회</h1>
           <p className="mt-2 text-muted">
-            주소로 주변 교회를 찾아 열거나, 같은 주소에 새 교회와 운영자 계정을 만듭니다. 교회 운영자는 자기 교회만 봅니다.
+            먼저 「교회 주소」를 넣고 주변 교회를 찾습니다. 기존 교회는 열거나 정보를 수정할 수 있고, 없으면 아래에서 새로 만듭니다.
           </p>
         </div>
         <div className="flex gap-2">
@@ -52,12 +65,15 @@ export default function PlatformPage() {
       <p className="mt-4 text-sm text-muted">{user.email}</p>
       {error ? <p className="mt-4 text-sm text-wine">{error}</p> : null}
       {query.saved ? <p className="mt-4 text-sm text-pine">교회와 운영자 계정을 만들었습니다.</p> : null}
+      {query.profileSaved ? <p className="mt-4 text-sm text-pine">교회 정보를 저장했습니다.</p> : null}
 
       <section className="card mt-6 space-y-4 p-5">
-        <h2 className="font-serif text-3xl">주소로 교회 찾기</h2>
+        <h2 className="font-serif text-3xl">주변 교회 찾기</h2>
+        <p className="text-sm text-muted">교회 주소를 입력한 뒤 「주변 교회 찾기」를 누르면, 가까운 기존 교회를 고르거나 같은 주소로 새 교회를 만들 수 있습니다.</p>
         <ChurchNearbyPicker
           churches={churches}
           onGeocoded={setGeo}
+          onEditExisting={setEditingId}
           onSelectExisting={(id) => {
             const data = new FormData();
             data.set("id", id);
@@ -66,27 +82,41 @@ export default function PlatformPage() {
         />
       </section>
 
+      {editing ? (
+        <section className="card mt-6 space-y-4 p-5" id="church-profile-edit">
+          <ChurchProfileEditor church={editing} returnTo="/platform" onCancel={() => setEditingId(null)} />
+        </section>
+      ) : null}
+
       <section className="card mt-6 p-5">
         <h2 className="font-serif text-3xl">교회 목록</h2>
+        <p className="mt-2 text-sm text-muted">등록된 교회를 열거나, 교회 정보(주소 포함)를 수정합니다.</p>
         {churches.length === 0 ? <p className="mt-3 text-muted">아직 교회가 없습니다.</p> : null}
         <div className="mt-4 space-y-3">
           {churches.map((church) => (
-            <form key={church.id} action={openChurch} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white px-4 py-3">
-              <input type="hidden" name="id" value={church.id} />
+            <div key={church.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white px-4 py-3">
               <div className="min-w-0">
                 <p className="font-semibold">{church.name}</p>
                 <p className="text-sm text-muted">{church.operatorEmail}</p>
-                {church.address ? <p className="text-sm text-muted">{church.address}</p> : null}
+                {church.address ? <p className="text-sm text-muted">{church.address}</p> : <p className="text-sm text-wine">주소 없음 · 수정에서 교회 주소를 넣어 주세요</p>}
               </div>
-              <SubmitButton className="btn btn-quiet">이 교회 열기</SubmitButton>
-            </form>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn btn-quiet btn-small" onClick={() => setEditingId(church.id)}>
+                  교회 정보 수정
+                </button>
+                <form action={openChurch}>
+                  <input type="hidden" name="id" value={church.id} />
+                  <SubmitButton className="btn btn-quiet btn-small">이 교회 열기</SubmitButton>
+                </form>
+              </div>
+            </div>
           ))}
         </div>
       </section>
 
       <form action={addChurch} autoComplete="off" className="card mt-6 space-y-4 p-5">
         <h2 className="font-serif text-3xl">교회 추가</h2>
-        <p className="text-sm text-muted">위에서 주소를 찾은 뒤, 맞는 교회가 없으면 여기서 새로 만듭니다. 찾은 좌표가 함께 저장됩니다.</p>
+        <p className="text-sm text-muted">위에서 교회 주소로 위치를 찾은 뒤, 맞는 교회가 없으면 여기서 새로 만듭니다. 찾은 좌표가 함께 저장됩니다.</p>
         {query.error ? <p className="text-sm text-wine">{ERRORS[query.error] ?? "교회를 추가하지 못했습니다."}</p> : null}
         <input type="hidden" name="lat" value={geo?.lat || ""} />
         <input type="hidden" name="lng" value={geo?.lng || ""} />
@@ -96,7 +126,7 @@ export default function PlatformPage() {
             저장될 위치: {geo.displayName} ({geo.lat}, {geo.lng})
           </p>
         ) : (
-          <p className="text-sm text-muted">주소 검색을 하지 않아도 만들 수 있지만, 주변 검색에는 좌표가 필요합니다.</p>
+          <p className="text-sm text-muted">위 「주변 교회 찾기」에서 교회 주소를 먼저 찾으면 좌표가 함께 저장됩니다.</p>
         )}
         <label className="field">
           <span>교회 이름</span>

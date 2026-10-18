@@ -1,5 +1,5 @@
 import { normalizeEmail, normalizePassword } from "./account-rules";
-import { addChurchWithOperator, enterChurch, leaveChurch } from "./app-db";
+import { addChurchWithOperator, enterChurch, leaveChurch, updateChurchProfile } from "./app-db";
 import { go } from "./page-path";
 
 function text(formData: FormData, key: string): string {
@@ -36,6 +36,24 @@ export async function openChurch(formData: FormData) {
   const id = text(formData, "id").trim();
   await enterChurch(id);
   go("/");
+}
+
+export async function saveChurchProfile(formData: FormData) {
+  const churchId = text(formData, "churchId").trim();
+  const name = text(formData, "name");
+  const address = text(formData, "address").trim().slice(0, 200);
+  const latRaw = text(formData, "lat").trim();
+  const lngRaw = text(formData, "lng").trim();
+  const lat = latRaw ? Number(latRaw) : undefined;
+  const lng = lngRaw ? Number(lngRaw) : undefined;
+  const returnTo = text(formData, "returnTo").trim() || "/platform";
+  const base = returnTo.startsWith("/") ? returnTo.split("?")[0] || "/platform" : "/platform";
+  const result = await updateChurchProfile({ churchId, name, address, lat, lng });
+  if (!result.ok) {
+    go(`${base}?error=${encodeURIComponent(result.code)}&edit=${encodeURIComponent(churchId)}`);
+    return;
+  }
+  go(`${base}?profileSaved=1`);
 }
 
 export async function backToChurches() {
