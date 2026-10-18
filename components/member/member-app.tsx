@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { logout } from "@/lib/account-actions";
 import { useChurch, useClientQuery } from "@/components/church-state";
@@ -7,7 +8,7 @@ import {
   memberViewsFromDb,
   pickReasonLabel,
 } from "@/lib/member-bulletin";
-import { canManagePrayers, prayerStatusLabel, type PrayerRequest, type PrayerStatus } from "@/lib/prayer-requests";
+import { canSeePastorInbox, prayerStatusLabel, type PrayerRequest, type PrayerStatus } from "@/lib/prayer-requests";
 import { loadPrayerRequests, submitPrayerRequest, updatePrayerStatus } from "@/lib/prayer-db";
 import { can } from "@/lib/roles";
 
@@ -35,8 +36,17 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
   const selectedFromQuery = typeof query.service === "string" ? query.service : "";
   const effectiveId = serviceId || selectedFromQuery;
   const views = db ? memberViewsFromDb(db, effectiveId) : null;
-  const pastor = user ? canManagePrayers(user.roles) : false;
+  const assignedPastorUid = db?.settings.pastorUid || "";
+  const assignedPastorName = db?.settings.pastorName || "";
+  const pastor = user
+    ? assignedPastorUid
+      ? assignedPastorUid === user.id
+      : can(user.roles, "screen.prayers")
+    : false;
   const tabs = pastor ? [...TABS, { id: "inbox" as const, label: "받은기도" }] : TABS;
+  const inbox = user
+    ? prayers.filter((row) => canSeePastorInbox(user, row, assignedPastorUid))
+    : [];
 
   useEffect(() => {
     if (initialTab === "inbox" && !pastor) setTab("prayer");
@@ -147,6 +157,11 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
                 ))}
               </select>
             </label>
+          ) : null}
+          {can(user.roles, "screen.community") ? (
+            <Link href="/community/" className="member-link">
+              커뮤니티
+            </Link>
           ) : null}
           <button type="button" className="member-link" onClick={() => void logout().catch(() => undefined)}>
             나가기
@@ -283,9 +298,9 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
             ) : (
               <p className="member-hint">등록된 광고가 없습니다.</p>
             )}
-            {can(user.roles, "screen.prayers") ? (
+            {pastor ? (
               <p className="member-hint mt-4">
-                목회자·운영자는 상단 <strong>받은기도</strong> 또는 메뉴의 <strong>기도함</strong>에서 성도 기도제목을 확인합니다.
+                담당 목사님은 상단 <strong>받은기도</strong>에서 성도 기도제목을 확인합니다.
               </p>
             ) : null}
           </section>
@@ -294,7 +309,11 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
         {tab === "prayer" ? (
           <section className="member-prayer animate-in">
             <h2>기도제목 보내기</h2>
-            <p className="member-hint">작성한 내용만 목회자·운영자 계정에 전달됩니다. 다른 성도에게는 보이지 않습니다.</p>
+            <p className="member-hint">
+              {assignedPastorUid
+                ? `담당 목사님${assignedPastorName ? ` (${assignedPastorName})` : ""}에게만 전달됩니다. 다른 성도에게는 보이지 않습니다.`
+                : "담당 목사님이 아직 정해지지 않았습니다. 교회 설정에서 담당 목사를 지정한 뒤 보내 주세요."}
+            </p>
             <label className="field">
               <span>이름 (선택)</span>
               <input className="input" value={prayerName} maxLength={40} onChange={(event) => setPrayerName(event.target.value)} placeholder="이름 또는 호칭" />
@@ -309,8 +328,8 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
                 placeholder="함께 기도해 주세요."
               />
             </label>
-            <button type="button" className="btn btn-primary mt-4 w-full" disabled={pending} onClick={sendPrayer}>
-              {pending ? "보내는 중…" : "목회자에게 보내기"}
+            <button type="button" className="btn btn-primary mt-4 w-full" disabled={pending || !assignedPastorUid} onClick={sendPrayer}>
+              {pending ? "보내는 중…" : "담당 목사님께 보내기"}
             </button>
             <div className="member-mine mt-8">
               <div className="flex items-center justify-between gap-2">
@@ -343,15 +362,15 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
         {tab === "inbox" && pastor ? (
           <section className="member-inbox animate-in">
             <h2>받은 기도제목</h2>
-            <p className="member-hint">성도가 보낸 기도입니다. 확인·기도함으로 상태를 남길 수 있습니다.</p>
+            <p className="member-hint">나에게 온 기도제목입니다. 확인·기도함으로 상태를 남길 수 있습니다.</p>
             <button type="button" className="member-link mb-4" onClick={refreshPrayers}>
               목록 새로고침
             </button>
-            {prayers.length === 0 ? (
+            {inbox.length === 0 ? (
               <p className="member-hint">아직 받은 기도제목이 없습니다.</p>
             ) : (
               <ul className="member-prayer-list">
-                {prayers.map((row) => (
+                {inbox.map((row) => (
                   <li key={row.id}>
                     <p className="font-medium">{row.authorName || row.authorEmail || "성도"}</p>
                     <p className="mt-1">{row.text}</p>

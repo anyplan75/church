@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildPrayerRequest,
   canManagePrayers,
+  canSeePastorInbox,
   cleanPrayerText,
   prayerCreateError,
   prayerFromRaw,
@@ -23,6 +24,8 @@ describe("prayer-requests", () => {
       authorUid: "uid-1",
       authorEmail: "Member@Church.ORG",
       authorName: "김성도",
+      pastorUid: "pastor-1",
+      pastorName: "김목사",
       text: "  환우를 위해 기도해 주세요.  ",
       serviceId: "svc-1",
       serviceTitle: "주일예배",
@@ -30,6 +33,7 @@ describe("prayer-requests", () => {
     });
     assert.equal(row.authorEmail, "member@church.org");
     assert.equal(row.text, "환우를 위해 기도해 주세요.");
+    assert.equal(row.pastorUid, "pastor-1");
     assert.equal(row.status, "new");
     assert.match(row.id, /^pr_/);
     assert.equal(prayerPath("cabc123", row.id), `churches/cabc123/prayerRequests/${row.id}`);
@@ -68,5 +72,18 @@ describe("prayer-requests", () => {
     assert.equal(canManagePrayers(["run"]), true);
     assert.equal(prayerStatusLabel("new"), "새 기도");
     assert.equal(prayerStatusLabel("prayed"), "기도함");
+    const row = buildPrayerRequest({
+      authorUid: "m1",
+      authorEmail: "m@c.org",
+      pastorUid: "p1",
+      text: "건강을 위해",
+    });
+    assert.equal(canSeePastorInbox({ id: "p1", roles: ["view"] }, row), true);
+    assert.equal(canSeePastorInbox({ id: "other", roles: ["admin"] }, row), false);
+    assert.equal(canSeePastorInbox({ id: "admin1", roles: ["admin"] }, row, "admin1"), false);
+    assert.equal(
+      canSeePastorInbox({ id: "admin1", roles: ["admin"] }, { ...row, pastorUid: "" }, "admin1"),
+      true,
+    );
   });
 });

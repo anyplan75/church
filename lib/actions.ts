@@ -2,7 +2,7 @@ import { serviceSaveBlock } from "./access";
 import { rememberLanHost } from "./lan-link";
 import { publishLinesNow, kickOperatorLink } from "./output-link";
 import { hostEntry, saveOutputHost } from "./output-host";
-import { clearBackgroundFile, currentUser, flushChurchWrite, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
+import { clearBackgroundFile, currentUser, flushChurchWrite, listAccounts, mutationUser, notifyChurch, requireMutation, saveBackgroundFile, updateDb } from "./app-db";
 import { applyBulletin } from "./bulletin-apply";
 import { cleanRosterName, findRosterPerson } from "./person-name";
 import { START_BLOCKED, captionFont, captionSize, categoryMembership, fullscreenStep, settingsReady, setupComplete } from "./simple";
@@ -451,6 +451,15 @@ export async function updateSettings(formData: FormData) {
     db.settings.outputHost = outputHost || undefined;
     db.settings.mainFontSize = captionSize(formData.get("mainFontSize"));
     db.settings.overlayFontSize = captionSize(formData.get("overlayFontSize"));
+    const pastorUid = cleanText(formData.get("pastorUid"), 128);
+    if (pastorUid) {
+      const pastor = listAccounts().find((row) => row.id === pastorUid);
+      db.settings.pastorUid = pastorUid;
+      db.settings.pastorName = pastor ? pastor.email.split("@")[0]?.slice(0, 40) || pastor.email.slice(0, 40) : cleanText(formData.get("pastorName"), 40) || undefined;
+    } else {
+      db.settings.pastorUid = undefined;
+      db.settings.pastorName = undefined;
+    }
     syncReminders(db);
   });
   kickOperatorLink();

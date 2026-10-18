@@ -165,6 +165,9 @@ export type Settings = {
   overlayFontSize?: number;
   backgrounds?: string[];
   outputHost?: string;
+  /** 성도 기도제목을 받는 담당 목사 Firebase uid */
+  pastorUid?: string;
+  pastorName?: string;
 };
 
 export type AttendanceMark = {

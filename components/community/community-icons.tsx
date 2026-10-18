@@ -126,7 +126,7 @@ export function IconShield({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
-export function IconMegaphone({ className = "h-12 w-12" }: IconProps) {
+export function IconMegaphone({ className = "h-8 w-8" }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
       <path d="M4 10v4l10 3V7L4 10z" />

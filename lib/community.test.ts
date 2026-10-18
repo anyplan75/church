@@ -10,8 +10,10 @@ import {
   groupScheduleFromMap,
   groupsFromMap,
   isBoardCategory,
+  isGroupCategory,
   isGroupRoomTab,
   isPostCategory,
+  isStoredGroupCategory,
   membersFromMap,
   membershipFromRaw,
   normalizeBoardCategory,
@@ -35,10 +37,12 @@ describe("community helpers", () => {
 
   it("parses posts with board categories and legacy aliases", () => {
     assert.equal(isBoardCategory("free"), true);
+    assert.equal(isBoardCategory("pray"), false);
     assert.equal(isPostCategory("promo"), true);
     assert.equal(isPostCategory("other"), false);
     assert.equal(normalizeBoardCategory("question"), "qna");
     assert.equal(normalizeBoardCategory("share"), "free");
+    assert.equal(normalizeBoardCategory("pray"), "faith");
     const posts = postsFromMap({
       "post-1": {
         title: "안내",
@@ -114,6 +118,11 @@ describe("community helpers", () => {
     assert.equal(groups.find((g) => g.id === "grp-2")?.description, "함께 운동해요");
     assert.equal(sortGroups(groups, "popular")[0]?.id, "grp-2");
     assert.equal(groupFromRaw(groups.find((g) => g.id === "grp-1"), "grp-1")?.title, "QT");
+    assert.equal(isGroupCategory("food"), false);
+    assert.equal(isGroupCategory("dating"), false);
+    assert.equal(isGroupCategory("pray"), false);
+    assert.equal(isStoredGroupCategory("food"), true);
+    assert.equal(isGroupCategory("hobby"), true);
   });
 
   it("parses group room members, posts, schedule, album", () => {

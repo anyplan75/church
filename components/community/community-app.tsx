@@ -69,7 +69,6 @@ import {
   IconPencil,
   IconPeople,
   IconSearch,
-  IconShield,
   IconUpload,
   IconVerified,
 } from "./community-icons";
@@ -277,7 +276,7 @@ export function CommunityApp() {
                   onClick={() => setTab(id)}
                   className={`flex flex-col items-center gap-0.5 py-1 text-[10px] ${active ? "font-semibold text-[#1a233a]" : "text-[#9aa3b2]"} disabled:opacity-40`}
                 >
-                  <Icon className="h-6 w-6" />
+                  <Icon className="h-5 w-5" />
                   <span>{label}</span>
                 </button>
               );
@@ -451,10 +450,10 @@ function GroupsTab({
           return (
             <button key={item.id} type="button" onClick={() => setCat(item.id)} className="flex flex-col items-center gap-1">
               <span
-                className={`flex h-11 w-11 items-center justify-center rounded-2xl ${active ? "ring-2 ring-[#1a233a] ring-offset-1" : ""}`}
+                className={`flex h-8 w-8 items-center justify-center rounded-xl ${active ? "ring-2 ring-[#1a233a] ring-offset-1" : ""}`}
                 style={{ background: item.color }}
               >
-                <CategoryGlyph icon={item.icon} />
+                <CategoryGlyph icon={item.icon} className="h-4 w-4 text-white" />
               </span>
               <span className={`text-[10px] ${active ? "font-semibold text-[#1a233a]" : "text-[#6b7280]"}`}>{item.label}</span>
             </button>
@@ -474,7 +473,10 @@ function GroupsTab({
 
       <div className="flex-1 overflow-y-auto px-4 pb-24">
         {filtered.length === 0 ? (
-          <p className="py-16 text-center text-sm text-[#9aa3b2]">아직 모임이 없습니다</p>
+          <div className="py-16 text-center">
+            <p className="text-sm text-[#9aa3b2]">아직 모임이 없습니다</p>
+            <p className="mt-1 text-xs text-[#c4c9d4]">아래 + 버튼으로 첫 모임을 만들어 보세요</p>
+          </div>
         ) : (
           filtered.map((g) => {
             const meta = groupCategoryMeta(g.category);
@@ -484,11 +486,11 @@ function GroupsTab({
                 <button
                   type="button"
                   onClick={() => openGroup(g.id)}
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                   style={{ background: meta.color }}
                   aria-label={`${g.title} 모임 열기`}
                 >
-                  <CategoryGlyph icon={meta.icon} className="h-6 w-6 text-white" />
+                  <CategoryGlyph icon={meta.icon} className="h-4 w-4 text-white" />
                 </button>
                 <div className="min-w-0 flex-1">
                   <button type="button" onClick={() => openGroup(g.id)} className="block w-full text-left">
@@ -864,53 +866,39 @@ function MyChurchTab({
 
   return (
     <div className="relative flex flex-1 flex-col">
-      <header className="flex items-center justify-between px-4 pt-4">
+      <header className="px-4 pt-4">
         <h2 className="text-lg font-bold text-[#1a233a]">{churchName}</h2>
-        <IconBell className="text-[#1a233a]" />
+        <p className="mt-0.5 text-xs text-[#9aa3b2]">{region}</p>
       </header>
 
-      <div className="relative mt-3 bg-[#1a233a] px-5 pb-10 pt-8 text-white">
-        <p className="text-2xl font-bold">{churchName}</p>
-        <p className="mt-1 text-sm text-white/70">{region}</p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setShowForm(true)}
-        className="relative z-10 mx-4 -mt-6 flex items-center gap-3 rounded-2xl border border-[#eef1f6] bg-white px-4 py-3 text-left shadow-md"
-      >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e8f1ff] text-[#3b82f6]">
-          <IconShield />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-[#1a233a]">교회 관리자 신청</span>
-          <span className="block text-xs text-[#9aa3b2]">공지사항과 일정을 관리할 수 있어요</span>
-        </span>
-        <span className="text-[#c4c9d4]">›</span>
-      </button>
-
-      <div className="mt-4 flex border-b border-[#eef1f6] px-4">
-        <button
-          type="button"
-          onClick={() => setSub("notices")}
-          className={`mr-6 pb-2 text-sm ${sub === "notices" ? "border-b-2 border-[#1a233a] font-bold text-[#1a233a]" : "text-[#9aa3b2]"}`}
-        >
-          📢 공지사항
-        </button>
-        <button
-          type="button"
-          onClick={() => setSub("schedule")}
-          className={`pb-2 text-sm ${sub === "schedule" ? "border-b-2 border-[#1a233a] font-bold text-[#1a233a]" : "text-[#9aa3b2]"}`}
-        >
-          📅 일정
+      <div className="mt-3 flex items-center justify-between border-b border-[#eef1f6] px-4">
+        <div className="flex">
+          <button
+            type="button"
+            onClick={() => setSub("notices")}
+            className={`mr-6 pb-2 text-sm ${sub === "notices" ? "border-b-2 border-[#1a233a] font-bold text-[#1a233a]" : "text-[#9aa3b2]"}`}
+          >
+            공지
+          </button>
+          <button
+            type="button"
+            onClick={() => setSub("schedule")}
+            className={`pb-2 text-sm ${sub === "schedule" ? "border-b-2 border-[#1a233a] font-bold text-[#1a233a]" : "text-[#9aa3b2]"}`}
+          >
+            일정
+          </button>
+        </div>
+        <button type="button" onClick={() => setShowForm(true)} className="pb-2 text-sm font-medium text-[#3b82f6]">
+          + 작성
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-8 pt-6">
         {empty ? (
           <div className="flex flex-col items-center py-16 text-[#c4c9d4]">
-            <IconMegaphone />
+            <IconMegaphone className="h-8 w-8" />
             <p className="mt-3 text-sm text-[#9aa3b2]">{sub === "notices" ? "아직 공지사항이 없습니다" : "아직 일정이 없습니다"}</p>
+            <p className="mt-1 text-xs text-[#c4c9d4]">오른쪽 위 작성으로 첫 글을 남겨 보세요</p>
           </div>
         ) : sub === "notices" ? (
           notices.map((n) => (
@@ -1020,7 +1008,7 @@ function ChatTab({
       <div className="flex flex-1 flex-col items-center justify-center px-6 pb-16">
         {filtered.length === 0 ? (
           <>
-            <IconBell className="h-14 w-14 text-[#d1d5db]" />
+            <IconBell className="h-8 w-8 text-[#d1d5db]" />
             <p className="mt-4 text-sm font-semibold text-[#9aa3b2]">
               {sub === "unread" ? "안읽음 채팅이 없습니다" : sub === "personal" ? "개인 채팅이 없습니다" : "모임 채팅이 없습니다"}
             </p>

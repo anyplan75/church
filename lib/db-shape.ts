@@ -50,6 +50,8 @@ function normalizeSettings(settings: Partial<Settings> | undefined, fallback: Se
     overlayFontSize: captionSize(settings?.overlayFontSize),
     backgrounds: backgroundsOf(settings ?? fallback),
     outputHost: cleanHost(settings?.outputHost) || undefined,
+    pastorUid: String(settings?.pastorUid ?? "").trim().slice(0, 128) || undefined,
+    pastorName: String(settings?.pastorName ?? "").trim().slice(0, 40) || undefined,
   };
 }
 

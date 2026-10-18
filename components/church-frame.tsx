@@ -29,7 +29,13 @@ function landing(user: { kind: "platform" | "church"; churchId: string | null; r
 }
 
 function isMemberShellPath(path: string): boolean {
-  return path === "/member" || path.startsWith("/member/") || path === "/prayers";
+  return (
+    path === "/member" ||
+    path.startsWith("/member/") ||
+    path === "/prayers" ||
+    path === "/community" ||
+    path.startsWith("/community/")
+  );
 }
 
 function isOutputPath(path: string): boolean {
