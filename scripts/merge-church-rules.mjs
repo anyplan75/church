@@ -55,7 +55,8 @@ for (const key of ["live-interpret", "cheil", "jifc"]) {
 const saved = await fetch(`${databaseUrl}/.settings/rules.json?access_token=${encodeURIComponent(token)}`, {
   method: "PUT",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(next),
+  // RTDB REST는 최상위에 rules 키가 있어야 합니다.
+  body: JSON.stringify({ rules: next }),
 });
 if (!saved.ok) {
   console.error(`규칙을 저장하지 못했습니다. ${saved.status}`);
