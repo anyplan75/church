@@ -26,7 +26,8 @@
     "mobile:build-web": "node scripts/run-static-export.mjs && node scripts/ensure-capacitor-out.mjs",
     "mobile:sync": "npm run mobile:build-web && npx cap sync ios && node scripts/strip-capacitor-server-url.mjs && node scripts/verify-capacitor-public.mjs",
     "mobile:ios": "npm run mobile:sync && npx cap open ios",
-    "mobile:ios:sim": "npm run mobile:sync && npx cap run ios --target \"iPhone 17\""
+    "mobile:ios:sim": "npm run mobile:sync && npx cap run ios --target \"iPhone 17\"",
+    "mobile:ios:testflight": "bash scripts/ios-testflight-upload.sh"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",

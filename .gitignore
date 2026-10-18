@@ -13,6 +13,9 @@ ios/App/App/capacitor.config.json
 ios/DerivedData
 ios/**/xcuserdata
 *.xcuserstate
+build/
+*.ipa
+*.xcarchive
 mirror-out/
 backups/
 *.exe
