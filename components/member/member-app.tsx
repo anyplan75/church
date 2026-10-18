@@ -261,7 +261,7 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
                   <dd>{info.preacher}</dd>
                 </div>
               ) : null}
-              {info.currentTitle && pick.service.status === "live" ? (
+              {info.currentTitle && pick?.service.status === "live" ? (
                 <div>
                   <dt>지금 순서</dt>
                   <dd>{info.currentTitle}</dd>
