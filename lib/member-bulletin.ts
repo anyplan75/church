@@ -56,9 +56,70 @@ function sortServices(list: Service[]): Service[] {
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || a.title.localeCompare(b.title, "ko"));
 }
 
-/** 오늘·진행 중·다가오는 예배를 고릅니다. selectedId가 있으면 그걸 우선합니다. */
-export function pickMemberService(services: Service[], selectedId = "", today = todayISO()): MemberServicePick | null {
+function weekdayFromISO(iso: string): number {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+function timeToMinutes(time: string): number {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
+  if (!match) return 0;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function clockMinutes(now: Date): number {
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+/** 오늘 남은·진행 중인 예배 중, 지금 시각에 맞는 한 건을 고릅니다. */
+function pickTodayByClock(services: Service[], today: string, now: Date): Service | null {
+  const todayList = sortServices(services.filter((item) => item.date === today && item.status !== "done"));
+  if (todayList.length === 0) return null;
+
+  const nowMin = clockMinutes(now);
+  const upcoming = todayList.filter((item) => timeToMinutes(item.time) > nowMin);
+  if (upcoming.length > 0) {
+    return upcoming[0]!;
+  }
+  const started = todayList.filter((item) => timeToMinutes(item.time) <= nowMin);
+  if (started.length > 0) {
+    return started[started.length - 1]!;
+  }
+  return null;
+}
+
+/** 오늘 예배가 없을 때, 요일·시각에 가장 가까운 예배를 고릅니다. */
+function pickWeekdayTimeMatch(services: Service[], today: string, now: Date): Service | null {
+  const dow = weekdayFromISO(today);
+  const nowMin = clockMinutes(now);
+  const open = services.filter((item) => item.status !== "done");
+  const sameWeekday = sortServices(open.filter((item) => weekdayFromISO(item.date) === dow));
+  if (sameWeekday.length === 0) return null;
+
+  const future = sameWeekday.filter((item) => item.date >= today);
+  const pool = future.length > 0 ? future : sameWeekday;
+
+  let best = pool[0]!;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const item of pool) {
+    const daysAway = Math.max(0, Math.floor((Date.parse(item.date) - Date.parse(today)) / 86_400_000));
+    const timeGap = Math.abs(timeToMinutes(item.time) - nowMin);
+    const score = daysAway * 10_000 + timeGap;
+    if (score < bestScore) {
+      bestScore = score;
+      best = item;
+    }
+  }
+  return best;
+}
+
+/**
+ * 성도 앱 기본 예배 선택.
+ * 수동 선택(selectedId) → 진행 중(live) → 오늘 가장 가까운 다음 시작(없으면 오늘 이미 시작한 예배 중 최근) → 요일·시각 맞춤 → 다가오는 예배 → 최근.
+ */
+export function pickMemberService(services: Service[], selectedId = "", now: Date = new Date()): MemberServicePick | null {
   const list = Array.isArray(services) ? services : [];
+  const today = todayISO(now);
   if (selectedId) {
     const selected = list.find((item) => item.id === selectedId);
     if (selected) return { service: selected, reason: "selected" };
@@ -66,8 +127,13 @@ export function pickMemberService(services: Service[], selectedId = "", today = 
   const live = list.find((item) => item.status === "live");
   if (live) return { service: live, reason: "live" };
 
-  const todayList = sortServices(list.filter((item) => item.date === today && item.status !== "done"));
-  if (todayList[0]) return { service: todayList[0], reason: "today" };
+  const todayPick = pickTodayByClock(list, today, now);
+  if (todayPick) return { service: todayPick, reason: "today" };
+
+  const weekdayPick = pickWeekdayTimeMatch(list, today, now);
+  if (weekdayPick) {
+    return { service: weekdayPick, reason: weekdayPick.date === today ? "today" : "next" };
+  }
 
   const upcoming = sortServices(list.filter((item) => item.date >= today && item.status !== "done"));
   if (upcoming[0]) return { service: upcoming[0], reason: "next" };
@@ -225,8 +291,9 @@ export function memberLiveCaption(service: Service, people: Person[], songs: Son
   };
 }
 
-export function memberViewsFromDb(db: Db, selectedId = "", today = todayISO()) {
-  const pick = pickMemberService(db.services, selectedId, today);
+export function memberViewsFromDb(db: Db, selectedId = "", now: Date = new Date()) {
+  const today = todayISO(now);
+  const pick = pickMemberService(db.services, selectedId, now);
   if (!pick) {
     return {
       pick: null as MemberServicePick | null,

@@ -66,7 +66,8 @@ const songs: Song[] = [
 ];
 
 describe("member-bulletin", () => {
-  it("picks live, then today, then upcoming service", () => {
+  it("picks live, then today by clock, then upcoming service", () => {
+    const sundayMorning = new Date(2026, 9, 18, 10, 0, 0);
     const list = [
       service({ id: "a", title: "수요", date: "2026-10-15", time: "19:00", status: "done" }),
       service({ id: "b", title: "주일", date: "2026-10-18", time: "11:00", status: "ready" }),
@@ -80,10 +81,24 @@ describe("member-bulletin", () => {
       }),
       service({ id: "d", title: "다음주", date: "2026-10-25", time: "11:00", status: "planning" }),
     ];
-    assert.equal(pickMemberService(list, "", "2026-10-18")?.service.id, "c");
-    assert.equal(pickMemberService(list.filter((s) => s.id !== "c"), "", "2026-10-18")?.reason, "today");
-    assert.equal(pickMemberService(list, "d", "2026-10-18")?.reason, "selected");
+    assert.equal(pickMemberService(list, "", sundayMorning)?.service.id, "c");
+    assert.equal(pickMemberService(list.filter((s) => s.id !== "c"), "", sundayMorning)?.service.id, "b");
+    assert.equal(pickMemberService(list.filter((s) => s.id !== "c"), "", sundayMorning)?.reason, "today");
+    assert.equal(pickMemberService(list, "d", sundayMorning)?.reason, "selected");
     assert.equal(pickReasonLabel("live"), "지금 진행 중");
+  });
+
+  it("prefers in-progress today slot, then nearest upcoming today", () => {
+    const list = [
+      service({ id: "youth", title: "청소년부", date: "2026-10-18", time: "09:30", status: "ready" }),
+      service({ id: "main", title: "주일 2부", date: "2026-10-18", time: "11:00", status: "ready" }),
+      service({ id: "young", title: "청년부", date: "2026-10-18", time: "14:00", status: "ready" }),
+    ];
+    assert.equal(pickMemberService(list, "", new Date(2026, 9, 18, 8, 0, 0))?.service.id, "youth");
+    assert.equal(pickMemberService(list, "", new Date(2026, 9, 18, 10, 0, 0))?.service.id, "main");
+    assert.equal(pickMemberService(list, "", new Date(2026, 9, 18, 12, 0, 0))?.service.id, "young");
+    assert.equal(pickMemberService(list, "", new Date(2026, 9, 18, 13, 0, 0))?.service.id, "young");
+    assert.equal(pickMemberService(list, "", new Date(2026, 9, 18, 15, 0, 0))?.service.id, "young");
   });
 
   it("lists same-day youth and young-adult bulletins together", () => {
