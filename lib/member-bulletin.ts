@@ -1,9 +1,9 @@
-/** 성도용 주보·가사·예배 정보 도우미 (Firebase services/songs 재사용). */
+/** 성도용 주보·가사·예배 정보·자막 도우미 (Firebase services/songs 재사용). */
 
 import { formatKoreanDate, formatTime } from "./format";
 import { slidesFor, type Slide } from "./slides";
-import type { Db, Person, Service, Song } from "./types";
-import { itemAside, preacherName, todayISO } from "./worship";
+import type { Db, ItemKind, Person, Service, Song, WorshipItem } from "./types";
+import { clampLiveIndex, itemAside, kindLabel, preacherName, todayISO } from "./worship";
 
 export type MemberServicePick = {
   service: Service;
@@ -33,7 +33,22 @@ export type MemberLyricLine = {
   isSong: boolean;
 };
 
-const SONG_KINDS = new Set(["hymn", "praise", "choir"]);
+/** 예배 중 성도 폰에 크게 보여주는 자막 한 장면. */
+export type MemberLiveCaption = {
+  mode: "praise" | "word" | "other" | "idle";
+  kicker: string;
+  heading: string;
+  lines: string[];
+  footer: string;
+  orderTitle: string;
+  orderIndex: number;
+  orderTotal: number;
+  live: boolean;
+  source: "output" | "slide" | "item" | "none";
+};
+
+const SONG_KINDS = new Set<ItemKind>(["hymn", "praise", "choir"]);
+const WORD_KINDS = new Set<ItemKind>(["sermon", "scripture"]);
 
 function sortServices(list: Service[]): Service[] {
   return list
@@ -61,10 +76,26 @@ export function pickMemberService(services: Service[], selectedId = "", today = 
   return recent ? { service: recent, reason: "recent" } : null;
 }
 
+/**
+ * 성도가 고를 예배 목록.
+ * 같은 날 청소년부·청년부처럼 주보가 다른 여러 예배를 모두 보이게 합니다.
+ */
 export function memberServiceOptions(services: Service[], today = todayISO()): Service[] {
-  const upcoming = sortServices(services.filter((item) => item.date >= today || item.status === "live")).slice(0, 12);
-  if (upcoming.length > 0) return upcoming;
-  return sortServices(services).slice(-8).reverse();
+  const list = Array.isArray(services) ? services : [];
+  const liveOrUpcoming = sortServices(
+    list.filter((item) => item.status === "live" || (item.date >= today && item.status !== "done")),
+  );
+  if (liveOrUpcoming.length > 0) {
+    // 같은 날·가까운 날의 부서 예배를 넉넉히 보여 줍니다.
+    return liveOrUpcoming.slice(0, 24);
+  }
+  return sortServices(list).slice(-16).reverse();
+}
+
+export function serviceOptionLabel(service: Service): string {
+  const status =
+    service.status === "live" ? "진행 중 · " : service.status === "done" ? "마침 · " : "";
+  return `${status}${service.date} ${service.time} · ${service.title}`;
 }
 
 export function buildMemberBulletin(service: Service, people: Person[], songs: Song[], churchName: string): MemberBulletinView {
@@ -117,6 +148,83 @@ export function memberWorshipInfo(service: Service, people: Person[], songs: Son
   };
 }
 
+function captionModeFor(kind: ItemKind | undefined): MemberLiveCaption["mode"] {
+  if (!kind) return "idle";
+  if (SONG_KINDS.has(kind)) return "praise";
+  if (WORD_KINDS.has(kind)) return "word";
+  return "other";
+}
+
+function itemFallbackLines(item: WorshipItem): string[] {
+  const lines: string[] = [];
+  if (item.kind === "sermon") {
+    if (item.scripture.trim()) lines.push(item.scripture.trim());
+    if (item.scriptureLicensed && item.scriptureText.trim()) lines.push(item.scriptureText.trim().slice(0, 400));
+    else if (item.note.trim()) lines.push(item.note.trim());
+  } else if (item.kind === "scripture") {
+    if (item.scripture.trim()) lines.push(item.scripture.trim());
+    if (item.scriptureLicensed && item.scriptureText.trim()) lines.push(item.scriptureText.trim().slice(0, 400));
+  } else if (item.note.trim()) {
+    lines.push(item.note.trim());
+  }
+  return lines.filter(Boolean).slice(0, 4);
+}
+
+/**
+ * 진행 중 예배의 현재 순서에 맞춰 자막 장면을 만듭니다.
+ * 조작 리모컨이 남긴 outputLines가 있으면 그걸 우선합니다.
+ */
+export function memberLiveCaption(service: Service, people: Person[], songs: Song[]): MemberLiveCaption {
+  const slides = slidesFor(service, people, songs);
+  const orderTotal = service.items.length;
+  if (orderTotal === 0) {
+    return {
+      mode: "idle",
+      kicker: "",
+      heading: service.title,
+      lines: [],
+      footer: "예배 순서가 없습니다",
+      orderTitle: "",
+      orderIndex: 0,
+      orderTotal: 0,
+      live: service.status === "live",
+      source: "none",
+    };
+  }
+
+  const orderIndex = clampLiveIndex(service.liveIndex, orderTotal);
+  const item = service.items[orderIndex];
+  const slide = slides[orderIndex] ?? null;
+  const mode = captionModeFor(item?.kind);
+  const output = (service.outputLines || []).map((line) => line.trim()).filter(Boolean);
+
+  let lines: string[] = [];
+  let source: MemberLiveCaption["source"] = "none";
+  if (output.length > 0) {
+    lines = output.slice(0, 4);
+    source = "output";
+  } else if (slide?.lines.length) {
+    lines = slide.lines.slice(0, 4);
+    source = "slide";
+  } else if (item) {
+    lines = itemFallbackLines(item);
+    source = lines.length ? "item" : "none";
+  }
+
+  return {
+    mode,
+    kicker: item ? kindLabel(item.kind) : "",
+    heading: slide?.heading || item?.title || service.title,
+    lines,
+    footer: slide?.footer || "",
+    orderTitle: item?.title || "",
+    orderIndex,
+    orderTotal,
+    live: service.status === "live",
+    source,
+  };
+}
+
 export function memberViewsFromDb(db: Db, selectedId = "", today = todayISO()) {
   const pick = pickMemberService(db.services, selectedId, today);
   if (!pick) {
@@ -126,15 +234,20 @@ export function memberViewsFromDb(db: Db, selectedId = "", today = todayISO()) {
       bulletin: null as MemberBulletinView | null,
       lyrics: [] as MemberLyricLine[],
       info: null as ReturnType<typeof memberWorshipInfo> | null,
+      notices: [] as { id: string; text: string }[],
+      caption: null as MemberLiveCaption | null,
     };
   }
   const { service } = pick;
+  const bulletin = buildMemberBulletin(service, db.people, db.songs, db.settings.churchName);
   return {
     pick,
     options: memberServiceOptions(db.services, today),
-    bulletin: buildMemberBulletin(service, db.people, db.songs, db.settings.churchName),
+    bulletin,
     lyrics: memberLyricsFor(service, db.people, db.songs),
     info: memberWorshipInfo(service, db.people, db.songs, db.settings.churchName),
+    notices: bulletin.notices,
+    caption: memberLiveCaption(service, db.people, db.songs),
   };
 }
 
@@ -144,4 +257,11 @@ export function pickReasonLabel(reason: MemberServicePick["reason"]): string {
   if (reason === "next") return "다가오는 예배";
   if (reason === "selected") return "선택한 예배";
   return "최근 예배";
+}
+
+export function captionModeHint(mode: MemberLiveCaption["mode"]): string {
+  if (mode === "praise") return "찬양 · 가사 자막";
+  if (mode === "word") return "말씀 · 본문 자막";
+  if (mode === "other") return "지금 순서";
+  return "대기";
 }

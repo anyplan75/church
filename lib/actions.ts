@@ -21,6 +21,7 @@ import {
   isServiceStatus,
   isServiceType,
   isTime,
+  normalizeOutputLines,
   normalizeService,
   templateItems,
   todayISO,
@@ -114,7 +115,8 @@ export async function saveLiveCue(
       if (!service) throw new Error("예배를 찾을 수 없습니다.");
       service.liveIndex = clampLiveIndex(liveIndex, service.items.length);
       service.liveSlide = clampLiveIndex(liveSlide, 40);
-      service.outputLines = [];
+      // 조작 리모컨의 활성 줄을 Firebase에도 남겨 성도 앱 자막이 따라가게 합니다.
+      service.outputLines = normalizeOutputLines(lines);
     });
     refreshService(id);
     return { ok: true };
