@@ -242,6 +242,21 @@
                 "$uid": {
                   ".write": "auth != null && auth.uid == $uid && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).exists())"
                 }
+              },
+              "posts": {
+                "$postId": {
+                  ".write": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).exists()) && $postId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)"
+                }
+              },
+              "schedule": {
+                "$scheduleId": {
+                  ".write": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).exists()) && $scheduleId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)"
+                }
+              },
+              "album": {
+                "$itemId": {
+                  ".write": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val() || root.child('church/accounts').child(auth.uid).exists()) && $itemId.matches(/^[A-Za-z0-9_\\-]{6,64}$/)"
+                }
               }
             }
           }

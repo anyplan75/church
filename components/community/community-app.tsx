@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useChurch } from "@/components/church-state";
 import {
   BOARD_CATEGORIES,
@@ -9,6 +10,7 @@ import {
   categoryLabel,
   formatCommunityWhen,
   groupCategoryMeta,
+  groupRoomHref,
   nicknameFromEmail,
   postBookmarkKey,
   regionLabel,
@@ -182,8 +184,8 @@ export function CommunityApp() {
   }
 
   return (
-    <div className="konia-root mx-auto w-full max-w-[430px] overflow-hidden rounded-[1.5rem] border border-[#e8ecf2] bg-white shadow-[0_12px_40px_rgba(15,23,42,0.08)]">
-      <div className="relative flex min-h-[720px] flex-col pb-[4.25rem]">
+    <div className="konia-root mx-auto w-full max-w-3xl overflow-hidden rounded-[1.25rem] border border-[#e8ecf2] bg-white shadow-[0_12px_40px_rgba(15,23,42,0.08)] sm:rounded-2xl">
+      <div className="relative flex min-h-[640px] flex-col pb-[4.25rem] sm:min-h-[720px]">
         {!membership ? (
           <RegionGate
             sido={sido}
@@ -361,6 +363,7 @@ function GroupsTab({
   onCreated: () => Promise<void>;
   onJoined: (g: CommunityGroup) => void;
 }) {
+  const router = useRouter();
   const [sub, setSub] = useState<"all" | "mine">("all");
   const [cat, setCat] = useState<GroupCategory>("all");
   const [sort, setSort] = useState<SortMode>("popular");
@@ -368,6 +371,7 @@ function GroupsTab({
   const [title, setTitle] = useState("");
   const [place, setPlace] = useState("");
   const [schedule, setSchedule] = useState("");
+  const [description, setDescription] = useState("");
   const [capacity, setCapacity] = useState("10");
   const [formCat, setFormCat] = useState<Exclude<GroupCategory, "all">>("hobby");
   const [busy, setBusy] = useState(false);
@@ -379,23 +383,30 @@ function GroupsTab({
     return sortGroups(list, sort);
   }, [groups, myGroupIds, sub, cat, sort]);
 
+  function openGroup(groupId: string) {
+    router.push(groupRoomHref(groupId, membership.regionId));
+  }
+
   async function submit() {
     setBusy(true);
     setNotice("");
     try {
-      await createGroup(membership.regionId, {
+      const created = await createGroup(membership.regionId, {
         title,
         category: formCat,
         place,
         schedule,
         capacity: Number(capacity) || 10,
         churchName,
+        description,
       });
       setTitle("");
       setPlace("");
       setSchedule("");
+      setDescription("");
       setShowForm(false);
       await onCreated();
+      router.push(groupRoomHref(created.id, membership.regionId));
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "모임을 만들지 못했습니다.");
     } finally {
@@ -467,36 +478,50 @@ function GroupsTab({
         ) : (
           filtered.map((g) => {
             const meta = groupCategoryMeta(g.category);
+            const joined = myGroupIds.has(g.id);
             return (
               <div key={g.id} className="flex gap-3 border-b border-[#f1f3f7] py-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl" style={{ background: meta.color }}>
+                <button
+                  type="button"
+                  onClick={() => openGroup(g.id)}
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl"
+                  style={{ background: meta.color }}
+                  aria-label={`${g.title} 모임 열기`}
+                >
                   <CategoryGlyph icon={meta.icon} className="h-6 w-6 text-white" />
-                </div>
+                </button>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-[#111827]">{g.title}</p>
-                  <p className="mt-0.5 text-xs">
-                    <span style={{ color: meta.color }}>{meta.label}</span>
-                    <span className="text-[#9aa3b2]">
-                      {" "}
-                      {g.memberCount}/{g.capacity}명
-                    </span>
-                  </p>
-                  <p className="mt-1 truncate text-xs text-[#9aa3b2]">📍 {g.place}</p>
-                  <p className="truncate text-xs text-[#9aa3b2]">🕒 {g.schedule}</p>
-                  {!myGroupIds.has(g.id) ? (
+                  <button type="button" onClick={() => openGroup(g.id)} className="block w-full text-left">
+                    <p className="truncate font-semibold text-[#111827]">{g.title}</p>
+                    <p className="mt-0.5 text-xs">
+                      <span style={{ color: meta.color }}>{meta.label}</span>
+                      <span className="text-[#9aa3b2]">
+                        {" "}
+                        {g.memberCount}/{g.capacity}명
+                      </span>
+                    </p>
+                    <p className="mt-1 truncate text-xs text-[#9aa3b2]">📍 {g.place}</p>
+                    <p className="truncate text-xs text-[#9aa3b2]">🕒 {g.schedule}</p>
+                  </button>
+                  {!joined ? (
                     <button
                       type="button"
                       className="mt-1 text-xs font-medium text-[#3b82f6]"
                       onClick={() =>
-                        void joinGroup(membership.regionId, g)
-                          .then(onJoined)
+                        void joinGroup(membership.regionId, g, { churchName })
+                          .then((next) => {
+                            onJoined(next);
+                            openGroup(next.id);
+                          })
                           .catch((e: Error) => setNotice(e.message))
                       }
                     >
-                      참여하기
+                      참여하고 들어가기
                     </button>
                   ) : (
-                    <span className="mt-1 inline-block text-xs text-[#9aa3b2]">참여 중</span>
+                    <button type="button" onClick={() => openGroup(g.id)} className="mt-1 text-xs font-medium text-[#3b82f6]">
+                      모임방 열기
+                    </button>
                   )}
                 </div>
               </div>
@@ -519,6 +544,12 @@ function GroupsTab({
           </select>
           <input className="mt-2 w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-sm" placeholder="장소" value={place} onChange={(e) => setPlace(e.target.value)} />
           <input className="mt-2 w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-sm" placeholder="일정 (예: 매주 토요일 10시)" value={schedule} onChange={(e) => setSchedule(e.target.value)} />
+          <textarea
+            className="mt-2 min-h-[72px] w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-sm"
+            placeholder="모임 소개 (선택)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
           <input className="mt-2 w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-sm" placeholder="정원" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
           <div className="mt-3 flex gap-2">
             <button type="button" className="flex-1 rounded-lg bg-[#f3f4f6] py-2 text-sm" onClick={() => setShowForm(false)}>

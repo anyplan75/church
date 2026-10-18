@@ -14,10 +14,15 @@ import {
   cleanResourceUrl,
   cleanShort,
   commentsFromMap,
+  groupAlbumFromMap,
+  groupFromRaw,
+  groupPostsFromMap,
+  groupScheduleFromMap,
   groupsFromMap,
   isBoardCategory,
   isCommunitySido,
   isGroupCategory,
+  membersFromMap,
   membershipFromRaw,
   newCommunityId,
   nicknameFromEmail,
@@ -39,6 +44,10 @@ import {
   type CommunityPost,
   type CommunityProfile,
   type CommunityResource,
+  type GroupAlbumItem,
+  type GroupMember,
+  type GroupPost,
+  type GroupScheduleItem,
   type PostCategory,
 } from "./community";
 import { DatabasePermissionError, dbGet, dbPatch, dbSet } from "./firebase-db";
@@ -365,6 +374,19 @@ export async function loadGroups(regionId: string): Promise<CommunityGroup[]> {
   }
 }
 
+function memberPayload(
+  user: { id: string; churchId: string | null; email: string },
+  meta?: { nickname?: string; churchName?: string; isOwner?: boolean },
+) {
+  return {
+    nickname: cleanNickname(meta?.nickname || "") || nicknameFromEmail(user.email),
+    churchId: user.churchId || "",
+    churchName: cleanShort(meta?.churchName || "", 40),
+    joinedAt: Date.now(),
+    isOwner: Boolean(meta?.isOwner),
+  };
+}
+
 export async function createGroup(
   regionId: string,
   input: {
@@ -374,6 +396,8 @@ export async function createGroup(
     schedule: string;
     capacity: number;
     churchName?: string;
+    description?: string;
+    authorNick?: string;
   },
 ): Promise<CommunityGroup> {
   const user = requireCommunityUser();
@@ -382,38 +406,228 @@ export async function createGroup(
   const title = cleanGroupTitle(input.title);
   if (!title) throw new Error("모임 제목을 입력해 주세요.");
   const id = newCommunityId("grp");
+  const churchName = churchNameOf(user, input.churchName || "");
   const row: CommunityGroup = {
     id,
     title,
     category: input.category,
     place: cleanShort(input.place || "미정", 40) || "미정",
     schedule: cleanShort(input.schedule || "협의", 40) || "협의",
+    description: cleanPostBody(input.description || ""),
     capacity: Math.max(1, Math.min(200, Math.floor(input.capacity) || 10)),
     memberCount: 1,
     authorUid: user.id,
     churchId: user.churchId!,
-    churchName: churchNameOf(user, input.churchName || ""),
+    churchName,
     createdAt: Date.now(),
   };
   try {
     const token = await authToken();
-    await dbSet(`community/groups/${regionId}/${id}`, { ...row, members: { [user.id]: true } }, token);
+    await dbSet(
+      `community/groups/${regionId}/${id}`,
+      {
+        ...row,
+        members: {
+          [user.id]: memberPayload(user, {
+            nickname: input.authorNick,
+            churchName,
+            isOwner: true,
+          }),
+        },
+      },
+      token,
+    );
     return row;
   } catch (error) {
     rethrowCommunity(error);
   }
 }
 
-export async function joinGroup(regionId: string, group: CommunityGroup): Promise<CommunityGroup> {
+export async function joinGroup(
+  regionId: string,
+  group: CommunityGroup,
+  meta?: { nickname?: string; churchName?: string },
+): Promise<CommunityGroup> {
   const user = requireCommunityUser();
   if (!regionId || !group.id) throw new Error("모임을 다시 열어 주세요.");
   if (group.memberCount >= group.capacity) throw new Error("정원이 가득 찼습니다.");
   const memberCount = group.memberCount + 1;
   try {
     const token = await authToken();
-    await dbSet(`community/groups/${regionId}/${group.id}/members/${user.id}`, true, token);
+    await dbSet(
+      `community/groups/${regionId}/${group.id}/members/${user.id}`,
+      memberPayload(user, meta),
+      token,
+    );
     await dbPatch(`community/groups/${regionId}/${group.id}`, { memberCount }, token);
     return { ...group, memberCount };
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadGroup(regionId: string, groupId: string): Promise<CommunityGroup | null> {
+  requireCommunityUser();
+  if (!regionId || !groupId) return null;
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/groups/${regionId}/${groupId}`, token);
+    return groupFromRaw(raw, groupId);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadGroupMembers(regionId: string, groupId: string, ownerUid = ""): Promise<GroupMember[]> {
+  requireCommunityUser();
+  if (!regionId || !groupId) return [];
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/groups/${regionId}/${groupId}/members`, token);
+    return membersFromMap(raw, ownerUid);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadGroupPosts(regionId: string, groupId: string): Promise<GroupPost[]> {
+  requireCommunityUser();
+  if (!regionId || !groupId) return [];
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/groups/${regionId}/${groupId}/posts`, token);
+    return groupPostsFromMap(raw);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function createGroupPost(
+  regionId: string,
+  groupId: string,
+  title: string,
+  body: string,
+  authorNick?: string,
+): Promise<GroupPost> {
+  const user = requireCommunityUser();
+  if (!regionId || !groupId) throw new Error("모임을 다시 열어 주세요.");
+  const cleanTitle = cleanPostTitle(title);
+  const cleanBody = cleanPostBody(body);
+  if (!cleanTitle) throw new Error("제목을 입력해 주세요.");
+  if (!cleanBody) throw new Error("내용을 입력해 주세요.");
+  const id = newCommunityId("gpost");
+  const row: GroupPost = {
+    id,
+    title: cleanTitle,
+    body: cleanBody,
+    authorUid: user.id,
+    authorNick: cleanNickname(authorNick || "") || nicknameFromEmail(user.email),
+    churchId: user.churchId!,
+    createdAt: Date.now(),
+  };
+  try {
+    const token = await authToken();
+    await dbSet(`community/groups/${regionId}/${groupId}/posts/${id}`, row, token);
+    return row;
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadGroupSchedule(regionId: string, groupId: string): Promise<GroupScheduleItem[]> {
+  requireCommunityUser();
+  if (!regionId || !groupId) return [];
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/groups/${regionId}/${groupId}/schedule`, token);
+    return groupScheduleFromMap(raw);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function createGroupSchedule(
+  regionId: string,
+  groupId: string,
+  title: string,
+  when: string,
+  place: string,
+  authorNick?: string,
+): Promise<GroupScheduleItem> {
+  const user = requireCommunityUser();
+  if (!regionId || !groupId) throw new Error("모임을 다시 열어 주세요.");
+  const cleanTitle = cleanPostTitle(title);
+  if (!cleanTitle) throw new Error("일정 제목을 입력해 주세요.");
+  const id = newCommunityId("gsch");
+  const row: GroupScheduleItem = {
+    id,
+    title: cleanTitle,
+    when: cleanShort(when || "", 60) || "미정",
+    place: cleanShort(place || "", 40) || "미정",
+    authorUid: user.id,
+    authorNick: cleanNickname(authorNick || "") || nicknameFromEmail(user.email),
+    createdAt: Date.now(),
+  };
+  try {
+    const token = await authToken();
+    await dbSet(`community/groups/${regionId}/${groupId}/schedule/${id}`, row, token);
+    return row;
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function deleteGroupSchedule(regionId: string, groupId: string, scheduleId: string): Promise<void> {
+  requireCommunityUser();
+  if (!regionId || !groupId || !scheduleId) throw new Error("일정을 다시 확인해 주세요.");
+  try {
+    const token = await authToken();
+    await dbSet(`community/groups/${regionId}/${groupId}/schedule/${scheduleId}`, null, token);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function loadGroupAlbum(regionId: string, groupId: string): Promise<GroupAlbumItem[]> {
+  requireCommunityUser();
+  if (!regionId || !groupId) return [];
+  try {
+    const token = await authToken();
+    const raw = await dbGet<unknown>(`community/groups/${regionId}/${groupId}/album`, token);
+    return groupAlbumFromMap(raw);
+  } catch (error) {
+    rethrowCommunity(error);
+  }
+}
+
+export async function createGroupAlbumItem(
+  regionId: string,
+  groupId: string,
+  title: string,
+  url: string,
+  note = "",
+  authorNick?: string,
+): Promise<GroupAlbumItem> {
+  const user = requireCommunityUser();
+  if (!regionId || !groupId) throw new Error("모임을 다시 열어 주세요.");
+  const cleanTitle = cleanResourceTitle(title);
+  const cleanUrl = cleanResourceUrl(url);
+  if (!cleanTitle) throw new Error("제목을 입력해 주세요.");
+  if (!cleanUrl) throw new Error("https:// 로 시작하는 링크를 입력해 주세요.");
+  const id = newCommunityId("galb");
+  const row: GroupAlbumItem = {
+    id,
+    title: cleanTitle,
+    note: cleanResourceNote(note),
+    url: cleanUrl,
+    authorUid: user.id,
+    authorNick: cleanNickname(authorNick || "") || nicknameFromEmail(user.email),
+    createdAt: Date.now(),
+  };
+  try {
+    const token = await authToken();
+    await dbSet(`community/groups/${regionId}/${groupId}/album/${id}`, row, token);
+    return row;
   } catch (error) {
     rethrowCommunity(error);
   }

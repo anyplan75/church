@@ -122,11 +122,67 @@ export type CommunityGroup = {
   category: Exclude<GroupCategory, "all">;
   place: string;
   schedule: string;
+  /** 모임 소개(홈 탭). 없으면 빈 문자열 */
+  description: string;
   capacity: number;
   memberCount: number;
   authorUid: string;
   churchId: string;
   churchName: string;
+  createdAt: number;
+};
+
+/** 당근모임 스타일 모임방 탭 */
+export const GROUP_ROOM_TABS = [
+  { id: "home", label: "홈" },
+  { id: "board", label: "게시판" },
+  { id: "schedule", label: "일정" },
+  { id: "album", label: "앨범" },
+  { id: "chat", label: "채팅" },
+] as const;
+
+export type GroupRoomTab = (typeof GROUP_ROOM_TABS)[number]["id"];
+
+export type GroupMember = {
+  uid: string;
+  nickname: string;
+  churchId: string;
+  churchName: string;
+  joinedAt: number;
+  /** 모임장 여부 */
+  isOwner: boolean;
+};
+
+/** 모임 안 게시판 글 */
+export type GroupPost = {
+  id: string;
+  title: string;
+  body: string;
+  authorUid: string;
+  authorNick: string;
+  churchId: string;
+  createdAt: number;
+};
+
+/** 모임 일정 */
+export type GroupScheduleItem = {
+  id: string;
+  title: string;
+  when: string;
+  place: string;
+  authorUid: string;
+  authorNick: string;
+  createdAt: number;
+};
+
+/** 모임 앨범(자료 링크 MVP — 실제 사진 업로드는 이후) */
+export type GroupAlbumItem = {
+  id: string;
+  title: string;
+  note: string;
+  url: string;
+  authorUid: string;
+  authorNick: string;
   createdAt: number;
 };
 
@@ -388,6 +444,7 @@ export function groupsFromMap(raw: unknown): CommunityGroup[] {
       category,
       place: cleanShort(String(row.place || ""), 40),
       schedule: cleanShort(String(row.schedule || ""), 40),
+      description: cleanPostBody(String(row.description || "")),
       capacity: Math.max(1, Math.min(200, num(row.capacity) || 10)),
       memberCount: Math.max(0, memberCount),
       authorUid: String(row.authorUid || "").slice(0, 128),
@@ -397,6 +454,112 @@ export function groupsFromMap(raw: unknown): CommunityGroup[] {
     });
   }
   return list.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function groupFromRaw(raw: unknown, id: string): CommunityGroup | null {
+  const list = groupsFromMap(raw && typeof raw === "object" && !Array.isArray(raw) ? { [id]: raw } : null);
+  return list[0] ?? null;
+}
+
+export function membersFromMap(raw: unknown, ownerUid = ""): GroupMember[] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+  const list: GroupMember[] = [];
+  for (const [uid, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (value === false || value === null) continue;
+    if (value === true) {
+      list.push({
+        uid,
+        nickname: "멤버",
+        churchId: "",
+        churchName: "",
+        joinedAt: 0,
+        isOwner: uid === ownerUid,
+      });
+      continue;
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const row = value as Record<string, unknown>;
+    list.push({
+      uid,
+      nickname: cleanNickname(String(row.nickname || "멤버")) || "멤버",
+      churchId: String(row.churchId || "").slice(0, 64),
+      churchName: cleanShort(String(row.churchName || ""), 40),
+      joinedAt: num(row.joinedAt),
+      isOwner: uid === ownerUid || Boolean(row.isOwner),
+    });
+  }
+  return list.sort((a, b) => {
+    if (a.isOwner !== b.isOwner) return a.isOwner ? -1 : 1;
+    return (a.joinedAt || 0) - (b.joinedAt || 0);
+  });
+}
+
+export function groupPostsFromMap(raw: unknown): GroupPost[] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+  const list: GroupPost[] = [];
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const row = value as Record<string, unknown>;
+    list.push({
+      id,
+      title: cleanPostTitle(String(row.title || "")),
+      body: cleanPostBody(String(row.body || "")),
+      authorUid: String(row.authorUid || "").slice(0, 128),
+      authorNick: cleanNickname(String(row.authorNick || "익명")) || "익명",
+      churchId: String(row.churchId || "").slice(0, 64),
+      createdAt: num(row.createdAt),
+    });
+  }
+  return list.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function groupScheduleFromMap(raw: unknown): GroupScheduleItem[] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+  const list: GroupScheduleItem[] = [];
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const row = value as Record<string, unknown>;
+    list.push({
+      id,
+      title: cleanPostTitle(String(row.title || "")),
+      when: cleanShort(String(row.when || ""), 60),
+      place: cleanShort(String(row.place || ""), 40),
+      authorUid: String(row.authorUid || "").slice(0, 128),
+      authorNick: cleanNickname(String(row.authorNick || "익명")) || "익명",
+      createdAt: num(row.createdAt),
+    });
+  }
+  return list.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function groupAlbumFromMap(raw: unknown): GroupAlbumItem[] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+  const list: GroupAlbumItem[] = [];
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const row = value as Record<string, unknown>;
+    list.push({
+      id,
+      title: cleanResourceTitle(String(row.title || "")),
+      note: cleanResourceNote(String(row.note || "")),
+      url: cleanResourceUrl(String(row.url || "")),
+      authorUid: String(row.authorUid || "").slice(0, 128),
+      authorNick: cleanNickname(String(row.authorNick || "익명")) || "익명",
+      createdAt: num(row.createdAt),
+    });
+  }
+  return list.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/** 정적보내기용 모임방 URL (쿼리 id·region) */
+export function groupRoomHref(groupId: string, regionId: string): string {
+  const g = encodeURIComponent(String(groupId || "").slice(0, 64));
+  const r = encodeURIComponent(String(regionId || "").slice(0, 48));
+  return `/community/groups/?id=${g}&region=${r}`;
+}
+
+export function isGroupRoomTab(value: string): value is GroupRoomTab {
+  return GROUP_ROOM_TABS.some((tab) => tab.id === value);
 }
 
 export function sortGroups(groups: CommunityGroup[], mode: SortMode): CommunityGroup[] {
