@@ -30,7 +30,7 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
   const { ready, user, db } = useChurch();
   const query = useClientQuery();
   const pastorOnlyInbox = initialTab === "inbox";
-  const [tab, setTab] = useState<Tab>(pastorOnlyInbox ? "inbox" : initialTab === "inbox" ? "bulletin" : initialTab);
+  const [tab, setTab] = useState<Tab>(pastorOnlyInbox ? "inbox" : initialTab);
   const [serviceId, setServiceId] = useState("");
   const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
   const [prayerText, setPrayerText] = useState("");
@@ -54,12 +54,7 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
     : [];
 
   useEffect(() => {
-    if (pastorOnlyInbox) {
-      setTab("inbox");
-      return;
-    }
-    if (initialTab === "inbox") setTab("prayer");
-    else setTab(initialTab);
+    setTab(pastorOnlyInbox ? "inbox" : initialTab);
   }, [initialTab, pastorOnlyInbox]);
 
   useEffect(() => {
