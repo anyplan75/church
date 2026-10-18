@@ -3,9 +3,12 @@
 조작용 **Remote**(`/remote`, Capacitor `org.eunhye.worship.operator`)·송출용 데스크톱과 **다른** 성도 전용 화면입니다.  
 종이·디지털 주보를 대신해 오늘의 예배 정보·가사·광고를 보고, 기도제목을 목회자에게 보냅니다.
 
+로그인·앱 아이콘 등 **처음 화면**만 제품명 **은혜로운 예배**(성도)를 쓰고, 교회에 들어간 뒤에는 헤더·히어로에 **그 교회 이름**을 크게 둡니다.
+
 ## 웹으로 쓰기
 
-배포 주소 예: `https://eunhye-church-app.surge.sh/member/`
+배포 주소 예: `https://eunhye-church-app.surge.sh/member/`  
+(정적 배포는 `STATIC_EXPORT=1 npm run build` 후 `surge ./out` — `out/CNAME`은 `surge-fallback`이 채움)
 
 | 경로 | 하는 일 |
 | --- | --- |

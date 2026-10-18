@@ -168,6 +168,8 @@ export default function SettingsPage() {
       </section>
 
       <AccountPanel accounts={accounts} people={db.people} currentId={user.id} error={query.accountError} saved={query.accountSaved} errorAccount={query.account} />
+
+      <p className="mt-8 text-center text-xs text-muted">은혜로운 예배</p>
     </div>
   );
 }

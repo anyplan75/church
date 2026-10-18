@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { logout } from "@/lib/account-actions";
 import { addChurch, openChurch } from "@/lib/platform-actions";
 import { useChurch, useClientQuery } from "@/components/church-state";
+import { ChurchNearbyPicker, type GeocodedChurchFields } from "@/components/church-nearby-picker";
 import { RoleFields } from "@/components/role-fields";
 import { SubmitButton } from "@/components/submit-button";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { ALL_ROLES } from "@/lib/roles";
 
 const ERRORS: Record<string, string> = {
@@ -21,15 +24,19 @@ const ERRORS: Record<string, string> = {
 export default function PlatformPage() {
   const { ready, user, churches, error } = useChurch();
   const query = useClientQuery();
+  const [geo, setGeo] = useState<GeocodedChurchFields | null>(null);
+
   if (!ready || !user || user.kind !== "platform") return null;
 
   return (
     <div className="page max-w-3xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-gold">전체 운영</p>
+          <p className="text-sm font-semibold text-gold">{PRODUCT_NAME}</p>
           <h1 className="mt-1 font-serif text-4xl">교회</h1>
-          <p className="mt-2 text-muted">교회를 추가하고, 그 교회 운영자의 이메일·비밀번호·권한을 만듭니다. 교회 운영자는 자기 교회만 봅니다.</p>
+          <p className="mt-2 text-muted">
+            주소로 주변 교회를 찾아 열거나, 같은 주소에 새 교회와 운영자 계정을 만듭니다. 교회 운영자는 자기 교회만 봅니다.
+          </p>
         </div>
         <div className="flex gap-2">
           <Link href="/activity" className="btn btn-quiet">
@@ -46,6 +53,19 @@ export default function PlatformPage() {
       {error ? <p className="mt-4 text-sm text-wine">{error}</p> : null}
       {query.saved ? <p className="mt-4 text-sm text-pine">교회와 운영자 계정을 만들었습니다.</p> : null}
 
+      <section className="card mt-6 space-y-4 p-5">
+        <h2 className="font-serif text-3xl">주소로 교회 찾기</h2>
+        <ChurchNearbyPicker
+          churches={churches}
+          onGeocoded={setGeo}
+          onSelectExisting={(id) => {
+            const data = new FormData();
+            data.set("id", id);
+            void openChurch(data);
+          }}
+        />
+      </section>
+
       <section className="card mt-6 p-5">
         <h2 className="font-serif text-3xl">교회 목록</h2>
         {churches.length === 0 ? <p className="mt-3 text-muted">아직 교회가 없습니다.</p> : null}
@@ -53,9 +73,10 @@ export default function PlatformPage() {
           {churches.map((church) => (
             <form key={church.id} action={openChurch} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white px-4 py-3">
               <input type="hidden" name="id" value={church.id} />
-              <div>
+              <div className="min-w-0">
                 <p className="font-semibold">{church.name}</p>
                 <p className="text-sm text-muted">{church.operatorEmail}</p>
+                {church.address ? <p className="text-sm text-muted">{church.address}</p> : null}
               </div>
               <SubmitButton className="btn btn-quiet">이 교회 열기</SubmitButton>
             </form>
@@ -65,7 +86,18 @@ export default function PlatformPage() {
 
       <form action={addChurch} autoComplete="off" className="card mt-6 space-y-4 p-5">
         <h2 className="font-serif text-3xl">교회 추가</h2>
+        <p className="text-sm text-muted">위에서 주소를 찾은 뒤, 맞는 교회가 없으면 여기서 새로 만듭니다. 찾은 좌표가 함께 저장됩니다.</p>
         {query.error ? <p className="text-sm text-wine">{ERRORS[query.error] ?? "교회를 추가하지 못했습니다."}</p> : null}
+        <input type="hidden" name="lat" value={geo?.lat || ""} />
+        <input type="hidden" name="lng" value={geo?.lng || ""} />
+        <input type="hidden" name="address" value={geo?.address || ""} />
+        {geo ? (
+          <p className="text-sm text-pine">
+            저장될 위치: {geo.displayName} ({geo.lat}, {geo.lng})
+          </p>
+        ) : (
+          <p className="text-sm text-muted">주소 검색을 하지 않아도 만들 수 있지만, 주변 검색에는 좌표가 필요합니다.</p>
+        )}
         <label className="field">
           <span>교회 이름</span>
           <input className="input" name="name" type="text" maxLength={40} required placeholder="교회 이름" />

@@ -123,8 +123,7 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
     <div className="member-shell">
       <header className="member-hero">
         <div className="member-hero-glow" aria-hidden />
-        <p className="member-brand">은혜로운 예배</p>
-        <h1 className="member-title">{db.settings.churchName || "우리 교회"}</h1>
+        <h1 className="member-brand">{db.settings.churchName || "우리 교회"}</h1>
         <p className="member-lede">오늘의 주보와 가사, 예배에 필요한 안내를 모았습니다.</p>
         {pick ? (
           <p className="member-chip">

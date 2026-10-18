@@ -41,8 +41,12 @@
 | `name` | 문자열 |
 | `operatorEmail` | 문자열 |
 | `createdAt` | 숫자(ms) |
+| `address` | 문자열(선택, ≤200). 주변 검색·표시 |
+| `lat` | 숫자(선택, 위도 −90~90) |
+| `lng` | 숫자(선택, 경도 −180~180) |
 
-읽기·쓰기: 슈퍼관리자(`anyplan@me.com` 또는 `platform/adminUid`)만.
+읽기·쓰기: 슈퍼관리자(`anyplan@me.com` 또는 `platform/adminUid`)만.  
+주소·좌표는 플랫폼「주소로 교회 찾기」에서 채운다. 예전 교회는 좌표가 없을 수 있다.
 
 ### 2.3 `church/accounts/{uid}`
 
@@ -66,6 +70,8 @@
 | --- | --- |
 | `name` | 문자열 |
 | `createdAt` | 숫자(ms) |
+| `address` | 문자열(선택) |
+| `lat`, `lng` | 숫자(선택). `churchIndex`와 동일 |
 
 코드가 쓸 때 `operatorEmail`은 넣지 않는다. 목록용 이메일은 `churchIndex`에만 둔다.  
 쓰기: 슈퍼관리자만. 읽기: 슈퍼관리자 또는 그 교회 소속 계정.

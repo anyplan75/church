@@ -83,10 +83,8 @@ export function MobileSlideRemote({ serviceId = "" }: { serviceId?: string }) {
     <div className="mobile-remote min-h-screen bg-pine text-[#f6f1e6]">
       <header className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
-          <p className="font-serif text-xl leading-tight">은혜로운 예배 Remote</p>
-          <p className="mt-0.5 text-xs text-[#d9d0c2]">
-            {db.settings.churchName ? `${db.settings.churchName} · ` : ""}슬라이드 넘기기 · {statusLabel}
-          </p>
+          <p className="font-serif text-xl leading-tight">{db.settings.churchName || "우리 교회"}</p>
+          <p className="mt-0.5 text-xs text-[#d9d0c2]">슬라이드 넘기기 · {statusLabel}</p>
         </div>
         <div className="flex shrink-0 gap-2">
           <button type="button" className="btn btn-on-dark btn-small" onClick={() => setShowHost((v) => !v)}>

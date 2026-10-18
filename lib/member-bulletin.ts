@@ -70,7 +70,7 @@ export function memberServiceOptions(services: Service[], today = todayISO()): S
 export function buildMemberBulletin(service: Service, people: Person[], songs: Song[], churchName: string): MemberBulletinView {
   const sermon = service.items.find((item) => item.kind === "sermon");
   return {
-    churchName: churchName.trim() || "은혜로운 예배",
+    churchName: churchName.trim() || "우리 교회",
     title: service.title,
     dateLabel: formatKoreanDate(service.date),
     timeLabel: formatTime(service.time),
