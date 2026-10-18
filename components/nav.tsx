@@ -14,6 +14,7 @@ const LINKS: { href: string; label: string; capability: Capability }[] = [
   { href: "/services", label: "예배", capability: "screen.services" },
   { href: "/people", label: "사람", capability: "screen.people" },
   { href: "/library", label: "라이브러리", capability: "screen.songs" },
+  { href: "/community", label: "커뮤니티", capability: "screen.community" },
   { href: "/settings", label: "설정", capability: "screen.settings" },
 ];
 

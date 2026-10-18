@@ -667,6 +667,11 @@ async function currentToken(): Promise<string> {
   return session.idToken;
 }
 
+/** 커뮤니티 등 church/ 하위 직접 읽기·쓰기용 토큰 */
+export async function authToken(): Promise<string> {
+  return currentToken();
+}
+
 async function refreshShared(refreshToken: string): Promise<FirebaseSession | null> {
   const run = async () => {
     const stored = readStoredSession();

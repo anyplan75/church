@@ -48,6 +48,7 @@ export type Capability =
   | "screen.people"
   | "screen.songs"
   | "screen.settings"
+  | "screen.community"
   | "mutate.prepare"
   | "mutate.run"
   | "mutate.output"
@@ -60,7 +61,7 @@ export type Capability =
   | "screen.activity";
 
 const GRANTS: Record<Role, readonly Capability[]> = {
-  view: ["screen.week", "screen.services", "screen.bulletin", "screen.attendance", "screen.inventory"],
+  view: ["screen.week", "screen.services", "screen.bulletin", "screen.attendance", "screen.inventory", "screen.community"],
   prepare: [
     "screen.week",
     "screen.services",
@@ -73,9 +74,10 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "mutate.attendance.leader",
     "screen.inventory",
     "mutate.inventory",
+    "screen.community",
   ],
-  run: ["screen.week", "screen.services", "screen.live", "mutate.run", "screen.attendance", "mutate.attendance.leader"],
-  output: ["screen.week", "screen.services", "screen.output", "screen.slides", "mutate.output", "screen.attendance"],
+  run: ["screen.week", "screen.services", "screen.live", "mutate.run", "screen.attendance", "mutate.attendance.leader", "screen.community"],
+  output: ["screen.week", "screen.services", "screen.output", "screen.slides", "mutate.output", "screen.attendance", "screen.community"],
   directory: [
     "screen.people",
     "screen.songs",
@@ -84,14 +86,16 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "mutate.attendance.leader",
     "screen.inventory",
     "mutate.inventory",
+    "screen.community",
   ],
-  admin: ["screen.settings", "mutate.admin", "screen.attendance", "mutate.attendance.leader", "screen.inventory", "mutate.inventory", "screen.activity"],
+  admin: ["screen.settings", "mutate.admin", "screen.attendance", "mutate.attendance.leader", "screen.inventory", "mutate.inventory", "screen.activity", "screen.community"],
 };
 
 const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] = [
   { test: (pathname) => pathname === "/", caps: ["screen.bulletin"] },
   { test: (pathname) => pathname === "/week", caps: ["screen.week"] },
   { test: (pathname) => pathname === "/library", caps: ["screen.songs"] },
+  { test: (pathname) => pathname === "/community", caps: ["screen.community"] },
   { test: (pathname) => pathname === "/prepare", caps: ["screen.prepare"] },
   { test: (pathname) => pathname === "/services", caps: ["screen.services"] },
   { test: (pathname) => pathname === "/services/new", caps: ["screen.new"] },
