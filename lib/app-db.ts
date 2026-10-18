@@ -40,6 +40,12 @@ export type ChurchRow = {
   name: string;
   operatorEmail: string;
   createdAt: number;
+  /** 교회 주소(선택). 주변 검색·표시용 */
+  address?: string;
+  /** 위도(선택) */
+  lat?: number;
+  /** 경도(선택) */
+  lng?: number;
 };
 
 export type CurrentUser = {
@@ -257,11 +263,27 @@ export async function loginWithPassword(email: string, password: string): Promis
   return currentUser();
 }
 
+function churchLocationFields(input: { address?: string; lat?: number; lng?: number }) {
+  const address = String(input.address || "")
+    .trim()
+    .slice(0, 200);
+  const lat = Number(input.lat);
+  const lng = Number(input.lng);
+  const hasGeo = Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  return {
+    ...(address ? { address } : {}),
+    ...(hasGeo ? { lat, lng } : {}),
+  };
+}
+
 export async function addChurchWithOperator(input: {
   name: string;
   email: string;
   password: string;
   roles: readonly string[];
+  address?: string;
+  lat?: number;
+  lng?: number;
 }): Promise<{ ok: true } | { ok: false; code: string }> {
   const actor = actorOf(session);
   if (!session || !actor || !canAddChurch(actor)) return { ok: false, code: "denied" };
@@ -273,6 +295,7 @@ export async function addChurchWithOperator(input: {
   const created = await firebaseSignUp(input.email, input.password);
   if (!created.ok) return { ok: false, code: created.taken ? "taken" : "email" };
   const id = makeChurchId();
+  const location = churchLocationFields(input);
   const churchDb = normalizeDb({
     settings: { churchName: name, backgroundColor: "#1b3a32", backgroundFile: null, overlay: "bottom" },
     people: [],
@@ -286,10 +309,10 @@ export async function addChurchWithOperator(input: {
     visits: [],
   });
   churchDb.visits = openVisit(churchDb.visits, session.email);
-  const row: ChurchRow = { id, name, operatorEmail: created.session.email, createdAt: Date.now() };
+  const row: ChurchRow = { id, name, operatorEmail: created.session.email, createdAt: Date.now(), ...location };
   try {
     const token = await currentToken();
-    await dbSet(`churches/${id}/meta`, { name, createdAt: row.createdAt }, token);
+    await dbSet(`churches/${id}/meta`, { name, createdAt: row.createdAt, ...location }, token);
     await dbSet(`churches/${id}/data`, churchDb, token);
     await dbSet(`churches/${id}/members/${created.session.localId}`, memberBody(created.session.email, id, roles, null), token);
     await dbSet(`accounts/${created.session.localId}`, memberBody(created.session.email, id, roles, null), token);
@@ -523,6 +546,14 @@ async function loadChurchIndex(authToken: string): Promise<ChurchRow[]> {
   return [];
 }
 
+function parseChurchLocation(row: { address?: unknown; lat?: unknown; lng?: unknown }) {
+  return churchLocationFields({
+    address: row?.address != null ? String(row.address) : "",
+    lat: row?.lat != null ? Number(row.lat) : undefined,
+    lng: row?.lng != null ? Number(row.lng) : undefined,
+  });
+}
+
 function churchRows(index: Record<string, Partial<ChurchRow>> | null): ChurchRow[] {
   if (!index || typeof index !== "object") return [];
   return Object.entries(index)
@@ -532,6 +563,7 @@ function churchRows(index: Record<string, Partial<ChurchRow>> | null): ChurchRow
       name: String(row?.name || "교회").slice(0, 40),
       operatorEmail: String(row?.operatorEmail || ""),
       createdAt: Number(row?.createdAt || 0),
+      ...parseChurchLocation(row || {}),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
 }
@@ -541,7 +573,10 @@ async function churchRowsFromMeta(authToken: string): Promise<ChurchRow[]> {
   const rows: ChurchRow[] = [];
   for (const id of ids) {
     if (!isChurchId(id)) continue;
-    const meta = await dbGet<{ name?: unknown; operatorEmail?: unknown; createdAt?: unknown }>(`churches/${id}/meta`, authToken).catch((reason: unknown) => {
+    const meta = await dbGet<{ name?: unknown; operatorEmail?: unknown; createdAt?: unknown; address?: unknown; lat?: unknown; lng?: unknown }>(
+      `churches/${id}/meta`,
+      authToken,
+    ).catch((reason: unknown) => {
       if (reason instanceof DatabasePermissionError) throw reason;
       return null;
     });
@@ -551,6 +586,7 @@ async function churchRowsFromMeta(authToken: string): Promise<ChurchRow[]> {
       name: String(meta.name || "교회").slice(0, 40),
       operatorEmail: String(meta.operatorEmail || ""),
       createdAt: Number(meta.createdAt || 0),
+      ...parseChurchLocation(meta),
     });
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name, "ko"));

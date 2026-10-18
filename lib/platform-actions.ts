@@ -11,6 +11,11 @@ export async function addChurch(formData: FormData) {
   const email = normalizeEmail(text(formData, "email"));
   const password = text(formData, "password");
   const confirm = text(formData, "confirm");
+  const address = text(formData, "address").trim().slice(0, 200);
+  const latRaw = text(formData, "lat").trim();
+  const lngRaw = text(formData, "lng").trim();
+  const lat = latRaw ? Number(latRaw) : undefined;
+  const lng = lngRaw ? Number(lngRaw) : undefined;
   if (!email) go("/platform?error=email");
   if (!normalizePassword(password)) go("/platform?error=short");
   if (password.trim() !== confirm.trim()) go("/platform?error=confirm");
@@ -19,6 +24,9 @@ export async function addChurch(formData: FormData) {
     email: email!,
     password: password.trim(),
     roles: formData.getAll("roles").map(String),
+    address,
+    lat,
+    lng,
   });
   if (!result.ok) go(`/platform?error=${encodeURIComponent(result.code)}`);
   go("/platform?saved=1");

@@ -3,15 +3,12 @@
 import { login } from "@/lib/account-actions";
 import { SubmitButton } from "@/components/submit-button";
 import { useClientQuery } from "@/components/church-state";
+import { PRODUCT_MEMBER_NAME, PRODUCT_NAME, PRODUCT_REMOTE_NAME } from "@/lib/brand";
 import { isMobileMemberApp, isMobileOperatorApp } from "@/lib/mobile-app";
 
 export default function LoginPage() {
   const query = useClientQuery();
-  const brand = isMobileMemberApp()
-    ? "은혜로운 예배 성도"
-    : isMobileOperatorApp()
-      ? "은혜로운 예배 Remote"
-      : "은혜로운 예배";
+  const brand = isMobileMemberApp() ? PRODUCT_MEMBER_NAME : isMobileOperatorApp() ? PRODUCT_REMOTE_NAME : PRODUCT_NAME;
   const blurb = isMobileMemberApp()
     ? "교회 성도 계정으로 들어가 주보·가사·기도제목을 봅니다."
     : "전체 운영자와 교회 운영자가 이메일과 비밀번호로 들어갑니다. 교회 운영자는 자기 교회만 봅니다.";
