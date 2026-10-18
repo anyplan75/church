@@ -14,19 +14,17 @@ import { canSeePastorInbox, prayerStatusLabel, type PrayerRequest, type PrayerSt
 import { loadPrayerRequests, submitPrayerRequest, updatePrayerStatus } from "@/lib/prayer-db";
 import { can } from "@/lib/roles";
 
-type MemberTab = "bulletin" | "lyrics" | "info" | "ads" | "live" | "prayer";
+type MemberTab = "info" | "live" | "ads" | "prayer";
 type Tab = MemberTab | "inbox";
 
 const TABS: { id: MemberTab; label: string }[] = [
-  { id: "bulletin", label: "주보" },
-  { id: "lyrics", label: "가사" },
   { id: "info", label: "예배정보" },
+  { id: "live", label: "예배자막" },
   { id: "ads", label: "광고" },
-  { id: "live", label: "자막" },
   { id: "prayer", label: "기도" },
 ];
 
-export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
+export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
   const { ready, user, db } = useChurch();
   const query = useClientQuery();
   const pastorOnlyInbox = initialTab === "inbox";
@@ -82,8 +80,6 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
   }
 
   const pick = views?.pick;
-  const bulletin = views?.bulletin;
-  const lyrics = views?.lyrics ?? [];
   const info = views?.info;
   const notices = views?.notices ?? [];
   const caption = views?.caption;
@@ -205,7 +201,7 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
       <header className="member-hero">
         <div className="member-hero-glow" aria-hidden />
         <h1 className="member-brand">{db.settings.churchName || "우리 교회"}</h1>
-        <p className="member-lede">선택한 예배의 주보·가사·광고와 예배 중 자막을 모았습니다.</p>
+        <p className="member-lede">선택한 예배의 정보·광고와 예배 중 자막, 기도제목 보내기를 모았습니다.</p>
         {pick ? (
           <p className="member-chip">
             {pickReasonLabel(pick.reason)} · {pick.service.title}
@@ -216,7 +212,7 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
         <div className="member-hero-actions">
           {options.length > 0 ? (
             <label className="member-select">
-              <span className="sr-only">예배·주보 선택</span>
+              <span className="sr-only">예배 선택</span>
               <select
                 value={pick?.service.id || ""}
                 onChange={(event) => setServiceId(event.target.value)}
@@ -262,59 +258,8 @@ export function MemberApp({ initialTab = "bulletin" }: { initialTab?: Tab }) {
       {error ? <p className="member-err">{error}</p> : null}
 
       <main className="member-main">
-        {!pick || !bulletin ? (
-          <p className="text-muted">아직 볼 예배가 없습니다. 운영자가 예배를 준비하면 여기에 주보가 열립니다.</p>
-        ) : null}
-
-        {tab === "bulletin" && bulletin ? (
-          <article className="member-bulletin animate-in">
-            <p className="member-kicker">{bulletin.churchName}</p>
-            <h2>{bulletin.title}</h2>
-            {bulletin.sermonTitle ? <p className="member-sermon">{bulletin.sermonTitle}</p> : null}
-            <p className="member-meta">
-              {bulletin.dateLabel} · {bulletin.timeLabel} · {bulletin.place}
-            </p>
-            {bulletin.preacher || bulletin.scripture ? (
-              <p className="member-meta">
-                {[bulletin.preacher ? `설교 ${bulletin.preacher}` : "", bulletin.scripture].filter(Boolean).join(" · ")}
-              </p>
-            ) : null}
-            <h3>예배 순서</h3>
-            <ol>
-              {bulletin.order.map((item, index) => (
-                <li key={item.id}>
-                  <div className="member-order-row">
-                    <span>
-                      {index + 1}. {item.title}
-                    </span>
-                    <span className="member-aside">{item.aside}</span>
-                  </div>
-                  {item.note ? <p className="member-note">{item.note}</p> : null}
-                </li>
-              ))}
-            </ol>
-          </article>
-        ) : null}
-
-        {tab === "lyrics" && pick ? (
-          <section className="member-lyrics animate-in">
-            <h2>가사 · 화면 문구</h2>
-            <p className="member-hint">허가된 찬양만 가사가 보입니다. 그 외는 제목만 표시합니다.</p>
-            <div className="member-lyric-list">
-              {lyrics.map((line) => (
-                <article key={line.itemId} className={line.isSong ? "is-song" : undefined}>
-                  <p className="member-kicker">{line.kicker}</p>
-                  <h3>{line.heading}</h3>
-                  {line.lines.map((text) => (
-                    <p key={text} className="member-lyric-line">
-                      {text}
-                    </p>
-                  ))}
-                  {line.footer ? <p className="member-aside">{line.footer}</p> : null}
-                </article>
-              ))}
-            </div>
-          </section>
+        {!pick ? (
+          <p className="text-muted">아직 볼 예배가 없습니다. 운영자가 예배를 준비하면 여기에 예배 정보가 열립니다.</p>
         ) : null}
 
         {tab === "info" && info ? (
