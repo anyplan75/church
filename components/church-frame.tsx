@@ -123,6 +123,10 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
   if (ready && !user && !output && path !== "/login") {
     return <p className="page text-muted">로그인으로 이동 중</p>;
   }
+  // 네이티브가 루트 `/`(주보)에 머물면 children 이 null 이라 빈 화면처럼 보입니다.
+  if (ready && user && !output && path === "/" && (isMobileMemberApp() || isMobileOperatorApp())) {
+    return <p className="page text-muted">앱 화면으로 이동 중</p>;
+  }
 
   return (
     <>

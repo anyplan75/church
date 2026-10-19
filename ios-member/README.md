@@ -37,6 +37,6 @@ export APP_STORE_CONNECT_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 npm run member:mobile:ios:testflight
 ```
 
-업로드 후 ASC → **TestFlight** → 빌드 처리가 끝나면 내부 테스트 그룹에 빌드를 추가하세요.
+업로드 후 ASC → **TestFlight** → 빌드 처리가 끝나면 내부 테스트 그룹에 빌드를 추가하세요. Mac만 다시 쓸 수 있을 때의 짧은 절차: [`docs/testflight-reupload.md`](../docs/testflight-reupload.md).
 
 자세한 기능·권한은 [`docs/member-app.md`](../docs/member-app.md)를 보세요.

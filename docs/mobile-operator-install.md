@@ -62,7 +62,7 @@ npm run mobile:sync
 
 `out/`을 iOS 프로젝트에 다시 복사하고 `eunhye-app-id`(조작 번들)를 HTML에 넣습니다. TestFlight에 다시 올리려면 `bash scripts/ios-testflight-upload.sh`를 실행합니다.
 
-조작 iOS(`ios/`)는 `NextExportRouter`로 `/login/`·`/remote/` 하위 HTML을 열고, Firebase 부트가 멈춰도 제한 시간 후 로그인 화면으로 넘어갑니다.
+조작 iOS(`ios/`)는 `NextExportRouter`로 `/login/`·`/remote/` 하위 HTML을 열고, 시작은 `/login/` 입니다. Firebase 부트가 멈춰도(또는 공개 키가 비어 있어도) 제한 시간 후 로그인 화면으로 넘어갑니다. Mac 복귀 후 재업로드: [`testflight-reupload.md`](./testflight-reupload.md).
 
 ## 되는 것 / 안 되는 것
 

@@ -1,3 +1,8 @@
+/** 정적보내기에 심어진 Firebase Auth API 키가 있는지(값은 노출하지 않음). */
+export function firebaseApiKeyConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim());
+}
+
 function apiKey(): string {
   const key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim() || "";
   if (!key) throw new Error("NEXT_PUBLIC_FIREBASE_API_KEY가 없습니다. .env.local을 확인하세요.");
