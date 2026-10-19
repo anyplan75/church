@@ -72,7 +72,7 @@ URL `?service=` 로 특정 예배를 고정할 수 있습니다.
 | ASC 앱 ID | `6824340939` (SKU `eunhye-worship-member`) |
 | 설정 | `capacitor.member.config.ts` (`ios.path = ios-member`) |
 | 프로젝트 | `ios-member/` (조작 `ios/` 와 분리) |
-| AppIcon | 굵은 풀블리드·십자가+기도하는 성도 — `assets/app-icons/eunhye-member-app-icon-1024.png` |
+| AppIcon | 기도하는 손(풀블리드) — `assets/app-icons/eunhye-member-praying-hands-fullbleed-1024.png` |
 | 안내 | `ios-member/README.md` |
 
 조작 앱과 **같은 `out/` 정적 파일**을 쓰되, 네이티브 `appId`로 셸을 구분합니다. 성도 셸은 로그인 후 항상 `/member`로 가며, `/community`·`/prayers` 도 허용합니다.
