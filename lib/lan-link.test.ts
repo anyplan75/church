@@ -32,9 +32,13 @@ describe("desktop protocol", () => {
 
   it("ships electron entry files", () => {
     const root = path.join(process.cwd(), "desktop");
-    for (const name of ["main.cjs", "preload.cjs", "output-server.cjs", "discovery.cjs", "after-pack.cjs", "builder.json"]) {
+    for (const name of ["main.cjs", "preload.cjs", "output-server.cjs", "discovery.cjs", "after-pack.cjs", "builder.json", "library-folders.cjs", "store.cjs"]) {
       assert.ok(readFileSync(path.join(root, name), "utf8").length > 20);
     }
+    const store = readFileSync(path.join(root, "store.cjs"), "utf8");
+    assert.match(store, /libraryFolders|getLibraryFolders/);
+    const preload = readFileSync(path.join(root, "preload.cjs"), "utf8");
+    assert.match(preload, /pickLibraryFolder/);
   });
 
   it("ships mac launchers for operator output overlay", () => {
