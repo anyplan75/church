@@ -66,10 +66,10 @@ export function nativeAppId(): string {
 /** 모바일 Remote 앱의 첫 화면(슬라이드 리모컨). */
 export const MOBILE_REMOTE_HOME = "/remote";
 
-/** 성도 앱의 첫 화면. */
+/** 성도 앱의 첫 화면(비로그인 둘러보기 포함). */
 export const MOBILE_MEMBER_HOME = "/member";
 
-/** 네이티브 셸 공통 시작 화면(로그인). 루트 `/` 빈 화면을 피합니다. */
+/** 조작 네이티브 셸 시작 화면(로그인). 루트 `/` 빈 화면을 피합니다. 성도는 `/member`. */
 export const MOBILE_START_PATH = "/login";
 
 /** 모바일 앱이면 셸에 맞는 홈, 아니면 넘긴 주소를 씁니다. */

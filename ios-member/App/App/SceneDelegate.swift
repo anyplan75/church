@@ -4,7 +4,7 @@ import Capacitor
 
 /// Next 정적보내기(trailingSlash)용 라우터.
 /// Capacitor 기본값은 확장자 없는 경로를 항상 /index.html(루트)로만 보낸다.
-/// /login/ → /login/index.html, /member/ → /member/index.html 이어야 화면이 보인다.
+/// /member/ → /member/index.html 이어야 성도 화면이 보인다(비로그인 둘러보기). /login/ 은 선택 로그인.
 struct NextExportRouter: Router {
     var basePath: String = ""
 
@@ -95,7 +95,7 @@ class AppBridgeViewController: CAPBridgeViewController {
         webView.configuration.userContentController.addUserScript(script)
     }
 
-    /// Capacitor 기본 시작이 `/` 이면 주보 빈 화면이 됩니다. `/login/` HTML로 엽니다.
+    /// Capacitor 기본 시작이 `/` 이면 주보 빈 화면이 됩니다. 성도는 `/member/` 로 엽니다(비로그인 둘러보기).
     private func openLoginIfRoot() {
         guard let webView = webView else { return }
         DispatchQueue.main.async {
@@ -103,8 +103,8 @@ class AppBridgeViewController: CAPBridgeViewController {
             guard path == "/" || path == "/index.html" || path.isEmpty else { return }
             let scheme = webView.url?.scheme ?? "capacitor"
             let host = webView.url?.host ?? "localhost"
-            guard let loginURL = URL(string: "\(scheme)://\(host)/login/") else { return }
-            webView.load(URLRequest(url: loginURL))
+            guard let memberURL = URL(string: "\(scheme)://\(host)/member/") else { return }
+            webView.load(URLRequest(url: memberURL))
         }
     }
 }
