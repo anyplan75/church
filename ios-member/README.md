@@ -10,7 +10,7 @@
 | SKU | `eunhye-worship-member` |
 | 설정 파일 | 저장소 루트 `capacitor.member.config.ts` (`ios.path = ios-member`) |
 | 첫 화면 | `/member` |
-| AppIcon | 기도하는 손 (`assets/app-icons/eunhye-member-praying-hands-1024.png`) |
+| AppIcon | 십자가+기도하는 성도 (`assets/app-icons/eunhye-member-app-icon-1024.png`) |
 
 ## 처음 한 번 / 웹 다시 넣기
 
