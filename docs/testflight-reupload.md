@@ -44,7 +44,7 @@ npm run member:mobile:ios:testflight
 
 - 표시 이름: **은혜로운 예배 성도**
 - ASC 앱 ID: `6824340939`
-- 빌드 번호: **9** 이상
+- 빌드 번호: **10** 이상
 - `ios/` Remote 프로젝트는 건드리지 않습니다.
 
 ## 업로드 후
