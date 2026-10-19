@@ -133,6 +133,7 @@ const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] 
   { test: (pathname) => pathname === "/community" || pathname.startsWith("/community/"), caps: ["screen.community"] },
   { test: (pathname) => pathname === "/prepare", caps: ["screen.prepare"] },
   { test: (pathname) => pathname === "/services", caps: ["screen.services"] },
+  { test: (pathname) => pathname === "/presenter", caps: ["screen.live"] },
   { test: (pathname) => pathname === "/services/new", caps: ["screen.new"] },
   { test: (pathname) => pathname === "/people", caps: ["screen.people"] },
   { test: (pathname) => pathname === "/songs", caps: ["screen.songs"] },
@@ -235,7 +236,10 @@ export function outputLinks(id: string, localOrigin = ""): ServiceLink[] {
 export function serviceDestinations(id: string, roles: readonly Role[]): ServiceLink[] {
   const links: ServiceLink[] = [];
   if (can(roles, "screen.editor")) links.push({ href: `/services/${id}`, label: "순서" });
-  if (can(roles, "screen.live")) links.push({ href: `/services/${id}/live`, label: "진행" });
+  if (can(roles, "screen.live")) {
+    links.push({ href: `/presenter/?service=${encodeURIComponent(id)}`, label: "프레젠터" });
+    links.push({ href: `/services/${id}/live`, label: "진행" });
+  }
   if (can(roles, "screen.output")) links.push(...outputLinks(id));
   if (can(roles, "screen.bulletin")) links.push({ href: `/services/${id}/bulletin`, label: "주보" });
   return links;

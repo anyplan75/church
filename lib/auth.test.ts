@@ -134,6 +134,14 @@ describe("역할 조합", () => {
     assert.equal(can(["view"], "screen.live"), false);
   });
 
+  it("프레젠터(/presenter)는 진행 역할만 연다", () => {
+    assert.equal(canOpenPath(["run"] satisfies Role[], "/presenter"), true);
+    assert.equal(canOpenPath(["run"], "/presenter/"), true);
+    assert.equal(canOpenPath(["view"], "/presenter"), false);
+    assert.equal(canOpenPath(["output"], "/presenter"), false);
+    assert.equal(canOpenPath(["prepare"], "/presenter"), false);
+  });
+
   it("성도 앱(/member)은 로그인 사용자면 열고, 기도함은 목회·준비·진행·설정만", () => {
     assert.equal(canOpenPath(["view"] satisfies Role[], "/member"), true);
     assert.equal(canOpenPath(["view"], "/member/"), true);
