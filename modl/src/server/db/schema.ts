@@ -638,6 +638,37 @@ export const websiteConfigs = pgTable(
   ],
 );
 
+/**
+ * 모들 편성 기록입니다.
+ * 사람을 다른 모들로 옮겨도 지난 줄은 지우지 않고 끝난 시각만 적습니다.
+ */
+export const groupMemberships = pgTable(
+  "group_memberships",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    communityId: uuid("community_id")
+      .notNull()
+      .references(() => communities.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => smallGroups.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    seasonYear: integer("season_year").notNull(),
+    assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("group_memberships_community_id_idx").on(table.communityId),
+    index("group_memberships_group_id_idx").on(table.groupId),
+    index("group_memberships_member_id_idx").on(table.memberId),
+    uniqueIndex("group_memberships_open_member_uidx").on(table.memberId).where(sql`${table.endedAt} is null`),
+  ],
+);
+
 /** 안뜨레에 남긴 방문 문의입니다. */
 export const websiteInquiries = pgTable(
   "website_inquiries",
@@ -683,4 +714,5 @@ export const dbSchema = {
   quizzes,
   websiteConfigs,
   websiteInquiries,
+  groupMemberships,
 };

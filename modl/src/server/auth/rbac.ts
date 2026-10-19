@@ -41,7 +41,12 @@ export type AppAction =
   | { type: "view_own_group_page"; communityId: string; groupId: string }
   | { type: "view_open_website"; communityId: string }
   | { type: "submit_website_inquiry"; communityId: string }
-  | { type: "answer_survey"; communityId: string; allowAnonymous: boolean };
+  | { type: "answer_survey"; communityId: string; allowAnonymous: boolean }
+  | { type: "create_community" }
+  | { type: "apply_to_join" }
+  | { type: "issue_invite"; communityId: string }
+  | { type: "review_approval"; communityId: string }
+  | { type: "manage_groups"; communityId: string };
 
 const ROSTER_ROLES = ["PASTOR", "EXECUTIVE"] as const satisfies readonly MemberRole[];
 const LEADER_CALENDAR_ROLES = ["PASTOR", "EXECUTIVE", "CELL_LEADER"] as const satisfies readonly MemberRole[];
@@ -98,12 +103,18 @@ export function can(actor: Actor, action: AppAction): boolean {
     case "manage_plan_and_language":
       return roleIs(actor, action.communityId, ["PASTOR"]);
     case "manage_roster":
+    case "issue_invite":
+    case "review_approval":
+    case "manage_groups":
     case "publish_bulletin":
     case "view_attendance_stats":
     case "view_long_absent":
     case "manage_finance":
     case "manage_surveys_and_minutes":
       return roleIs(actor, action.communityId, ROSTER_ROLES);
+    case "create_community":
+    case "apply_to_join":
+      return actor.kind === "user";
     case "view_public_bulletin": {
       const membership = formalMembership(actor, action.communityId);
       if (!membership) return false;

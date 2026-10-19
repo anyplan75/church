@@ -66,6 +66,21 @@ export const TERM_DICTIONARY = {
       jeju_primary: "열린 안뜨레",
       jeju_alt: "마중 상방",
     },
+    roster: {
+      standard: "교적부",
+      jeju_primary: "식구 명부",
+      jeju_alt: "괸당 장부",
+    },
+    invite: {
+      standard: "초대 코드",
+      jeju_primary: "들임 기별",
+      jeju_alt: "마중 암호",
+    },
+    approval: {
+      standard: "가입 승인",
+      jeju_primary: "들임 허락",
+      jeju_alt: "마중 결재",
+    },
   },
   actions: {
     check_in_btn: {
@@ -130,12 +145,62 @@ export const TERM_DICTIONARY = {
       jeju_primary: "마중 손님",
     },
   },
+  labels: {
+    account: { standard: "계정", jeju: "내 이름" },
+    create_community: { standard: "공동체 만들기", jeju: "공동체 열기" },
+    save: { standard: "저장하기", jeju: "이대로 담기" },
+    issue_invite: { standard: "초대 코드 만들기", jeju: "들임 기별 만들기" },
+    apply_join: { standard: "가입 신청", jeju: "들어가기 신청" },
+    approve_member: { standard: "승인하기", jeju: "허락하기" },
+    reject_member: { standard: "거절하기", jeju: "거절하기" },
+    login: { standard: "들어가기", jeju: "들어감수다" },
+    signup: { standard: "계정 만들기", jeju: "이름 올리기" },
+    logout: { standard: "나가기", jeju: "나감수다" },
+    start_season: { standard: "이 해로 새 편성", jeju: "이 해 모들 짜기" },
+    add_group: { standard: "모들 추가", jeju: "모들 더하기" },
+    assign_member: { standard: "이 모들에 넣기", jeju: "이 모들에 넣기" },
+    add_roster: { standard: "명부 등록", jeju: "식구 적기" },
+    field_name: { standard: "이름", jeju: "이름" },
+    field_community_name: { standard: "공동체 이름", jeju: "공동체 이름" },
+    field_church: { standard: "교회 이름", jeju: "교회 이름" },
+    field_denomination: { standard: "교단", jeju: "교단" },
+    field_slug: { standard: "주소 이름", jeju: "주소 이름" },
+    field_phone: { standard: "전화번호", jeju: "전화번호" },
+    field_birth: { standard: "생일", jeju: "생일" },
+    field_email: { standard: "이메일", jeju: "이메일" },
+    field_password: { standard: "비밀번호", jeju: "비밀번호" },
+    field_season: { standard: "시즌 연도", jeju: "해" },
+    field_group_name: { standard: "모들 이름", jeju: "모들 이름" },
+    field_invite: { standard: "초대 코드", jeju: "들임 기별" },
+    field_role: { standard: "역할", jeju: "호칭" },
+    field_status: { standard: "상태", jeju: "상태" },
+    field_group: { standard: "소속 모들", jeju: "속한 모들" },
+    field_gender: { standard: "성별", jeju: "성별" },
+    field_leader: { standard: "테우리", jeju: "테우리" },
+    field_overrides: { standard: "용어 덮어쓰기", jeju: "말 바꾸기" },
+    field_plan: { standard: "사용 등급", jeju: "살림 크기" },
+    field_language: { standard: "말투", jeju: "말투" },
+    require_approval: { standard: "가입 승인 필요", jeju: "들임 허락 필요" },
+    status_active: { standard: "활동", jeju: "함께하는 괸당" },
+    status_graduated: { standard: "졸업", jeju: "졸업한 식구" },
+    gender_male: { standard: "남성", jeju: "남성" },
+    gender_female: { standard: "여성", jeju: "여성" },
+    gender_unspecified: { standard: "밝히지 않음", jeju: "밝히지 않음" },
+    plan_free: { standard: "무료", jeju: "무료" },
+    plan_pro: { standard: "더 넓은 살림", jeju: "더 넓은 살림" },
+    past_groups: { standard: "지난 편성", jeju: "지난 모들" },
+    mode_dual: { standard: "제주어와 표준어 함께", jeju: "제주어와 표준어 함께" },
+    mode_jeju: { standard: "제주어만", jeju: "제주어만" },
+    mode_standard: { standard: "표준어만", jeju: "표준어만" },
+    no_group: { standard: "소속 없음", jeju: "아직 없음" },
+  },
 } as const;
 
 export type MenuKey = keyof typeof TERM_DICTIONARY.menus;
 export type ActionKey = keyof typeof TERM_DICTIONARY.actions;
 export type RoleLabelKey = keyof typeof TERM_DICTIONARY.roles;
-export type TermKey = MenuKey | ActionKey | RoleLabelKey;
+export type LabelKey = keyof typeof TERM_DICTIONARY.labels;
+export type TermKey = MenuKey | ActionKey | RoleLabelKey | LabelKey;
 
 export const ACTION_BUTTON_KEYS = [
   "check_in_btn",

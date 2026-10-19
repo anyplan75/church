@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { AppShell } from "@/components/app-shell";
 import { CommunityTermProvider } from "@/components/community-term-provider";
+import { loadShellState } from "@/server/community/service";
 import "./globals.css";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "모들",
@@ -13,12 +16,16 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const shell = await loadShellState();
   return (
     <html lang="ko">
       <body>
-        <CommunityTermProvider>
-          <AppShell>{children}</AppShell>
+        <CommunityTermProvider
+          languageModeFromCommunity={shell.languageMode}
+          overridesJson={shell.overridesJson}
+        >
+          <AppShell accountName={shell.accountName}>{children}</AppShell>
         </CommunityTermProvider>
       </body>
     </html>

@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { TermButton } from "@/components/term-button";
 import { TermHeading } from "@/components/term-heading";
 import { useCommunityTerm } from "@/components/use-community-term";
 import { useCommunityTermState } from "@/components/community-term-provider";
-import { ACTION_BUTTON_KEYS, type MenuKey, type RoleLabelKey } from "@/theme/dictionary";
+import { ACTION_BUTTON_KEYS, type MenuKey, type RoleLabelKey, type TermKey } from "@/theme/dictionary";
 import { MENU_ITEMS } from "@/theme/menus";
 import type { LanguageMode } from "@/theme/types";
 
@@ -26,6 +27,16 @@ const MODES: Array<{ id: LanguageMode; label: string; help: string }> = [
   },
 ];
 
+const WORK_LINKS: Array<{ href: string; termKey: TermKey }> = [
+  { href: "/account", termKey: "account" },
+  { href: "/community/new", termKey: "create_community" },
+  { href: "/join", termKey: "apply_join" },
+  { href: "/roster", termKey: "roster" },
+  { href: "/invite", termKey: "invite" },
+  { href: "/approvals", termKey: "approval" },
+  { href: "/group", termKey: "group" },
+];
+
 const PREVIEW_MENUS: MenuKey[] = ["group", "bulletin", "prayer", "website"];
 const ROLE_KEYS: RoleLabelKey[] = ["PASTOR", "EXECUTIVE", "CELL_LEADER", "MEMBER", "NEWCOMER", "UNREGISTERED", "GUEST"];
 
@@ -39,8 +50,17 @@ function ShortcutRow({ menuKey, shortcut }: { menuKey: MenuKey; shortcut: string
   );
 }
 
+function WorkLink({ href, termKey }: { href: string; termKey: TermKey }) {
+  const term = useCommunityTerm(termKey);
+  return (
+    <Link href={href} className="block rounded-2xl bg-[#fffaf3] px-4 py-3 font-semibold leading-snug">
+      {term.primary}
+    </Link>
+  );
+}
+
 export default function HomePage() {
-  const { languageMode, setLanguageMode } = useCommunityTermState();
+  const { languageMode, setLanguageMode, languageLocked } = useCommunityTermState();
 
   return (
     <div className="grid gap-10">
@@ -62,6 +82,7 @@ export default function HomePage() {
               key={mode.id}
               type="button"
               aria-pressed={selected}
+              disabled={languageLocked}
               className={`rounded-2xl border px-4 py-3 text-left leading-snug ${
                 selected ? "border-[#1d6b45] bg-[#e7f3ec]" : "border-[#e4d8c8] bg-[#fffaf3]"
               }`}
@@ -72,6 +93,15 @@ export default function HomePage() {
             </button>
           );
         })}
+      </section>
+
+      <section className="grid gap-3">
+        <h2 className="text-[clamp(1.2rem,1rem+0.5vw,1.5rem)] font-semibold">이번 단계에서 여는 일</h2>
+        <div className="grid gap-2">
+          {WORK_LINKS.map((item) => (
+            <WorkLink key={item.href} href={item.href} termKey={item.termKey} />
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-4">

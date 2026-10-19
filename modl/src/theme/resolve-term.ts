@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   TERM_DICTIONARY,
   type ActionKey,
+  type LabelKey,
   type MenuKey,
   type RoleLabelKey,
   type TermKey,
@@ -15,6 +16,7 @@ const termKeySchema = z.enum(
     ...Object.keys(TERM_DICTIONARY.menus),
     ...Object.keys(TERM_DICTIONARY.actions),
     ...Object.keys(TERM_DICTIONARY.roles),
+    ...Object.keys(TERM_DICTIONARY.labels),
   ] as [TermKey, ...TermKey[]],
 );
 
@@ -68,6 +70,18 @@ function flattenActions(): Record<ActionKey, FlatTerm> {
   return result;
 }
 
+function flattenLabels(): Record<LabelKey, FlatTerm> {
+  const result = {} as Record<LabelKey, FlatTerm>;
+  for (const key of Object.keys(TERM_DICTIONARY.labels) as LabelKey[]) {
+    const entry = TERM_DICTIONARY.labels[key];
+    result[key] = {
+      standard: entry.standard,
+      jeju: entry.jeju,
+    };
+  }
+  return result;
+}
+
 function flattenRoles(): Record<RoleLabelKey, FlatTerm> {
   const result = {} as Record<RoleLabelKey, FlatTerm>;
   for (const key of Object.keys(TERM_DICTIONARY.roles) as RoleLabelKey[]) {
@@ -85,6 +99,7 @@ const FLAT_TERMS: Record<TermKey, FlatTerm> = {
   ...flattenMenus(),
   ...flattenActions(),
   ...flattenRoles(),
+  ...flattenLabels(),
 };
 
 /**
@@ -103,6 +118,13 @@ export function parseTermOverrides(input: unknown): CustomTermOverrides {
   if (input == null) return {};
   const parsed = overridesSchema.safeParse(input);
   if (!parsed.success) return {};
+  return parsed.data;
+}
+
+/** 저장 전에 씁니다. 깨진 값이면 null 이라서 화면에서 다시 적게 합니다. */
+export function parseTermOverridesStrict(input: unknown): CustomTermOverrides | null {
+  const parsed = overridesSchema.safeParse(input);
+  if (!parsed.success) return null;
   return parsed.data;
 }
 

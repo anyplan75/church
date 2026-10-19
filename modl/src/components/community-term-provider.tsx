@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { resolveLanguageMode } from "@/theme/resolve-term";
 import type { LanguageMode } from "@/theme/types";
 
@@ -10,6 +10,7 @@ type CommunityTermState = {
   languageMode: LanguageMode;
   overrides: unknown;
   setLanguageMode: (mode: LanguageMode) => void;
+  languageLocked: boolean;
 };
 
 const CommunityTermContext = createContext<CommunityTermState | null>(null);
@@ -24,34 +25,52 @@ function readSavedMode(): LanguageMode {
 
 /**
  * 공동체 말투를 화면에 나눠 줍니다.
- * 1단계에서는 첫 화면에서 고른 말투를 이 브라우저에만 기억합니다.
+ * 공동체가 정해져 있으면 그 말투를 쓰고, 손님일 때만 이 브라우저에 고른 말투를 기억합니다.
  */
 export function CommunityTermProvider({
   children,
-  initialOverrides = {},
+  languageModeFromCommunity = null,
+  overridesJson = "{}",
 }: {
   children: React.ReactNode;
-  initialOverrides?: unknown;
+  languageModeFromCommunity?: LanguageMode | null;
+  overridesJson?: string;
 }) {
-  const [languageMode, setLanguageModeState] = useState<LanguageMode>("JEJU_DUAL");
-  const [overrides] = useState<unknown>(initialOverrides);
+  const locked = languageModeFromCommunity != null;
+  const [languageMode, setLanguageModeState] = useState<LanguageMode>(languageModeFromCommunity ?? "JEJU_DUAL");
+
+  const overrides = useMemo(() => {
+    try {
+      return JSON.parse(overridesJson) as unknown;
+    } catch {
+      return {};
+    }
+  }, [overridesJson]);
 
   useEffect(() => {
-    setLanguageModeState(readSavedMode());
-  }, []);
-
-  const setLanguageMode = (mode: LanguageMode) => {
-    setLanguageModeState(mode);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, mode);
-    } catch {
-      // 저장을 막아 둔 브라우저여도 이번 화면의 말투는 유지합니다.
+    if (languageModeFromCommunity) {
+      setLanguageModeState(languageModeFromCommunity);
+      return;
     }
-  };
+    setLanguageModeState(readSavedMode());
+  }, [languageModeFromCommunity]);
+
+  const setLanguageMode = useCallback(
+    (mode: LanguageMode) => {
+      if (languageModeFromCommunity) return;
+      setLanguageModeState(mode);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, mode);
+      } catch {
+        // 저장을 막아 둔 브라우저여도 이번 화면의 말투는 유지합니다.
+      }
+    },
+    [languageModeFromCommunity],
+  );
 
   const value = useMemo(
-    () => ({ languageMode, overrides, setLanguageMode }),
-    [languageMode, overrides],
+    () => ({ languageMode, overrides, setLanguageMode, languageLocked: locked }),
+    [languageMode, overrides, setLanguageMode, locked],
   );
 
   return <CommunityTermContext.Provider value={value}>{children}</CommunityTermContext.Provider>;

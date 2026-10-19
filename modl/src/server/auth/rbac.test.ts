@@ -185,6 +185,29 @@ describe("역할별 권한", () => {
     assert.equal(can(actor, { type: "view_public_bulletin", communityId: COMMUNITY, isPublic: true }), false);
   });
 
+  it("사역자와 임원만 초대, 승인, 모들 편성을 합니다", () => {
+    for (const role of ["PASTOR", "EXECUTIVE"] as const) {
+      const actor = user(role);
+      assert.equal(can(actor, { type: "issue_invite", communityId: COMMUNITY }), true);
+      assert.equal(can(actor, { type: "review_approval", communityId: COMMUNITY }), true);
+      assert.equal(can(actor, { type: "manage_groups", communityId: COMMUNITY }), true);
+      assert.equal(can(actor, { type: "manage_roster", communityId: COMMUNITY }), true);
+    }
+    const leader = user("CELL_LEADER");
+    assert.equal(can(leader, { type: "issue_invite", communityId: COMMUNITY }), false);
+    assert.equal(can(leader, { type: "review_approval", communityId: COMMUNITY }), false);
+    assert.equal(can(leader, { type: "manage_groups", communityId: COMMUNITY }), false);
+    const member = user("MEMBER");
+    assert.equal(can(member, { type: "review_approval", communityId: OTHER }), false);
+    assert.equal(can(member, { type: "create_community" }), true);
+    assert.equal(can(member, { type: "apply_to_join" }), true);
+    assert.equal(can(guest, { type: "create_community" }), false);
+    assert.equal(can(guest, { type: "apply_to_join" }), false);
+    const pending = user("MEMBER", { pendingCommunityIds: [COMMUNITY] });
+    assert.equal(can(pending, { type: "issue_invite", communityId: COMMUNITY }), false);
+    assert.equal(can(pending, { type: "review_approval", communityId: COMMUNITY }), false);
+  });
+
   it("모들 테우리는 자기 모들의 리더 기도만 쓸 수 있습니다", () => {
     const actor = user("CELL_LEADER");
     assert.equal(

@@ -14,6 +14,9 @@ export const MENU_ITEMS = [
   { key: "newcomer", shortcut: "n" },
   { key: "finance", shortcut: "f" },
   { key: "website", shortcut: "w" },
+  { key: "roster", shortcut: "o" },
+  { key: "invite", shortcut: "i" },
+  { key: "approval", shortcut: "u" },
 ] as const satisfies readonly { key: MenuKey; shortcut: string }[];
 
 export function isMenuKey(value: string): value is MenuKey {

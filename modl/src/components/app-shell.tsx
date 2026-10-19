@@ -4,10 +4,17 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { MenuList } from "@/components/menu-nav";
+import { TermText } from "@/components/term-text";
 import { useMenuShortcuts } from "@/components/use-menu-shortcuts";
 
 /** 좁은 화면은 아래 탭, 넓은 화면은 왼쪽 메뉴입니다. */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  accountName,
+}: {
+  children: React.ReactNode;
+  accountName: string | null;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const go = useCallback((href: string) => router.push(href), [router]);
@@ -31,14 +38,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav aria-label="모들 메뉴" className="flex min-h-0 flex-1 flex-col gap-1 px-3 pb-6">
           <MenuList className="grid gap-1" />
+          <AccountLink accountName={accountName} className="mt-auto" />
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-[#e4d8c8] px-4 py-3 md:hidden">
-          <Link href="/" className="font-semibold leading-tight" aria-current={home ? "page" : undefined}>
+          <Link href="/" className="min-w-0 font-semibold leading-tight" aria-current={home ? "page" : undefined}>
             모들
           </Link>
-          <p className="text-sm leading-snug text-[#5c5148]">g 다음 글자로 이동</p>
+          <AccountLink accountName={accountName} />
         </header>
         <main id="modl-main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">
           {children}
@@ -51,5 +59,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       </div>
     </div>
+  );
+}
+
+function AccountLink({ accountName, className = "" }: { accountName: string | null; className?: string }) {
+  return (
+    <Link href="/account" className={`block min-w-0 max-w-full rounded-xl px-2 py-2 leading-snug ${className}`}>
+      {accountName ? (
+        <span className="block break-words font-semibold">{accountName}</span>
+      ) : (
+        <TermText termKey="account" />
+      )}
+    </Link>
   );
 }

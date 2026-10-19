@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { getTableName } from "drizzle-orm";
@@ -19,15 +19,17 @@ import {
   prayerVisibilityEnum,
 } from "@/server/db/schema";
 
-const sql = readFileSync(
-  path.join(process.cwd(), "src/server/db/migrations/0001_init.sql"),
-  "utf8",
-);
+const migrationDir = path.join(process.cwd(), "src/server/db/migrations");
+const sql = readdirSync(migrationDir)
+  .filter((name) => name.endsWith(".sql"))
+  .sort()
+  .map((name) => readFileSync(path.join(migrationDir, name), "utf8"))
+  .join("\n");
 
 describe("표 정의와 마이그레이션", () => {
   it("정의된 표가 실행 명령 안에 모두 있습니다", () => {
     const tables = Object.values(dbSchema);
-    assert.equal(tables.length, 26);
+    assert.equal(tables.length, 27);
     for (const table of tables) {
       const name = getTableName(table);
       assert.match(sql, new RegExp(`CREATE TABLE ${name}\\b`));
