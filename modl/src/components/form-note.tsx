@@ -13,6 +13,9 @@ const OK_TERM = {
   season: "start_season",
   group: "add_group",
   assign: "assign_member",
+  saved: "bulletin_save",
+  published: "bulletin_publish",
+  unpublished: "bulletin_unpublish",
 } as const;
 
 export function OkNote({ code }: { code?: string }) {
