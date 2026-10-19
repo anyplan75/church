@@ -70,7 +70,21 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
     };
   }, [ready, user?.id, user?.churchId]);
 
-  if (!ready || !user) return null;
+  // null 만 반환하면 성도 앱이 빈 화면으로 보입니다. 안내 문구를 남깁니다.
+  if (!ready) {
+    return (
+      <div className="member-shell">
+        <p className="text-muted">불러오는 중</p>
+      </div>
+    );
+  }
+  if (!user) {
+    return (
+      <div className="member-shell">
+        <p className="text-muted">로그인으로 이동 중</p>
+      </div>
+    );
+  }
   if (!db) {
     return (
       <div className="member-shell">

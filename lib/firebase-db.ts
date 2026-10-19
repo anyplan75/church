@@ -25,18 +25,27 @@ export function churchPath(relative: string): string {
   return ["church", ...parts].join("/");
 }
 
+const DB_TIMEOUT_MS = 15_000;
+
 async function request(relative: string, idToken: string, method: string, body?: unknown): Promise<unknown> {
   const path = churchPath(relative);
-  const response = await fetch(`${databaseUrl()}/${path}.json?auth=${encodeURIComponent(idToken)}`, {
-    method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (response.status === 401 || response.status === 403) throw new DatabasePermissionError();
-  const text = await response.text();
-  if (!response.ok) throw new Error(`database ${response.status} ${text.replace(/\s+/g, " ").slice(0, 120)}`);
-  if (!text) return null;
-  return JSON.parse(text) as unknown;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DB_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${databaseUrl()}/${path}.json?auth=${encodeURIComponent(idToken)}`, {
+      method,
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (response.status === 401 || response.status === 403) throw new DatabasePermissionError();
+    const text = await response.text();
+    if (!response.ok) throw new Error(`database ${response.status} ${text.replace(/\s+/g, " ").slice(0, 120)}`);
+    if (!text) return null;
+    return JSON.parse(text) as unknown;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function dbGet<T>(relative: string, idToken: string): Promise<T | null> {
@@ -45,14 +54,22 @@ export function dbGet<T>(relative: string, idToken: string): Promise<T | null> {
 
 export async function dbKeys(relative: string, idToken: string): Promise<string[]> {
   const path = churchPath(relative);
-  const response = await fetch(`${databaseUrl()}/${path}.json?auth=${encodeURIComponent(idToken)}&shallow=true`);
-  if (response.status === 401 || response.status === 403) throw new DatabasePermissionError();
-  const text = await response.text();
-  if (!response.ok) throw new Error(`database ${response.status} ${text.replace(/\s+/g, " ").slice(0, 120)}`);
-  if (!text || text === "null") return [];
-  const data = JSON.parse(text) as unknown;
-  if (!data || typeof data !== "object" || Array.isArray(data)) return [];
-  return Object.keys(data as Record<string, unknown>);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DB_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${databaseUrl()}/${path}.json?auth=${encodeURIComponent(idToken)}&shallow=true`, {
+      signal: controller.signal,
+    });
+    if (response.status === 401 || response.status === 403) throw new DatabasePermissionError();
+    const text = await response.text();
+    if (!response.ok) throw new Error(`database ${response.status} ${text.replace(/\s+/g, " ").slice(0, 120)}`);
+    if (!text || text === "null") return [];
+    const data = JSON.parse(text) as unknown;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return [];
+    return Object.keys(data as Record<string, unknown>);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function dbSet(relative: string, value: unknown, idToken: string): Promise<void> {

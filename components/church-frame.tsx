@@ -119,6 +119,10 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
   const path = cleanPath(pathname || "/");
   const output = isOutputPath(path) || isOutputPath(browserPath);
   if (!ready && !output) return <p className="page text-muted">불러오는 중</p>;
+  // 로그인 전 children(성도 null·리모컨 대기)이 빈 화면/멈춤처럼 보이지 않게 가립니다.
+  if (ready && !user && !output && path !== "/login") {
+    return <p className="page text-muted">로그인으로 이동 중</p>;
+  }
 
   return (
     <>

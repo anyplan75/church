@@ -61,6 +61,9 @@ public class RscHtmlGuardPlugin: CAPInstancePlugin, CAPBridgedPlugin {
 }
 
 class AppBridgeViewController: CAPBridgeViewController {
+    /// 조작(Remote) 번들 ID — JS 의 isMobileOperatorApp() 이 이 값을 읽습니다.
+    private let eunhyeAppId = "org.eunhye.worship.operator"
+
     override open func router() -> Router {
         return NextExportRouter()
     }
@@ -68,6 +71,27 @@ class AppBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(RscHtmlGuardPlugin())
+        injectEunhyeAppId()
+    }
+
+    private func injectEunhyeAppId() {
+        guard let webView = webView else { return }
+        let js = """
+        (function(){
+          window.__EUNHYE_APP_ID__ = '\(eunhyeAppId)';
+          try {
+            var m = document.querySelector('meta[name="eunhye-app-id"]');
+            if (!m) {
+              m = document.createElement('meta');
+              m.setAttribute('name', 'eunhye-app-id');
+              (document.head || document.documentElement).appendChild(m);
+            }
+            m.setAttribute('content', '\(eunhyeAppId)');
+          } catch (e) {}
+        })();
+        """
+        let script = WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        webView.configuration.userContentController.addUserScript(script)
     }
 }
 

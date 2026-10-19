@@ -42,7 +42,10 @@ export function MobileSlideRemote({ serviceId = "" }: { serviceId?: string }) {
     }
   }, [serviceId]);
 
-  if (!ready || !user || !db) return <p className="page text-muted">불러오는 중</p>;
+  // 세션 없음은 ChurchFrame 이 /login 으로 보냄. 여기서 「불러오는 중」을 고정하면 멈춘 것처럼 보임.
+  if (!ready) return <p className="page text-muted">불러오는 중</p>;
+  if (!user) return <p className="page text-muted">로그인으로 이동 중</p>;
+  if (!db) return <p className="page text-muted">교회 자료를 불러오는 중</p>;
 
   const today = todayISO();
   const liveOrNext = nextService(db.services, today);

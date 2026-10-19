@@ -14,15 +14,26 @@ export type FirebaseSession = {
 
 type AuthError = { error?: { message?: string } };
 
+const AUTH_TIMEOUT_MS = 12_000;
+
 async function post(url: string, body: unknown): Promise<{ ok: true; data: Record<string, string> } | { ok: false; message: string }> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = (await response.json()) as Record<string, string> & AuthError;
-  if (!response.ok) return { ok: false, message: data.error?.message || "auth" };
-  return { ok: true, data };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = (await response.json()) as Record<string, string> & AuthError;
+    if (!response.ok) return { ok: false, message: data.error?.message || "auth" };
+    return { ok: true, data };
+  } catch {
+    return { ok: false, message: "network" };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function emailFromIdToken(idToken: string): string {
