@@ -69,7 +69,10 @@ URL `?service=` 로 특정 예배를 고정할 수 있습니다.
 | --- | --- |
 | 표시 이름 | **은혜로운 예배 성도** |
 | 번들 ID | `org.eunhye.worship.member` |
-| 설정 | `capacitor.member.config.ts` |
+| ASC 앱 ID | `6824340939` (SKU `eunhye-worship-member`) |
+| 설정 | `capacitor.member.config.ts` (`ios.path = ios-member`) |
+| 프로젝트 | `ios-member/` (조작 `ios/` 와 분리) |
+| AppIcon | 기도하는 손 — `assets/app-icons/eunhye-member-praying-hands-1024.png` |
 | 안내 | `ios-member/README.md` |
 
 조작 앱과 **같은 `out/` 정적 파일**을 쓰되, 네이티브 `appId`로 셸을 구분합니다. 성도 셸은 로그인 후 항상 `/member`로 가며, `/community`·`/prayers` 도 허용합니다.
@@ -77,6 +80,19 @@ URL `?service=` 로 특정 예배를 고정할 수 있습니다.
 ```bash
 npm run member:mobile:sync
 ```
+
+### TestFlight 업로드
+
+팀 ID는 Remote와 동일(`ZJYZ656BL8`). ASC API 키는 환경 변수로만 넘깁니다.
+
+```bash
+export APP_STORE_CONNECT_API_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_XXXX.p8"
+export APP_STORE_CONNECT_KEY_ID="XXXX"
+export APP_STORE_CONNECT_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+npm run member:mobile:ios:testflight
+```
+
+업로드가 끝나면 [App Store Connect](https://appstoreconnect.apple.com) → **은혜로운 예배 - 성도** → **TestFlight**에서 빌드 처리(수 분~수십 분)를 기다린 뒤, **내부 테스트** 그룹에 빌드를 추가하고 테스터를 초대하세요.
 
 ## 목회자가 기도제목을 보는 방법
 

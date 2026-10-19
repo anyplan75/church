@@ -12,6 +12,12 @@ ios/App/App/public
 ios/App/App/capacitor.config.json
 ios/DerivedData
 ios/**/xcuserdata
+ios-member/App/Pods
+ios-member/App/App/public
+ios-member/App/App/capacitor.config.json
+ios-member/DerivedData
+ios-member/**/xcuserdata
+ios-member/capacitor-cordova-ios-plugins
 *.xcuserstate
 build/
 *.ipa
