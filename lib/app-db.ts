@@ -141,10 +141,25 @@ export async function bootChurch() {
   await booting;
 }
 
+/** 네트워크가 멈춰도 로그인 화면으로 넘어가도록 부트 전체 제한 시간 */
+const BOOT_DEADLINE_MS = 18_000;
+let bootFailures = 0;
+
 async function load() {
   const generation = ++loadGeneration;
   forgetBrowserData();
   session = readStoredSession();
+  const deadline = window.setTimeout(() => {
+    if (generation !== loadGeneration || ready) return;
+    // 진행 중인 await 결과를 무시하고 로그인으로 보냅니다.
+    loadGeneration += 1;
+    clearSession();
+    ready = true;
+    error = "연결이 지연되어 로그인 화면으로 이동합니다.";
+    emit();
+    startPoll();
+    booting = null;
+  }, BOOT_DEADLINE_MS);
   try {
     if (session) {
       const refreshed = await refreshShared(session.refreshToken);
@@ -165,6 +180,7 @@ async function load() {
       }
     }
     if (generation !== loadGeneration) return;
+    bootFailures = 0;
     ready = true;
     emit();
     startPoll();
@@ -177,6 +193,16 @@ async function load() {
       startPoll();
       return;
     }
+    bootFailures += 1;
+    // 두 번 실패하면 세션을 비우고 로그인으로 보냅니다(무한 「불러오는 중」 방지).
+    if (bootFailures >= 2) {
+      clearSession();
+      ready = true;
+      error = "다시 로그인해 주세요.";
+      emit();
+      startPoll();
+      return;
+    }
     ready = false;
     error = "다시 연결합니다.";
     emit();
@@ -185,6 +211,8 @@ async function load() {
       booting = null;
       void load();
     }, 800);
+  } finally {
+    window.clearTimeout(deadline);
   }
 }
 

@@ -4,6 +4,7 @@ const OPERATOR_APP_ID = "org.eunhye.worship.operator";
 const MEMBER_APP_ID = "org.eunhye.worship.member";
 
 type CapWindow = Window & {
+  __EUNHYE_APP_ID__?: string;
   Capacitor?: {
     isNativePlatform?: () => boolean;
     getPlatform?: () => string;
@@ -24,9 +25,11 @@ export function isNativeShell(): boolean {
 /** 조작 전용 Capacitor 앱인지 (기존 Remote). */
 export function isMobileOperatorApp(): boolean {
   if (!isNativeShell()) return false;
+  if (isMobileMemberApp()) return false;
   const id = nativeAppId();
+  // appId 주입 전 구형 조작 셸은 id 없이 옵니다. 성도가 아니면 조작으로 봅니다.
   if (!id) return true;
-  return id === OPERATOR_APP_ID || id !== MEMBER_APP_ID;
+  return id === OPERATOR_APP_ID;
 }
 
 /** 성도용 Capacitor 앱인지. */
@@ -35,12 +38,20 @@ export function isMobileMemberApp(): boolean {
   return nativeAppId() === MEMBER_APP_ID;
 }
 
+/**
+ * 네이티브 번들 ID.
+ * Capacitor JSExport 는 config.appId 를 안 내려 주므로,
+ * SceneDelegate 가 넣는 window.__EUNHYE_APP_ID__ / meta[name=eunhye-app-id] 를 우선합니다.
+ */
 export function nativeAppId(): string {
-  const cap = capacitor();
-  const fromConfig = String(cap?.config?.appId || "").trim();
+  if (typeof window === "undefined") return "";
+  const win = window as CapWindow;
+  const fromWindow = String(win.__EUNHYE_APP_ID__ || "").trim();
+  if (fromWindow) return fromWindow;
+  const fromConfig = String(win.Capacitor?.config?.appId || "").trim();
   if (fromConfig) return fromConfig;
   try {
-    const meta = typeof document !== "undefined" ? document.querySelector('meta[name="eunhye-app-id"]') : null;
+    const meta = document.querySelector('meta[name="eunhye-app-id"]');
     return String(meta?.getAttribute("content") || "").trim();
   } catch {
     return "";

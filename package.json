@@ -24,7 +24,7 @@
     "desktop:pack:linux": "npm run desktop:build-web && electron-builder --config desktop/builder.json --linux",
     "desktop:dir": "npm run desktop:build-web && electron-builder --config desktop/builder.json --dir",
     "mobile:build-web": "node scripts/run-static-export.mjs && node scripts/ensure-capacitor-out.mjs",
-    "mobile:sync": "npm run mobile:build-web && npx cap sync ios && node scripts/strip-capacitor-server-url.mjs && node scripts/verify-capacitor-public.mjs",
+    "mobile:sync": "npm run mobile:build-web && npx cap sync ios && node scripts/strip-capacitor-server-url.mjs && node scripts/inject-eunhye-app-id.mjs ios/App/App/public org.eunhye.worship.operator && node scripts/verify-capacitor-public.mjs operator",
     "mobile:ios": "npm run mobile:sync && npx cap open ios",
     "mobile:ios:sim": "npm run mobile:sync && npx cap run ios --target \"iPhone 17\"",
     "mobile:ios:testflight": "bash scripts/ios-testflight-upload.sh",

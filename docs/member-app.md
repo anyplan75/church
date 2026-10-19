@@ -75,7 +75,7 @@ URL `?service=` 로 특정 예배를 고정할 수 있습니다.
 | AppIcon | 기도하는 손(풀블리드) — `assets/app-icons/eunhye-member-praying-hands-fullbleed-1024.png` |
 | 안내 | `ios-member/README.md` |
 
-조작 앱과 **같은 `out/` 정적 파일**을 쓰되, 네이티브 `appId`로 셸을 구분합니다. 성도 셸은 로그인 후 항상 `/member`로 가며, `/community`·`/prayers` 도 허용합니다.
+조작 앱과 **같은 `out/` 정적 파일**을 쓰되, 네이티브 `appId`(`window.__EUNHYE_APP_ID__` / `meta eunhye-app-id`)로 셸을 구분합니다. `ios-member` 도 조작과 같이 `NextExportRouter`로 `/login`·`/member` HTML을 엽니다. 성도 셸은 로그인 후 항상 `/member`로 가며, `/community`·`/prayers` 도 허용합니다.
 
 ```bash
 npm run member:mobile:sync

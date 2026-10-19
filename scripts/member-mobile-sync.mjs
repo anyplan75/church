@@ -79,5 +79,10 @@ withMemberCapacitorConfig(() => {
 });
 
 run("node", [path.join(root, "scripts/strip-capacitor-server-url.mjs")]);
-run("node", [path.join(root, "scripts/verify-capacitor-public.mjs")]);
+run("node", [
+  path.join(root, "scripts/inject-eunhye-app-id.mjs"),
+  path.join(root, "ios-member/App/App/public"),
+  "org.eunhye.worship.member",
+]);
+run("node", [path.join(root, "scripts/verify-capacitor-public.mjs"), "member"]);
 console.log("성도용 웹·iOS 동기화 완료 → ios-member/");
