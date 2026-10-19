@@ -15,6 +15,8 @@ const config: CapacitorConfig = {
     cleartext: true,
   },
   ios: {
+    // 조작용 ios/ 과 분리 — Capacitor가 이 경로만 읽고 쓴다.
+    path: "ios-member",
     contentInset: "automatic",
     allowsLinkPreview: false,
     scrollEnabled: true,

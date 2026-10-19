@@ -6,32 +6,37 @@
 | --- | --- |
 | 표시 이름 | 은혜로운 예배 성도 |
 | 번들 ID | `org.eunhye.worship.member` |
-| 설정 파일 | 저장소 루트 `capacitor.member.config.ts` |
+| ASC 앱 ID | `6824340939` |
+| SKU | `eunhye-worship-member` |
+| 설정 파일 | 저장소 루트 `capacitor.member.config.ts` (`ios.path = ios-member`) |
 | 첫 화면 | `/member` |
+| AppIcon | 기도하는 손 (`assets/app-icons/eunhye-member-praying-hands-1024.png`) |
 
-## 처음 한 번 (Mac + Xcode)
-
-1. [App Store Connect](https://appstoreconnect.apple.com)에 iOS 앱을 만듭니다.  
-   이름: `은혜로운 예배 성도` · 번들 ID: `org.eunhye.worship.member`
-2. 저장소에서 정적 웹을 만듭니다.
+## 처음 한 번 / 웹 다시 넣기
 
 ```bash
 npm run member:mobile:sync
 ```
 
-3. 조작용 `ios/` 를 건드리지 않도록, **별도 작업 폴더**에서 Capacitor iOS를 추가하는 것을 권장합니다.
+이 명령이 `out/` 정적 웹을 만들고, `capacitor.config.ts`를 잠시 멤버용으로 바꾼 뒤 `ios-member`에 `cap add`/`cap sync`를 실행한 다음 조작용 설정을 되돌립니다. **`ios/` Remote 프로젝트는 건드리지 않습니다.**
+
+Xcode에서 확인할 것:
+
+- `PRODUCT_BUNDLE_IDENTIFIER = org.eunhye.worship.member`
+- `CFBundleDisplayName = 은혜로운 예배 성도`
+- `DEVELOPMENT_TEAM = ZJYZ656BL8`
+
+## TestFlight 업로드
+
+App Store Connect API 키는 환경 변수로만 넘깁니다(커밋 금지).
 
 ```bash
-# 예: 임시 복사본에서 성도 설정으로 iOS 생성
-cp capacitor.member.config.ts capacitor.config.ts
-npx cap add ios
-# 생성된 ios/ 를 ios-member/ 로 옮긴 뒤, 조작용 capacitor.config.ts 를 되돌립니다.
+export APP_STORE_CONNECT_API_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_XXXX.p8"
+export APP_STORE_CONNECT_KEY_ID="XXXX"
+export APP_STORE_CONNECT_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+npm run member:mobile:ios:testflight
 ```
 
-4. Xcode에서 `PRODUCT_BUNDLE_IDENTIFIER = org.eunhye.worship.member`,  
-   `CFBundleDisplayName = 은혜로운 예배 성도` 인지 확인합니다.
-5. 로그인 후 앱이 `/member` 로 열리는지 확인합니다. (`lib/mobile-app.ts` 가 `appId`로 성도 셸을 구분합니다.)
-
-웹만 다시 넣으려면 `npm run member:mobile:build-web` 후 `npx cap sync` (성도용 ios 경로)를 실행합니다.
+업로드 후 ASC → **TestFlight** → 빌드 처리가 끝나면 내부 테스트 그룹에 빌드를 추가하세요.
 
 자세한 기능·권한은 [`docs/member-app.md`](../docs/member-app.md)를 보세요.
