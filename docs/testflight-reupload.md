@@ -31,7 +31,7 @@ bash scripts/ios-testflight-upload.sh
 ```
 
 - 표시 이름: **은혜로운 예배 Remote**
-- 빌드 번호: Xcode `CURRENT_PROJECT_VERSION` (**8** 이상)
+- 빌드 번호: Xcode `CURRENT_PROJECT_VERSION` (**9** 이상)
 - sync가 `out/` → `ios/App/App/public` + `eunhye-app-id` 주입 + `/login/` 시작 검사를 합니다.
 
 ## 성도 (`org.eunhye.worship.member`)
@@ -44,7 +44,7 @@ npm run member:mobile:ios:testflight
 
 - 표시 이름: **은혜로운 예배 성도**
 - ASC 앱 ID: `6824340939`
-- 빌드 번호: **7** 이상
+- 빌드 번호: **9** 이상
 - `ios/` Remote 프로젝트는 건드리지 않습니다.
 
 ## 업로드 후
