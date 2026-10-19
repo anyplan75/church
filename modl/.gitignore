@@ -1,0 +1,14 @@
+node_modules
+.next
+tsconfig.tsbuildinfo
+
+# 비밀은 올리지 않습니다. 예시는 .env.example 만 올립니다.
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*credentials*
+*serviceAccount*.json
+*service-account*.json

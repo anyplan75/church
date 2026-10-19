@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+html {
+  font-size: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  background: #f4efe4;
+  color: #241c16;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid #9a3412;
+  outline-offset: 3px;
+}
+
+.nav-label {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
