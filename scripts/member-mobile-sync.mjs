@@ -43,6 +43,7 @@ function withMemberCapacitorConfig(fn) {
   }
 }
 
+run("node", [path.join(root, "scripts/check-desktop-env.mjs")]);
 run("node", [path.join(root, "scripts/run-static-export.mjs")]);
 run("node", [path.join(root, "scripts/ensure-capacitor-out.mjs")]);
 

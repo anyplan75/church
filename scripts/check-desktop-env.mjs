@@ -42,10 +42,10 @@ const missing = required.filter((key) => {
 
 if (missing.length) {
   console.error(
-    `데스크톱 빌드에 Firebase 공개 설정이 없습니다: ${missing.join(", ")}\n` +
+    `정적 웹 빌드(데스크톱·모바일)에 Firebase 공개 설정이 없습니다: ${missing.join(", ")}\n` +
       `.env.local에 값을 채운 뒤 다시 실행하세요. (.env.example 참고)`,
   );
   process.exit(1);
 }
 
-console.log("데스크톱 Firebase 공개 환경 변수 확인 완료.");
+console.log("Firebase 공개 환경 변수 확인 완료(데스크톱·모바일 정적보내기).");

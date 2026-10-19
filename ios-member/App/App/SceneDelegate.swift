@@ -72,6 +72,7 @@ class AppBridgeViewController: CAPBridgeViewController {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(RscHtmlGuardPlugin())
         injectEunhyeAppId()
+        openLoginIfRoot()
     }
 
     private func injectEunhyeAppId() {
@@ -92,6 +93,19 @@ class AppBridgeViewController: CAPBridgeViewController {
         """
         let script = WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         webView.configuration.userContentController.addUserScript(script)
+    }
+
+    /// Capacitor 기본 시작이 `/` 이면 주보 빈 화면이 됩니다. `/login/` HTML로 엽니다.
+    private func openLoginIfRoot() {
+        guard let webView = webView else { return }
+        DispatchQueue.main.async {
+            let path = webView.url?.path ?? "/"
+            guard path == "/" || path == "/index.html" || path.isEmpty else { return }
+            let scheme = webView.url?.scheme ?? "capacitor"
+            let host = webView.url?.host ?? "localhost"
+            guard let loginURL = URL(string: "\(scheme)://\(host)/login/") else { return }
+            webView.load(URLRequest(url: loginURL))
+        }
     }
 }
 

@@ -1,8 +1,9 @@
 import { closeVisit, openVisit } from "./simple";
 import { normalizeDb } from "./db-shape";
-import { DatabasePermissionError, dbGet, dbKeys, dbPatch, dbSet } from "./firebase-db";
+import { DatabasePermissionError, dbGet, dbKeys, dbPatch, dbSet, firebaseDatabaseConfigured } from "./firebase-db";
 import {
   emailFromIdToken,
+  firebaseApiKeyConfigured,
   firebaseDeleteAccount,
   firebaseRefresh,
   firebaseSignIn,
@@ -141,26 +142,50 @@ export async function bootChurch() {
   await booting;
 }
 
-/** 네트워크가 멈춰도 로그인 화면으로 넘어가도록 부트 전체 제한 시간 */
+/** 네트워크가 멈춰도 로그인 화면으로 넘어가도록 부트 전체 제한 시간(첫 시도부터 절대 시각) */
 const BOOT_DEADLINE_MS = 18_000;
 let bootFailures = 0;
+let bootStartedAt = 0;
+let bootDeadlineTimer: number | null = null;
+
+function openBootToLogin(message: string) {
+  clearSession();
+  ready = true;
+  error = message;
+  emit();
+  startPoll();
+  booting = null;
+  bootStartedAt = 0;
+  if (bootDeadlineTimer) {
+    window.clearTimeout(bootDeadlineTimer);
+    bootDeadlineTimer = null;
+  }
+}
+
+function armBootDeadline(generation: number) {
+  if (!bootStartedAt) bootStartedAt = Date.now();
+  const remaining = Math.max(1_000, BOOT_DEADLINE_MS - (Date.now() - bootStartedAt));
+  if (bootDeadlineTimer) window.clearTimeout(bootDeadlineTimer);
+  bootDeadlineTimer = window.setTimeout(() => {
+    bootDeadlineTimer = null;
+    if (generation !== loadGeneration || ready) return;
+    // 진행 중인 await 결과를 무시하고 로그인으로 보냅니다.
+    loadGeneration += 1;
+    openBootToLogin("연결이 지연되어 로그인 화면으로 이동합니다.");
+  }, remaining);
+}
 
 async function load() {
   const generation = ++loadGeneration;
   forgetBrowserData();
   session = readStoredSession();
-  const deadline = window.setTimeout(() => {
-    if (generation !== loadGeneration || ready) return;
-    // 진행 중인 await 결과를 무시하고 로그인으로 보냅니다.
-    loadGeneration += 1;
-    clearSession();
-    ready = true;
-    error = "연결이 지연되어 로그인 화면으로 이동합니다.";
-    emit();
-    startPoll();
-    booting = null;
-  }, BOOT_DEADLINE_MS);
+  armBootDeadline(generation);
   try {
+    // 정적 빌드에 Firebase 공개 키가 없으면 fetch 전에 로그인으로 엽니다(빈 화면·무한 로딩 방지).
+    if (!firebaseApiKeyConfigured() || !firebaseDatabaseConfigured()) {
+      openBootToLogin("앱 설정(Firebase)이 없습니다. .env.local을 채운 뒤 다시 빌드하세요.");
+      return;
+    }
     if (session) {
       const refreshed = await refreshShared(session.refreshToken);
       if (generation !== loadGeneration) return;
@@ -182,37 +207,34 @@ async function load() {
     if (generation !== loadGeneration) return;
     bootFailures = 0;
     ready = true;
+    bootStartedAt = 0;
+    if (bootDeadlineTimer) {
+      window.clearTimeout(bootDeadlineTimer);
+      bootDeadlineTimer = null;
+    }
     emit();
     startPoll();
   } catch (reason) {
     if (generation !== loadGeneration) return;
     if (reason instanceof DatabasePermissionError) {
-      clearSession();
-      ready = true;
-      emit();
-      startPoll();
+      openBootToLogin("");
       return;
     }
     bootFailures += 1;
     // 두 번 실패하면 세션을 비우고 로그인으로 보냅니다(무한 「불러오는 중」 방지).
     if (bootFailures >= 2) {
-      clearSession();
-      ready = true;
-      error = "다시 로그인해 주세요.";
-      emit();
-      startPoll();
+      openBootToLogin("다시 로그인해 주세요.");
       return;
     }
     ready = false;
     error = "다시 연결합니다.";
     emit();
+    // 재시도해도 첫 부트 절대 시한(armBootDeadline)은 유지합니다.
     window.setTimeout(() => {
       if (generation !== loadGeneration) return;
       booting = null;
       void load();
     }, 800);
-  } finally {
-    window.clearTimeout(deadline);
   }
 }
 
@@ -882,8 +904,22 @@ async function refreshShared(refreshToken: string): Promise<FirebaseSession | nu
     }
     throw lastError instanceof Error ? lastError : new Error("Failed to fetch");
   };
-  if (typeof navigator !== "undefined" && navigator.locks) return navigator.locks.request("church-token-refresh", run);
-  return run();
+  // Web Locks 가 멈추면 「불러오는 중」이 고정되므로 제한 시간을 둡니다.
+  const LOCK_WAIT_MS = 8_000;
+  if (typeof navigator === "undefined" || !navigator.locks) return run();
+  return await new Promise<FirebaseSession | null>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("lock-timeout")), LOCK_WAIT_MS);
+    navigator.locks
+      .request("church-token-refresh", run)
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((reason: unknown) => {
+        window.clearTimeout(timer);
+        reject(reason);
+      });
+  });
 }
 
 function startPoll() {

@@ -91,6 +91,14 @@ for (const app of apps) {
       console.error(`${app.label}: eunhye-app-id(${app.expectAppId}) 메타/부트 스크립트 없음. inject 스크립트를 실행하세요.`);
       process.exit(1);
     }
+    if (!html.includes('location.replace("/login/")') && !html.includes("location.replace('/login/')")) {
+      if (!app.required) {
+        console.log(`${app.label}: 루트→/login/ 이동 스크립트 아직 없음`);
+        continue;
+      }
+      console.error(`${app.label}: 루트 index 에 /login/ 이동 스크립트가 없습니다. inject 를 다시 실행하세요.`);
+      process.exit(1);
+    }
   }
 
   console.log(`capacitor public/ 확인: ${app.label} HTML OK`);

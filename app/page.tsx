@@ -7,6 +7,7 @@ import { useChurch, useClientQuery } from "@/components/church-state";
 import { importBulletin } from "@/lib/actions";
 import { BULLETIN_UPLOAD_BYTES, bulletinAccept, bulletinFormatNote } from "@/lib/extract-text";
 import { formatKoreanDate, formatMonthDay, formatTime } from "@/lib/format";
+import { isNativeShell } from "@/lib/mobile-app";
 import { bulletinWeeks } from "@/lib/simple";
 import { sundayOf, todayISO } from "@/lib/worship";
 
@@ -18,7 +19,10 @@ export default function BulletinPage() {
     if (!query.imported && !query.error) return;
     document.getElementById("bulletin-import")?.scrollIntoView({ block: "start" });
   }, [query.imported, query.error, ready]);
-  if (!ready || !db) return null;
+  // Capacitor 루트에서 null 만 그리면 빈 화면으로 보입니다.
+  if (!ready || !db) {
+    return isNativeShell() ? <p className="page text-muted">불러오는 중</p> : null;
+  }
   const weeks = bulletinWeeks(db.services);
   const today = todayISO();
   const selected = weeks.find((week) => week.sunday === sunday) ?? weeks.find((week) => week.sunday === sundayOf(today)) ?? weeks[0];

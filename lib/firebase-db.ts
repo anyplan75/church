@@ -1,5 +1,10 @@
 const BANNED = new Set(["live-interpret", "cheil", "jifc"]);
 
+/** 정적보내기에 심어진 RTDB URL 이 있는지(값은 노출하지 않음). */
+export function firebaseDatabaseConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL?.trim());
+}
+
 function databaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL?.trim() || "";
   if (!url) throw new Error("NEXT_PUBLIC_FIREBASE_DATABASE_URL이 없습니다. .env.local을 확인하세요.");
