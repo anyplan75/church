@@ -1,12 +1,13 @@
 "use strict";
 
 const path = require("path");
-const { app, BrowserWindow, ipcMain, Menu, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require("electron");
 const { createOutputServer, privateAddresses, DEFAULT_PORT } = require("./output-server.cjs");
 const { createAdvertiser, createBrowser } = require("./discovery.cjs");
 const { createStaticServer } = require("./static-server.cjs");
 const store = require("./store.cjs");
 const { cleanHost } = require("./host.cjs");
+const library = require("./library-folders.cjs");
 
 const MODE = resolveMode(process.argv);
 const DISPLAY = resolveDisplay(process.argv);
@@ -118,6 +119,28 @@ function bindIpc() {
     outputServer.pushLines(payload.serviceId, payload.lines, payload.seq, payload.style);
     return true;
   });
+  ipcMain.handle("desktop:getLibraryFolders", () => store.getLibraryFolders());
+  ipcMain.handle("desktop:setLibraryFolder", (_event, slot, folderPath) => store.setLibraryFolder(slot, folderPath));
+  ipcMain.handle("desktop:setLibraryFolders", (_event, next) => store.setLibraryFolders(next));
+  ipcMain.handle("desktop:libraryFolderView", (_event, slot) => store.libraryFolderView(slot));
+  ipcMain.handle("desktop:listLibraryTxt", (_event, slot) => store.listLibraryTxt(slot));
+  ipcMain.handle("desktop:readLibraryTxt", (_event, slot, fileName) => {
+    const buf = store.readLibraryTxt(slot, fileName);
+    return buf ? new Uint8Array(buf) : null;
+  });
+  ipcMain.handle("desktop:writeLibraryTxt", (_event, slot, fileName, text) => store.writeLibraryTxt(slot, fileName, text));
+  ipcMain.handle("desktop:pickLibraryFolder", async (event, slot) => {
+    const key = library.cleanSlot(slot);
+    if (!key) return store.libraryFolderView("");
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(win || undefined, {
+      title: "라이브러리 폴더 선택",
+      properties: ["openDirectory"],
+    });
+    if (result.canceled || !result.filePaths[0]) return store.libraryFolderView(key);
+    store.setLibraryFolder(key, result.filePaths[0]);
+    return store.libraryFolderView(key);
+  });
 }
 
 async function startOutputSide() {
@@ -184,6 +207,7 @@ function startOperatorSide() {
 }
 
 app.whenReady().then(async () => {
+  store.ensureLibraryMigrated();
   bindIpc();
   appBase = await resolveAppBase();
   if (MODE === "output") await startOutputSide();

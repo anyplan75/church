@@ -12,6 +12,14 @@ contextBridge.exposeInMainWorld("eunhyeDesktop", {
   localAddresses: () => ipcRenderer.invoke("desktop:localAddresses"),
   outputStatus: () => ipcRenderer.invoke("desktop:outputStatus"),
   pushLines: (payload) => ipcRenderer.invoke("desktop:pushLines", payload),
+  getLibraryFolders: () => ipcRenderer.invoke("desktop:getLibraryFolders"),
+  setLibraryFolder: (slot, folderPath) => ipcRenderer.invoke("desktop:setLibraryFolder", slot, folderPath),
+  setLibraryFolders: (next) => ipcRenderer.invoke("desktop:setLibraryFolders", next),
+  libraryFolderView: (slot) => ipcRenderer.invoke("desktop:libraryFolderView", slot),
+  listLibraryTxt: (slot) => ipcRenderer.invoke("desktop:listLibraryTxt", slot),
+  readLibraryTxt: (slot, fileName) => ipcRenderer.invoke("desktop:readLibraryTxt", slot, fileName),
+  writeLibraryTxt: (slot, fileName, text) => ipcRenderer.invoke("desktop:writeLibraryTxt", slot, fileName, text),
+  pickLibraryFolder: (slot) => ipcRenderer.invoke("desktop:pickLibraryFolder", slot),
   onLines: (handler) => {
     const listen = (_event, payload) => handler(payload);
     ipcRenderer.on("desktop:lines", listen);
