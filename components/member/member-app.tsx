@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { logout } from "@/lib/account-actions";
+import { clearBrowseChurch, openBrowseChurch } from "@/lib/app-db";
 import { useChurch, useClientQuery } from "@/components/church-state";
+import { ChurchNearbyPicker } from "@/components/church-nearby-picker";
 import {
   captionModeHint,
   memberViewsFromDb,
@@ -13,6 +15,7 @@ import {
 import { canSeePastorInbox, prayerStatusLabel, type PrayerRequest, type PrayerStatus } from "@/lib/prayer-requests";
 import { loadPrayerRequests, submitPrayerRequest, updatePrayerStatus } from "@/lib/prayer-db";
 import { can } from "@/lib/roles";
+import { PRODUCT_MEMBER_NAME } from "@/lib/brand";
 
 type MemberTab = "info" | "live" | "ads" | "prayer";
 type Tab = MemberTab | "inbox";
@@ -25,7 +28,7 @@ const TABS: { id: MemberTab; label: string }[] = [
 ];
 
 export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
-  const { ready, user, db } = useChurch();
+  const { ready, user, db, churches, error: bootError } = useChurch();
   const query = useClientQuery();
   const pastorOnlyInbox = initialTab === "inbox";
   const [tab, setTab] = useState<Tab>(pastorOnlyInbox ? "inbox" : initialTab);
@@ -36,6 +39,7 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const [openingChurch, setOpeningChurch] = useState(false);
 
   const selectedFromQuery = typeof query.service === "string" ? query.service : "";
   const effectiveId = serviceId || selectedFromQuery;
@@ -50,6 +54,7 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
   const inbox = user
     ? prayers.filter((row) => canSeePastorInbox(user, row, assignedPastorUid))
     : [];
+  const canOpenCommunity = user ? can(user.roles, "screen.community") : true;
 
   useEffect(() => {
     setTab(pastorOnlyInbox ? "inbox" : initialTab);
@@ -70,6 +75,27 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
     };
   }, [ready, user?.id, user?.churchId]);
 
+  function pickChurch(churchId: string) {
+    setError("");
+    setOpeningChurch(true);
+    startTransition(async () => {
+      try {
+        const ok = await openBrowseChurch(churchId);
+        if (!ok) setError("교회 자료를 열지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "교회를 열지 못했습니다.");
+      } finally {
+        setOpeningChurch(false);
+      }
+    });
+  }
+
+  function changeChurch() {
+    clearBrowseChurch();
+    setServiceId("");
+    setTab("info");
+  }
+
   // null 만 반환하면 성도 앱이 빈 화면으로 보입니다. 안내 문구를 남깁니다.
   if (!ready) {
     return (
@@ -78,17 +104,34 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
       </div>
     );
   }
-  if (!user) {
-    return (
-      <div className="member-shell">
-        <p className="text-muted">로그인으로 이동 중</p>
-      </div>
-    );
-  }
+
+  // 비로그인·교회 미선택: 근처 교회 검색으로 바로 입장 (로그인 강제 없음).
   if (!db) {
     return (
       <div className="member-shell">
-        <p className="text-muted">교회 자료를 불러오는 중입니다.</p>
+        <header className="member-hero">
+          <div className="member-hero-glow" aria-hidden />
+          <h1 className="member-brand">{PRODUCT_MEMBER_NAME}</h1>
+          <p className="member-lede">주소로 주변 교회를 찾아 들어가면, 로그인 없이도 예배정보·자막·광고를 볼 수 있습니다.</p>
+          <div className="member-hero-actions">
+            <Link href="/login/" className="member-link">
+              로그인 (선택)
+            </Link>
+          </div>
+        </header>
+        {bootError ? <p className="member-err">{bootError}</p> : null}
+        {error ? <p className="member-err">{error}</p> : null}
+        <main className="member-main">
+          <section className="animate-in space-y-4">
+            <h2>주변 교회 찾기</h2>
+            <p className="member-hint">교회 주소를 넣고 가까운 교회를 고르면 바로 예배 화면이 열립니다.</p>
+            {openingChurch ? <p className="text-muted">교회를 여는 중…</p> : null}
+            <ChurchNearbyPicker churches={churches} onSelectExisting={pickChurch} />
+            {churches.length === 0 ? (
+              <p className="member-hint">등록된 교회 목록이 비어 있습니다. 네트워크·Firebase 공개 읽기 규칙을 확인해 주세요.</p>
+            ) : null}
+          </section>
+        </main>
       </div>
     );
   }
@@ -98,8 +141,13 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
   const notices = views?.notices ?? [];
   const caption = views?.caption;
   const options = views?.options ?? [];
+  const churchTitle = db.settings.churchName || churchProfileName(db) || "우리 교회";
 
   function refreshPrayers() {
+    if (!user) {
+      setError("로그인하면 내가 보낸 기도 목록을 볼 수 있습니다.");
+      return;
+    }
     startTransition(async () => {
       try {
         setPrayers(await loadPrayerRequests());
@@ -110,6 +158,10 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
   }
 
   function sendPrayer() {
+    if (!user) {
+      setError("로그인하면 담당 목사님께 기도제목을 보낼 수 있습니다.");
+      return;
+    }
     if (!pick) {
       setError("예배를 먼저 골라 주세요.");
       return;
@@ -150,11 +202,30 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
 
   /** 담당 목사 전용 `/prayers` — 성도 탭에는 넣지 않습니다. */
   if (pastorOnlyInbox) {
+    if (!user) {
+      return (
+        <div className="member-shell">
+          <header className="member-hero">
+            <div className="member-hero-glow" aria-hidden />
+            <h1 className="member-brand">{churchTitle}</h1>
+            <p className="member-lede">기도함은 담당 목사 계정으로 로그인한 뒤 이용할 수 있습니다.</p>
+            <div className="member-hero-actions">
+              <Link href="/member/" className="member-link">
+                성도 화면
+              </Link>
+              <Link href="/login/" className="member-link">
+                로그인
+              </Link>
+            </div>
+          </header>
+        </div>
+      );
+    }
     return (
       <div className="member-shell">
         <header className="member-hero">
           <div className="member-hero-glow" aria-hidden />
-          <h1 className="member-brand">{db.settings.churchName || "우리 교회"}</h1>
+          <h1 className="member-brand">{churchTitle}</h1>
           <p className="member-lede">담당 목사님 기도함입니다. 성도가 보낸 기도제목을 확인하고 상태를 남깁니다.</p>
           <div className="member-hero-actions">
             <Link href="/member/" className="member-link">
@@ -214,8 +285,8 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
     <div className="member-shell">
       <header className="member-hero">
         <div className="member-hero-glow" aria-hidden />
-        <h1 className="member-brand">{db.settings.churchName || "우리 교회"}</h1>
-        <p className="member-lede">선택한 예배의 정보·광고와 예배 중 자막, 기도제목 보내기를 모았습니다.</p>
+        <h1 className="member-brand">{churchTitle}</h1>
+        <p className="member-lede">선택한 예배의 정보·광고와 예배 중 자막을 언제든 볼 수 있습니다. 기도 보내기만 로그인이 필요합니다.</p>
         {pick ? (
           <p className="member-chip">
             {pickReasonLabel(pick.reason)} · {pick.service.title}
@@ -239,7 +310,7 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
               </select>
             </label>
           ) : null}
-          {can(user.roles, "screen.community") ? (
+          {canOpenCommunity ? (
             <Link href="/community/" className="member-link">
               커뮤니티
             </Link>
@@ -249,9 +320,20 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
               기도함
             </Link>
           ) : null}
-          <button type="button" className="member-link" onClick={() => void logout().catch(() => undefined)}>
-            나가기
-          </button>
+          {!user ? (
+            <>
+              <button type="button" className="member-link" onClick={changeChurch}>
+                교회 다시 고르기
+              </button>
+              <Link href="/login/" className="member-link">
+                로그인
+              </Link>
+            </>
+          ) : (
+            <button type="button" className="member-link" onClick={() => void logout().catch(() => undefined)}>
+              나가기
+            </button>
+          )}
         </div>
       </header>
 
@@ -378,17 +460,34 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
         {tab === "prayer" ? (
           <section className="member-prayer animate-in">
             <h2>기도제목 보내기</h2>
-            <p className="member-hint">
-              {assignedPastorUid
-                ? `담당 목사님${assignedPastorName ? ` (${assignedPastorName})` : ""}에게만 전달됩니다. 다른 성도에게는 보이지 않습니다.`
-                : "담당 목사님이 아직 정해지지 않았습니다. 교회 설정에서 담당 목사를 지정한 뒤 보내 주세요."}
-            </p>
+            {!user ? (
+              <p className="member-hint">
+                예배정보·자막은 로그인 없이 볼 수 있습니다. 기도제목을 보내려면{" "}
+                <Link href="/login/" className="member-link">
+                  로그인
+                </Link>
+                해 주세요.
+              </p>
+            ) : (
+              <p className="member-hint">
+                {assignedPastorUid
+                  ? `담당 목사님${assignedPastorName ? ` (${assignedPastorName})` : ""}에게만 전달됩니다. 다른 성도에게는 보이지 않습니다.`
+                  : "담당 목사님이 아직 정해지지 않았습니다. 교회 설정에서 담당 목사를 지정한 뒤 보내 주세요."}
+              </p>
+            )}
             {pick ? (
               <p className="member-aside mb-3">연결 예배: {pick.service.title}</p>
             ) : null}
             <label className="field">
               <span>이름 (선택)</span>
-              <input className="input" value={prayerName} maxLength={40} onChange={(event) => setPrayerName(event.target.value)} placeholder="이름 또는 호칭" />
+              <input
+                className="input"
+                value={prayerName}
+                maxLength={40}
+                disabled={!user}
+                onChange={(event) => setPrayerName(event.target.value)}
+                placeholder="이름 또는 호칭"
+              />
             </label>
             <label className="field mt-3">
               <span>기도제목</span>
@@ -396,41 +495,53 @@ export function MemberApp({ initialTab = "info" }: { initialTab?: Tab }) {
                 className="textarea"
                 value={prayerText}
                 maxLength={800}
+                disabled={!user}
                 onChange={(event) => setPrayerText(event.target.value)}
                 placeholder="함께 기도해 주세요."
               />
             </label>
-            <button type="button" className="btn btn-primary mt-4 w-full" disabled={pending || !assignedPastorUid} onClick={sendPrayer}>
-              {pending ? "보내는 중…" : "담당 목사님께 보내기"}
+            <button
+              type="button"
+              className="btn btn-primary mt-4 w-full"
+              disabled={pending || !user || !assignedPastorUid}
+              onClick={sendPrayer}
+            >
+              {pending ? "보내는 중…" : user ? "담당 목사님께 보내기" : "로그인 후 보내기"}
             </button>
-            <div className="member-mine mt-8">
-              <div className="flex items-center justify-between gap-2">
-                <h3>내가 보낸 기도</h3>
-                <button type="button" className="member-link" onClick={refreshPrayers}>
-                  새로고침
-                </button>
+            {user ? (
+              <div className="member-mine mt-8">
+                <div className="flex items-center justify-between gap-2">
+                  <h3>내가 보낸 기도</h3>
+                  <button type="button" className="member-link" onClick={refreshPrayers}>
+                    새로고침
+                  </button>
+                </div>
+                {prayers.filter((row) => row.authorUid === user.id).length === 0 ? (
+                  <p className="member-hint">아직 보낸 기도제목이 없습니다.</p>
+                ) : (
+                  <ul className="member-prayer-list">
+                    {prayers
+                      .filter((row) => row.authorUid === user.id)
+                      .map((row) => (
+                        <li key={row.id}>
+                          <p>{row.text}</p>
+                          <p className="member-aside">
+                            {prayerStatusLabel(row.status)}
+                            {row.serviceTitle ? ` · ${row.serviceTitle}` : ""}
+                          </p>
+                        </li>
+                      ))}
+                  </ul>
+                )}
               </div>
-              {prayers.filter((row) => row.authorUid === user.id).length === 0 ? (
-                <p className="member-hint">아직 보낸 기도제목이 없습니다.</p>
-              ) : (
-                <ul className="member-prayer-list">
-                  {prayers
-                    .filter((row) => row.authorUid === user.id)
-                    .map((row) => (
-                      <li key={row.id}>
-                        <p>{row.text}</p>
-                        <p className="member-aside">
-                          {prayerStatusLabel(row.status)}
-                          {row.serviceTitle ? ` · ${row.serviceTitle}` : ""}
-                        </p>
-                      </li>
-                    ))}
-                </ul>
-              )}
-            </div>
+            ) : null}
           </section>
         ) : null}
       </main>
     </div>
   );
+}
+
+function churchProfileName(db: { settings: { churchName?: string } }): string {
+  return String(db.settings.churchName || "").trim();
 }

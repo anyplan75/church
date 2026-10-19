@@ -3,15 +3,28 @@
 조작용 **Remote**(`/remote`, Capacitor `org.eunhye.worship.operator`)·송출용 데스크톱과 **다른** 성도 전용 화면입니다.  
 **예배(부서)별로** 예배 정보·광고·예배 중 자막을 보고, 기도제목을 **담당 목사님**에게 보냅니다. **커뮤니티**도 성도 앱 안에서만 엽니다.
 
-로그인·앱 아이콘 등 **처음 화면**만 제품명 **은혜로운 예배**(성도)를 쓰고, 교회에 들어간 뒤에는 헤더·히어로에 **그 교회 이름**을 크게 둡니다.
+**로그인 없이** 주변 교회를 찾아 들어가면 예배정보·예배자막·광고를 **언제든** 읽을 수 있습니다.  
+선택 로그인·앱 아이콘 화면만 제품명 **은혜로운 예배**(성도)를 쓰고, 교회에 들어간 뒤에는 헤더·히어로에 **그 교회 이름**을 크게 둡니다.
 
-주변 교회 주소 검색·등록은 전체 운영자 `/platform` 흐름입니다. → [`church-nearby-select.md`](./church-nearby-select.md)
+주변 교회 **등록·수정**은 전체 운영자 `/platform` 흐름입니다. 성도 앱의 **찾기·입장**은 비로그인으로 동작합니다. → [`church-nearby-select.md`](./church-nearby-select.md)
+
+## 비로그인 둘러보기 (성도만)
+
+| 가능 | 내용 |
+| --- | --- |
+| 앱 실행 | 로그인으로 **강제 이동하지 않음**. 성도 셸 시작 = `/member` |
+| 근처 교회 | 주소로 주변 검색 → **이 교회 열기** → 그 교회 문맥 즉시 |
+| 예배정보·광고·**예배자막** | 예배 선택 후 **그 자리에서** 전부 열람 (시간 밖에도 읽기 가능). 자막 로그인 게이트 없음 |
+| 쓰기 | 기도 전송·커뮤니티·기도함만 「로그인하면…」 가벼운 유도 |
+
+조작 Remote·데스크톱 로그인은 **그대로** 필수입니다.  
+Firebase 공개 읽기: `churchIndex`, `churches/{id}/meta`, `churches/{id}/data`. 규칙은 `firebase/church.rules.json` · `docs/firebase-rules-paste.json`.
 
 ## 범위
 
 - **성도·커뮤니티·기도함**은 조작 데스크톱 상단 메뉴에 **없습니다**. Remote는 슬라이드만.
 - 웹·성도 Capacitor 셸에서 `/member`, `/community`, `/prayers` 를 엽니다.
-- **받은 기도함**은 성도 탭이 아니라 `/prayers` 전용입니다. 성도는 기도제목만 **보냅니다**.
+- **받은 기도함**은 성도 탭이 아니라 `/prayers` 전용입니다. 성도는 기도제목만 **보냅니다**(로그인 필요).
 
 ## 웹으로 쓰기
 
@@ -20,11 +33,11 @@
 
 | 경로 | 하는 일 |
 | --- | --- |
-| `/member` | 성도 홈(예배정보·예배자막·광고·기도). 헤더에서 **커뮤니티**·(담당 목사면) **기도함** 진입 |
-| `/community` | 지역 모임·게시판·나의 교회·채팅·MY (코니아형 5탭) |
-| `/prayers` | **담당 목사** 기도함(받은 기도 목록·상태 변경). `settings.pastorUid` 와 같은 계정 |
+| `/member` | 성도 홈(근처 교회·예배정보·예배자막·광고·기도). 비로그인 열람 가능 |
+| `/community` | 지역 모임·게시판·나의 교회·채팅·MY. **로그인 필요**(미로그인 시 안내) |
+| `/prayers` | **담당 목사** 기도함. 로그인·`settings.pastorUid` 필요 |
 
-교회 Firebase 계정으로 로그인합니다. 성도만 쓰는 계정은 보통 **보기(`view`)** 역할이면 충분합니다. (기존 교회 로그인·역할 체계를 그대로 씁니다. `jifc`/`cheil`/`live-interpret` 경로는 건드리지 않습니다.)
+선택 로그인 시 성도 계정은 보통 **보기(`view`)** 역할이면 충분합니다. (`jifc`/`cheil`/`live-interpret` 경로는 건드리지 않습니다.)
 
 ### 예배 고르기
 
@@ -75,7 +88,7 @@ URL `?service=` 로 특정 예배를 고정할 수 있습니다.
 | AppIcon | 기도하는 손(풀블리드) — `assets/app-icons/eunhye-member-praying-hands-fullbleed-1024.png` |
 | 안내 | `ios-member/README.md` |
 
-조작 앱과 **같은 `out/` 정적 파일**을 쓰되, 네이티브 `appId`(`window.__EUNHYE_APP_ID__` / `meta eunhye-app-id`)로 셸을 구분합니다(Capacitor 브리지보다 appId를 먼저 봅니다). `ios-member` 도 조작과 같이 `NextExportRouter`로 `/login`·`/member` HTML을 엽니다. 첫 실행은 루트 `/` 대신 **`/login/`** 으로 열어 빈 화면을 피합니다. 성도 셸은 로그인 후 항상 `/member`로 가며, `/community`·`/prayers` 도 허용합니다.
+조작 앱과 **같은 `out/` 정적 파일**을 쓰되, 네이티브 `appId`(`window.__EUNHYE_APP_ID__` / `meta eunhye-app-id`)로 셸을 구분합니다(Capacitor 브리지보다 appId를 먼저 봅니다). `ios-member` 도 조작과 같이 `NextExportRouter`로 `/member`·`/login` HTML을 엽니다. 첫 실행은 루트 `/` 대신 **`/member/`** 로 열어 비로그인 둘러보기를 시작합니다. `/community`·`/prayers` 도 허용(쓰기·기도함은 로그인 유도).
 
 Mac에서 TestFlight만 다시 올릴 때: [`testflight-reupload.md`](./testflight-reupload.md).
 

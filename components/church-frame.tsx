@@ -14,6 +14,7 @@ import {
   MOBILE_MEMBER_HOME,
   MOBILE_REMOTE_HOME,
 } from "@/lib/mobile-app";
+import { isMemberBrowsePath } from "@/lib/member-browse";
 import { appNavigate } from "@/lib/mobile-nav";
 import { cleanPath } from "@/lib/page-path";
 import { rememberLanHost, restoreLanHost } from "@/lib/lan-link";
@@ -29,13 +30,7 @@ function landing(user: { kind: "platform" | "church"; churchId: string | null; r
 }
 
 function isMemberShellPath(path: string): boolean {
-  return (
-    path === "/member" ||
-    path.startsWith("/member/") ||
-    path === "/prayers" ||
-    path === "/community" ||
-    path.startsWith("/community/")
-  );
+  return isMemberBrowsePath(path);
 }
 
 function isOutputPath(path: string): boolean {
@@ -77,6 +72,17 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
     if (isOutputPath(path)) return;
     const go = (href: string) => appNavigate(href, router, "replace");
     if (!user) {
+      // 성도 앱·웹 /member 계열: 로그인 강제 없음. 선택 로그인(/login)만 허용.
+      if (isMobileMemberApp()) {
+        if (path === "/" || path === "") {
+          go(MOBILE_MEMBER_HOME);
+          return;
+        }
+        if (isMobileMemberPath(path)) return;
+        go(MOBILE_MEMBER_HOME);
+        return;
+      }
+      if (isMemberShellPath(path) || path === "/login") return;
       if (path !== "/login") go("/login");
       return;
     }
@@ -119,13 +125,17 @@ export function ChurchFrame({ children }: { children: React.ReactNode }) {
   const path = cleanPath(pathname || "/");
   const output = isOutputPath(path) || isOutputPath(browserPath);
   if (!ready && !output) return <p className="page text-muted">불러오는 중</p>;
-  // 로그인 전 children(성도 null·리모컨 대기)이 빈 화면/멈춤처럼 보이지 않게 가립니다.
-  if (ready && !user && !output && path !== "/login") {
+  // 성도 둘러보기 경로는 비로그인이어도 children 을 그대로 보여 줍니다.
+  const allowAnonymous = isMemberShellPath(path) || path === "/login" || (isMobileMemberApp() && isMobileMemberPath(path));
+  if (ready && !user && !output && !allowAnonymous) {
     return <p className="page text-muted">로그인으로 이동 중</p>;
   }
   // 네이티브가 루트 `/`(주보)에 머물면 children 이 null 이라 빈 화면처럼 보입니다.
   if (ready && user && !output && path === "/" && (isMobileMemberApp() || isMobileOperatorApp())) {
     return <p className="page text-muted">앱 화면으로 이동 중</p>;
+  }
+  if (ready && !user && !output && path === "/" && isMobileMemberApp()) {
+    return <p className="page text-muted">성도 화면으로 이동 중</p>;
   }
 
   return (

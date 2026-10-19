@@ -32,12 +32,25 @@ export function churchPath(relative: string): string {
 
 const DB_TIMEOUT_MS = 15_000;
 
+/** 공개 읽기(비로그인)는 auth 없이, 쓰기는 토큰이 필요합니다. */
+function withAuthQuery(pathUrl: string, idToken: string, extra = ""): string {
+  const clean = extra.replace(/^\?/, "").replace(/^&/, "");
+  if (idToken) {
+    const auth = `auth=${encodeURIComponent(idToken)}`;
+    return clean ? `${pathUrl}?${auth}&${clean}` : `${pathUrl}?${auth}`;
+  }
+  return clean ? `${pathUrl}?${clean}` : pathUrl;
+}
+
 async function request(relative: string, idToken: string, method: string, body?: unknown): Promise<unknown> {
   const path = churchPath(relative);
+  if ((method === "PUT" || method === "PATCH" || method === "DELETE") && !idToken) {
+    throw new DatabasePermissionError();
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DB_TIMEOUT_MS);
   try {
-    const response = await fetch(`${databaseUrl()}/${path}.json?auth=${encodeURIComponent(idToken)}`, {
+    const response = await fetch(withAuthQuery(`${databaseUrl()}/${path}.json`, idToken), {
       method,
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -62,7 +75,7 @@ export async function dbKeys(relative: string, idToken: string): Promise<string[
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DB_TIMEOUT_MS);
   try {
-    const response = await fetch(`${databaseUrl()}/${path}.json?auth=${encodeURIComponent(idToken)}&shallow=true`, {
+    const response = await fetch(withAuthQuery(`${databaseUrl()}/${path}.json`, idToken, "shallow=true"), {
       signal: controller.signal,
     });
     if (response.status === 401 || response.status === 403) throw new DatabasePermissionError();
@@ -75,6 +88,11 @@ export async function dbKeys(relative: string, idToken: string): Promise<string[
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** 시험·문서용: 공개 GET URL에 auth 를 붙이지 않는지 확인합니다. */
+export function buildDatabaseUrl(pathJson: string, idToken: string, extra = ""): string {
+  return withAuthQuery(pathJson, idToken, extra);
 }
 
 export function dbSet(relative: string, value: unknown, idToken: string): Promise<void> {

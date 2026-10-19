@@ -57,8 +57,11 @@ export async function logout() {
       current.visits = closeVisit(current.visits ?? [], user.email);
     });
   }
-  endLocalSession();
-  go("/login");
+  await endLocalSession();
+  // 성도 앱은 로그인 화면으로 보내지 않고, 고른 교회 둘러보기로 돌아갑니다.
+  if (isMobileMemberApp()) go(MOBILE_MEMBER_HOME);
+  else if (typeof window !== "undefined" && /\/member(\/|$)/.test(window.location.pathname)) go(MOBILE_MEMBER_HOME);
+  else go("/login");
 }
 
 export async function createAccount(formData: FormData) {

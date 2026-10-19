@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useChurch } from "@/components/church-state";
 import {
@@ -84,7 +85,7 @@ const TABS: { id: CommunityTab; label: string; Icon: typeof IconPeople }[] = [
 ];
 
 export function CommunityApp() {
-  const { db, user } = useChurch();
+  const { db, user, ready } = useChurch();
   const mobile = isMobileOperatorApp();
   const churchName = db?.settings.churchName || "내 교회";
   const churchId = user?.churchId || "";
@@ -164,6 +165,26 @@ export function CommunityApp() {
       <p className="mt-3 rounded-xl border border-line bg-card px-4 py-3 text-sm text-muted">
         iPhone·iPad 조작 앱에서는 커뮤니티를 쓰지 않습니다. 데스크톱·웹에서 열어 주세요.
       </p>
+    );
+  }
+
+  // 성도 예배정보는 비로그인 가능. 커뮤니티 읽기·쓰기는 계정 필요 — 여기서만 가볍게 유도.
+  if (ready && !user) {
+    return (
+      <div className="mx-auto mt-8 max-w-md rounded-2xl border border-line bg-card px-5 py-6 text-center">
+        <h1 className="font-serif text-2xl text-ink">커뮤니티</h1>
+        <p className="mt-2 text-sm text-muted">
+          모임·게시판·채팅은 로그인한 뒤 이용할 수 있습니다. 예배정보·자막은 성도 화면에서 로그인 없이 볼 수 있습니다.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <Link href="/login/" className="btn btn-primary">
+            로그인
+          </Link>
+          <Link href="/member/" className="btn btn-quiet">
+            성도 화면으로
+          </Link>
+        </div>
+      </div>
     );
   }
 

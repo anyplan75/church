@@ -252,7 +252,7 @@
 
 **이전 붙여넣기 문서**에는 최상위 `jifc`, `cheil`에 `".read": true` / `".write": true`(아무나 읽고 쓰기)가 있었다. 시험 모드로 열린 상태였고, **이번 갱신에서 `".read": false` / `".write": false`로 닫았다.**
 
-**repo `firebase/database.rules.json`의 `church` 구간**은 원래부터 로그인 + 슈퍼관리자/교회/역할 조건을 쓰고 있어 **시험용 전체 공개가 아니었다.** church 본문은 그대로 두고, 공유 규칙 최상위에 `jifc`·`cheil` 차단만 추가했다. 붙여넣기 파일은 repo와 동일하다.
+**repo `firebase/database.rules.json`의 `church` 구간**은 쓰기·계정·기도·커뮤니티는 로그인·역할 조건을 유지한다. 성도 비로그인 둘러보기를 위해 `churchIndex`와 `churches/{id}/meta`·`data`만 **공개 읽기**로 열었다(멤버·파일·기도요청·community는 로그인 유지). 붙여넣기 파일은 repo와 동일하다.
 
 `live-interpret` 안의 일부 `.read: true`(관리 uid 공개 읽기, 교회 `name`/`active` 공개)는 통역 앱용이며 이 repo의 church 앱은 건드리지 않는다. 공유 규칙에서 그 구간을 유지한다.
 
