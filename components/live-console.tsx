@@ -21,6 +21,7 @@ export function LiveConsole({
   churchName,
   access,
   canStart = true,
+  onChangeService,
 }: {
   service: Service;
   people: Person[];
@@ -28,6 +29,8 @@ export function LiveConsole({
   churchName: string;
   access: { output: boolean; bulletin: boolean; editor: boolean };
   canStart?: boolean;
+  /** 프레젠터 탭에서 다른 예배로 돌아갈 때 씁니다. */
+  onChangeService?: () => void;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(service.status);
@@ -89,6 +92,11 @@ export function LiveConsole({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {onChangeService ? (
+            <button type="button" className="btn btn-on-dark btn-small" onClick={onChangeService}>
+              예배 바꾸기
+            </button>
+          ) : null}
           {access.output ? <OutputLinks id={service.id} className="btn btn-on-dark btn-small" /> : null}
           {access.bulletin ? (
             <Link href={`/services/${service.id}/bulletin`} className="btn btn-on-dark btn-small">

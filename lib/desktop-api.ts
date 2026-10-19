@@ -18,6 +18,20 @@ export type DesktopLinesPayload = {
   };
 };
 
+export type DesktopLibraryFolders = {
+  bible: string;
+  hymn: string;
+  praise: string;
+};
+
+export type DesktopFolderView = {
+  state: "idle" | "unsupported" | "reconnect" | "connected";
+  folderName: string;
+  txtCount: number;
+  names: string[];
+  path?: string;
+};
+
 export type DesktopApi = {
   isDesktop: true;
   mode: () => Promise<{ app: "operator" | "output"; display: "main" | "overlay"; port: number }>;
@@ -28,6 +42,14 @@ export type DesktopApi = {
   localAddresses: () => Promise<string[]>;
   outputStatus: () => Promise<{ clients: number; host: string; port: number }>;
   pushLines?: (payload: DesktopLinesPayload) => Promise<boolean>;
+  getLibraryFolders?: () => Promise<DesktopLibraryFolders>;
+  setLibraryFolder?: (slot: string, folderPath: string) => Promise<DesktopLibraryFolders>;
+  setLibraryFolders?: (next: Partial<DesktopLibraryFolders>) => Promise<DesktopLibraryFolders>;
+  libraryFolderView?: (slot: string) => Promise<DesktopFolderView>;
+  listLibraryTxt?: (slot: string) => Promise<string[]>;
+  readLibraryTxt?: (slot: string, fileName: string) => Promise<Uint8Array | null>;
+  writeLibraryTxt?: (slot: string, fileName: string, text: string) => Promise<boolean>;
+  pickLibraryFolder?: (slot: string) => Promise<DesktopFolderView>;
   onLines: (handler: (payload: DesktopLinesPayload) => void) => () => void;
   onPeers: (handler: (peers: DesktopPeer[]) => void) => () => void;
   onOutputStatus: (handler: (status: { clients: number; host: string; port: number }) => void) => () => void;
