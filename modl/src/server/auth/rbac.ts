@@ -8,6 +8,7 @@
  *   사역자 전용 기도는 볼 수 없습니다.
  * - CELL_LEADER: 자신이 맡은 모들, 또는 지금 속한 모들의 출석·게시·사진.
  *   리더 전용 기도는 그 모들만. 리더 일정은 볼 수 있습니다.
+ *   말씀 트멍과 행사 기록은 사역자와 함께 등록합니다.
  * - MEMBER, NEWCOMER: 공개 주보, 본인 묵상, 공개 범위 안의 기도, 공개 일정, 본인 모들.
  * - GUEST: 공개 주보 나누기 표식, 열린 안뜨레, 방문 문의, 이름 없이 답할 수 있는 설문.
  */
@@ -46,7 +47,9 @@ export type AppAction =
   | { type: "apply_to_join" }
   | { type: "issue_invite"; communityId: string }
   | { type: "review_approval"; communityId: string }
-  | { type: "manage_groups"; communityId: string };
+  | { type: "manage_groups"; communityId: string }
+  | { type: "manage_daily_qt"; communityId: string }
+  | { type: "manage_archive"; communityId: string };
 
 const ROSTER_ROLES = ["PASTOR", "EXECUTIVE"] as const satisfies readonly MemberRole[];
 const LEADER_CALENDAR_ROLES = ["PASTOR", "EXECUTIVE", "CELL_LEADER"] as const satisfies readonly MemberRole[];
@@ -149,6 +152,9 @@ export function can(actor: Actor, action: AppAction): boolean {
     case "answer_survey":
       if (formalMembership(actor, action.communityId)) return true;
       return action.allowAnonymous;
+    case "manage_daily_qt":
+    case "manage_archive":
+      return roleIs(actor, action.communityId, ["PASTOR", "CELL_LEADER"]);
     default: {
       const neverAction: never = action;
       return neverAction;

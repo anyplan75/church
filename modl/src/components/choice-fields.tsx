@@ -48,6 +48,37 @@ export function CategoryField({ defaultValue = "EVENT" }: { defaultValue?: (type
   );
 }
 
+const VISIBILITIES = [
+  ["PUBLIC", "visibility_public"],
+  ["GROUP_ONLY", "visibility_group"],
+  ["LEADER_ONLY", "visibility_leader"],
+  ["PASTOR_ONLY", "visibility_pastor"],
+] as const;
+
+export function VisibilityField({ defaultValue = "PUBLIC" }: { defaultValue?: (typeof VISIBILITIES)[number][0] }) {
+  return (
+    <label className="grid gap-1">
+      <span className="font-semibold">
+        <TermText termKey="field_visibility" />
+      </span>
+      <select className={inputClass} name="visibility" defaultValue={defaultValue}>
+        {VISIBILITIES.map(([value, termKey]) => (
+          <OptionLabel key={value} value={value} termKey={termKey} />
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function AnonymousField() {
+  return (
+    <label className="flex flex-wrap items-start gap-2 leading-snug">
+      <input type="checkbox" name="isAnonymous" value="yes" className="mt-1" />
+      <TermText termKey="field_anonymous" />
+    </label>
+  );
+}
+
 export function LeaderOnlyField({ defaultChecked = false }: { defaultChecked?: boolean }) {
   return (
     <label className="flex flex-wrap items-start gap-2 leading-snug">

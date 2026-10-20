@@ -40,6 +40,40 @@ export function TermField({
   );
 }
 
+export function TermArea({
+  termKey,
+  name,
+  required = false,
+  defaultValue = "",
+  rows = 5,
+}: {
+  termKey: TermKey;
+  name: string;
+  required?: boolean;
+  defaultValue?: string;
+  rows?: number;
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="font-semibold">
+        <TermText termKey={termKey} />
+      </span>
+      <textarea className={inputClass} name={name} required={required} defaultValue={defaultValue} rows={rows} />
+    </label>
+  );
+}
+
+export function TermFileField({ termKey, name }: { termKey: TermKey; name: string }) {
+  return (
+    <label className="grid gap-1">
+      <span className="font-semibold">
+        <TermText termKey={termKey} />
+      </span>
+      <input className={inputClass} name={name} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" />
+    </label>
+  );
+}
+
 export function SubmitButton({ termKey, testId }: { termKey: TermKey; testId?: string }) {
   const term = useCommunityTerm(termKey);
   return (

@@ -418,7 +418,28 @@ export const qtReflections = pgTable(
   (table) => [
     index("qt_reflections_qt_id_idx").on(table.qtId),
     index("qt_reflections_member_id_idx").on(table.memberId),
+    uniqueIndex("qt_reflections_qt_member_uidx").on(table.qtId, table.memberId),
     check("qt_reflections_grace_nonnegative", sql`${table.graceCount} >= 0`),
+  ],
+);
+
+/** 묵상에 남긴 은혜입니다. 한 묵상에 한 사람은 한 번만 오릅니다. */
+export const qtGraceReactions = pgTable(
+  "qt_grace_reactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reflectionId: uuid("reflection_id")
+      .notNull()
+      .references(() => qtReflections.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("qt_grace_reactions_reflection_member_uidx").on(table.reflectionId, table.memberId),
+    index("qt_grace_reactions_member_id_idx").on(table.memberId),
   ],
 );
 
@@ -703,6 +724,7 @@ export const dbSchema = {
   calendarEvents,
   dailyQts,
   qtReflections,
+  qtGraceReactions,
   prayerRequests,
   prayerReactions,
   prayerLetters,

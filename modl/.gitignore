@@ -12,3 +12,7 @@ secrets/
 *credentials*
 *serviceAccount*.json
 *service-account*.json
+
+# 올린 사진과 문서는 저장소에 넣지 않습니다.
+public/uploads/*
+!public/uploads/.gitkeep

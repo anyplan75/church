@@ -55,6 +55,8 @@ describe("역할별 권한", () => {
     const actor = user("PASTOR");
     assert.doesNotThrow(() => assertCan(actor, { type: "manage_plan_and_language", communityId: COMMUNITY }));
     assert.equal(can(actor, { type: "view_pastor_only_prayer", communityId: COMMUNITY }), true);
+    assert.equal(can(actor, { type: "manage_daily_qt", communityId: COMMUNITY }), true);
+    assert.equal(can(actor, { type: "manage_archive", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "manage_finance", communityId: COMMUNITY }), true);
     assert.equal(
       can(actor, { type: "manage_group_attendance", communityId: COMMUNITY, groupId: "group-9" }),
@@ -77,6 +79,8 @@ describe("역할별 권한", () => {
     assert.equal(can(actor, { type: "view_leader_calendar", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "manage_plan_and_language", communityId: COMMUNITY }), false);
     assert.equal(can(actor, { type: "view_pastor_only_prayer", communityId: COMMUNITY }), false);
+    assert.equal(can(actor, { type: "manage_daily_qt", communityId: COMMUNITY }), false);
+    assert.equal(can(actor, { type: "manage_archive", communityId: COMMUNITY }), false);
     assert.throws(
       () => assertCan(actor, { type: "view_pastor_only_prayer", communityId: COMMUNITY }),
       PermissionError,
@@ -105,6 +109,8 @@ describe("역할별 권한", () => {
       false,
     );
     assert.equal(can(actor, { type: "view_leader_calendar", communityId: COMMUNITY }), true);
+    assert.equal(can(actor, { type: "manage_daily_qt", communityId: COMMUNITY }), true);
+    assert.equal(can(actor, { type: "manage_archive", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "manage_finance", communityId: COMMUNITY }), false);
     assert.equal(can(actor, { type: "view_long_absent", communityId: COMMUNITY }), false);
   });
@@ -133,6 +139,8 @@ describe("역할별 권한", () => {
         false,
       );
       assert.equal(can(actor, { type: "manage_finance", communityId: COMMUNITY }), false);
+      assert.equal(can(actor, { type: "manage_daily_qt", communityId: COMMUNITY }), false);
+      assert.equal(can(actor, { type: "manage_archive", communityId: COMMUNITY }), false);
       assert.equal(
         can(actor, { type: "write_prayer", communityId: COMMUNITY, visibility: "PUBLIC", groupId: null }),
         true,

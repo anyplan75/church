@@ -29,7 +29,7 @@ const sql = readdirSync(migrationDir)
 describe("표 정의와 마이그레이션", () => {
   it("정의된 표가 실행 명령 안에 모두 있습니다", () => {
     const tables = Object.values(dbSchema);
-    assert.equal(tables.length, 27);
+    assert.equal(tables.length, 28);
     for (const table of tables) {
       const name = getTableName(table);
       assert.match(sql, new RegExp(`CREATE TABLE ${name}\\b`));
@@ -70,6 +70,8 @@ describe("표 정의와 마이그레이션", () => {
       "bulletins_share_token_uidx",
       "attendance_records_session_member_uidx",
       "prayer_reactions_request_member_uidx",
+      "qt_grace_reactions_reflection_member_uidx",
+      "qt_reflections_qt_member_uidx",
       "attendance_sessions_qr_checkin_token_uidx",
       "members_current_group_id_fk",
       "members_community_id_idx",

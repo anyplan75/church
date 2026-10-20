@@ -19,6 +19,16 @@ const OK_TERM = {
   session: "create_session",
   event: "save_event",
   google: "google_synced",
+  qt: "save_qt",
+  ocr: "ocr_filled",
+  prayer: "field_prayer",
+  letter: "save_letter",
+  read: "letter_read",
+  archive: "save_archive",
+  quiz: "save_quiz",
+  score: "quiz_score",
+  grace_kept: "grace_kept",
+  pray_kept: "pray_kept",
 } as const;
 
 export function OkNote({ code }: { code?: string }) {

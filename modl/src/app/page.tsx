@@ -38,6 +38,10 @@ const WORK_LINKS: Array<{ href: string; termKey: TermKey }> = [
   { href: "/bulletin", termKey: "bulletin" },
   { href: "/attendance", termKey: "attendance" },
   { href: "/calendar", termKey: "calendar" },
+  { href: "/qt", termKey: "qt" },
+  { href: "/prayer", termKey: "prayer" },
+  { href: "/prayer_letter", termKey: "prayer_letter" },
+  { href: "/archive", termKey: "archive" },
 ];
 
 const PREVIEW_MENUS: MenuKey[] = ["group", "bulletin", "prayer", "website"];
@@ -73,7 +77,7 @@ export default function HomePage() {
           우리 공동체 말투
         </h1>
         <p className="max-w-2xl leading-relaxed text-[#5c5148]">
-          화면 이름은 공동체가 고른 말투로만 바뀝니다. 아래 세 가지 중 하나를 누르면 메뉴 이름이 바로 달라집니다.
+          화면 이름은 공동체가 고른 말투로만 바뀝니다. 아래 세 종류 중 하나를 누르면 메뉴 이름이 바로 달라집니다.
         </p>
       </header>
 
