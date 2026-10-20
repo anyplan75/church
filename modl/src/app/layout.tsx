@@ -9,6 +9,10 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "모들",
   description: "목사에게 질문하고, 교인과 출석과 주보를 다루는 공동체",
+  icons: {
+    icon: [{ url: "/modl-icon.png", type: "image/png" }],
+    apple: [{ url: "/modl-icon.png", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
