@@ -13,6 +13,11 @@ secrets/
 *serviceAccount*.json
 *service-account*.json
 
+# 앱 서명 값과 만든 설치 파일은 올리지 않습니다.
+apple/Config/Signing.local.xcconfig
+apple/build/
+*.p8
+
 # 올린 사진과 문서는 저장소에 넣지 않습니다.
 public/uploads/*
 !public/uploads/.gitkeep

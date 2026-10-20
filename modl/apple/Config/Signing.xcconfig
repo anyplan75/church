@@ -1,0 +1,5 @@
+// 비밀 값은 이 파일에 적지 않습니다.
+// 로컬 파일이 먼저 값을 정하면, 아래의 빈 자리는 그 값을 지우지 않습니다.
+#include? "Signing.local.xcconfig"
+MODL_BUNDLE_ID =
+APPLE_TEAM_ID =
