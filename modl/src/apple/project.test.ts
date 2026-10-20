@@ -25,6 +25,12 @@ describe("폰 패드 맥 껍데기", () => {
     assert.match(readProject("Modl/Info.plist"), /UISupportedInterfaceOrientations~ipad/);
     const entitlements = readProject("Modl/Modl.entitlements");
     assert.match(entitlements, /com\.apple\.security\.app-sandbox/);
+    assert.match(entitlements, /com\.apple\.security\.network\.client/);
+    assert.match(entitlements, /com\.apple\.security\.files\.user-selected\.read-only/);
+    assert.match(project, /CURRENT_PROJECT_VERSION = 2;/);
+    const app = readProject("Modl/ModlApp.swift");
+    assert.match(app, /CommandGroup\(replacing: \.appSettings\)/);
+    assert.doesNotMatch(app, /CommandGroup\(after: \.appSettings\)/);
     assert.match(project, /"CODE_SIGN_ENTITLEMENTS\[sdk=macosx\*\]" = Modl\/Modl\.entitlements;/);
   });
 

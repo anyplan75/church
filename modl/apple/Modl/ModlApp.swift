@@ -9,7 +9,10 @@ struct ModlApp: App {
             RootView()
         }
         .commands {
-            CommandGroup(after: .appSettings) {
+            // 맥의 설정 메뉴가 이미 command+쉼표를 씁니다.
+            // 같은 단축키를 하나 더 넣으면 켜자마자 예외가 납니다.
+            // 그래서 설정 자리를 서버 주소로 바꿉니다.
+            CommandGroup(replacing: .appSettings) {
                 Button("서버 주소") {
                     NotificationCenter.default.post(name: .modlEditServerAddress, object: nil)
                 }
