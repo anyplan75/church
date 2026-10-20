@@ -35,7 +35,7 @@ export function AppShell({
       <aside className="hidden w-60 shrink-0 flex-col border-[#e2e8f0] bg-white md:sticky md:top-0 md:flex md:h-dvh md:border-r">
         <div className="px-5 pb-1 pt-5">
           <Link href="/" className="block px-1 py-1" aria-current={home ? "page" : undefined}>
-            <img src="/modl-logo.png" alt="모들" className="h-8 w-auto" />
+            <img src="/modl-logo.png" alt="모들" className="h-12 w-auto max-w-full" />
           </Link>
         </div>
         <nav aria-label="분류" className="flex min-h-0 flex-1 flex-col px-2 pb-2">
@@ -48,7 +48,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between gap-2 border-b border-[#e2e8f0] bg-white px-3 md:hidden">
           <Link href="/" className="min-w-0" aria-current={home ? "page" : undefined}>
-            <img src="/modl-logo.png" alt="모들" className="h-8 w-auto" />
+            <img src="/modl-logo.png" alt="모들" className="h-12 w-auto max-w-full" />
           </Link>
           <button
             type="button"
