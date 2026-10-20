@@ -32,6 +32,20 @@ select {
   line-height: 1.35;
 }
 
+.modl-map {
+  width: 100%;
+  height: min(28rem, 70vh);
+  min-height: 16rem;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #e5e7eb;
+}
+
+.modl-map img {
+  max-width: none;
+  max-height: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

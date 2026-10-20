@@ -16,5 +16,6 @@ describe("분류 메뉴", () => {
     assert.equal(found.get("설문"), "/survey");
     assert.equal(found.get("회의록"), "/minutes");
     assert.equal(found.get("웹사이트"), "/website");
+    assert.equal(found.get("지도"), "/map");
   });
 });
