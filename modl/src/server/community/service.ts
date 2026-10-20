@@ -305,6 +305,7 @@ export async function saveRosterMember(input: {
   gender: string | null;
   role: MemberRole;
   status: "ACTIVE" | "LONG_ABSENT" | "GRADUATED";
+  cohort: "PEER" | "SENIOR" | null;
   groupId: string | null;
 }) {
   await ensureDatabase();
@@ -332,6 +333,7 @@ export async function saveRosterMember(input: {
         gender: input.gender,
         role: input.role,
         status: input.status,
+        cohort: input.cohort,
         currentGroupId: null,
       })
       .returning();
@@ -361,6 +363,7 @@ export async function saveRosterMember(input: {
       gender: input.gender,
       role: input.role,
       status: input.status,
+      cohort: input.cohort,
       updatedAt: new Date(),
     })
     .where(and(eq(members.id, existing.id), eq(members.communityId, communityId)));

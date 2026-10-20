@@ -30,6 +30,7 @@ function text(formData: FormData, key: string): string {
 
 const roleSchema = z.enum(["PASTOR", "EXECUTIVE", "CELL_LEADER", "MEMBER", "NEWCOMER"]);
 const statusSchema = z.enum(["ACTIVE", "LONG_ABSENT", "GRADUATED"]);
+const cohortSchema = z.enum(["PEER", "SENIOR", ""]);
 
 function optionalPhone(value: string): string | null {
   return value ? value : null;
@@ -188,6 +189,7 @@ function rosterInput(formData: FormData) {
       gender: z.string().trim(),
       role: roleSchema,
       status: statusSchema,
+      cohort: cohortSchema,
       groupId: z.string().trim(),
     })
     .safeParse({
@@ -197,6 +199,7 @@ function rosterInput(formData: FormData) {
       gender: text(formData, "gender"),
       role: text(formData, "role") || "MEMBER",
       status: text(formData, "status") || "ACTIVE",
+      cohort: text(formData, "cohort"),
       groupId: text(formData, "groupId"),
     });
   return parsed;
@@ -214,6 +217,7 @@ export async function createRosterAction(formData: FormData) {
       gender: parsed.data.gender || null,
       role: parsed.data.role as MemberRole,
       status: parsed.data.status,
+      cohort: parsed.data.cohort || null,
       groupId: parsed.data.groupId || null,
     });
   } catch (error) {
@@ -235,6 +239,7 @@ export async function updateRosterAction(formData: FormData) {
       gender: parsed.data.gender || null,
       role: parsed.data.role as MemberRole,
       status: parsed.data.status,
+      cohort: parsed.data.cohort || null,
       groupId: parsed.data.groupId || null,
     });
   } catch (error) {

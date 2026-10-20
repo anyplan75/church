@@ -75,6 +75,8 @@ describe("역할별 권한", () => {
     );
     assert.equal(can(actor, { type: "view_long_absent", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "manage_finance", communityId: COMMUNITY }), true);
+    assert.equal(can(actor, { type: "review_question_reply", communityId: COMMUNITY }), true);
+    assert.equal(can(actor, { type: "ask_question", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "manage_surveys_and_minutes", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "view_leader_calendar", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "manage_plan_and_language", communityId: COMMUNITY }), false);

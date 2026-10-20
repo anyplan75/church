@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "모들",
-  description: "교인, 출석, 주보, 재정을 다루는 공동체 운영",
+  description: "목사에게 질문하고, 교인과 출석과 주보를 다루는 공동체",
 };
 
 export const viewport: Viewport = {

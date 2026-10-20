@@ -13,10 +13,13 @@ import {
   departmentTypeEnum,
   financeTypeEnum,
   languageModeEnum,
+  memberCohortEnum,
   memberRoleEnum,
   memberStatusEnum,
   planTierEnum,
   prayerVisibilityEnum,
+  questionAudienceEnum,
+  questionReplyStatusEnum,
 } from "@/server/db/schema";
 
 const migrationDir = path.join(process.cwd(), "src/server/db/migrations");
@@ -29,7 +32,7 @@ const sql = readdirSync(migrationDir)
 describe("표 정의와 마이그레이션", () => {
   it("정의된 표가 실행 명령 안에 모두 있습니다", () => {
     const tables = Object.values(dbSchema);
-    assert.equal(tables.length, 29);
+    assert.equal(tables.length, 31);
     for (const table of tables) {
       const name = getTableName(table);
       assert.match(sql, new RegExp(`CREATE TABLE ${name}\\b`));
@@ -58,6 +61,9 @@ describe("표 정의와 마이그레이션", () => {
       ["calendar_category", calendarCategoryEnum.enumValues],
       ["prayer_visibility", prayerVisibilityEnum.enumValues],
       ["finance_type", financeTypeEnum.enumValues],
+      ["member_cohort", memberCohortEnum.enumValues],
+      ["question_audience", questionAudienceEnum.enumValues],
+      ["question_reply_status", questionReplyStatusEnum.enumValues],
     ];
     for (const [name, values] of enums) {
       assert.match(sql, new RegExp(`CREATE TYPE ${name} AS ENUM \\('${values.join("', '")}'\\)`));
@@ -90,6 +96,8 @@ describe("표 정의와 마이그레이션", () => {
       "quizzes_community_id_idx",
       "website_configs_community_id_uidx",
       "website_inquiries_community_id_idx",
+      "questions_community_id_idx",
+      "question_replies_question_id_idx",
       "invite_codes_community_id_idx",
       "approval_requests_community_id_idx",
       "ON DELETE CASCADE",

@@ -17,6 +17,8 @@ export type Membership = {
   communityId: string;
   memberId: string;
   role: MemberRole;
+  /** 또래 또는 선배. 비어 있으면 그 구분이 없습니다. */
+  cohort?: "PEER" | "SENIOR" | null;
   /** 지금 속한 모들. 없으면 null */
   currentGroupId: string | null;
   /** 이 사람이 테우리로 맡은 모들 */

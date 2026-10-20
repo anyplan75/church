@@ -36,6 +36,7 @@ export default async function EditRosterPage({
             gender: page.member.gender,
             role: page.member.role,
             status: page.member.status,
+            cohort: page.member.cohort,
             currentGroupId: page.member.currentGroupId,
           }}
         />

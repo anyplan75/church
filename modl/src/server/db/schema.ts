@@ -53,6 +53,9 @@ export const prayerVisibilityEnum = pgEnum("prayer_visibility", [
   "PASTOR_ONLY",
 ]);
 export const financeTypeEnum = pgEnum("finance_type", ["INCOME", "EXPENSE"]);
+export const memberCohortEnum = pgEnum("member_cohort", ["PEER", "SENIOR"]);
+export const questionAudienceEnum = pgEnum("question_audience", ["PASTORS", "PEERS", "SENIORS"]);
+export const questionReplyStatusEnum = pgEnum("question_reply_status", ["PENDING", "APPROVED"]);
 
 function createdAt() {
   return timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -146,6 +149,7 @@ export const members = pgTable(
     birthDate: date("birth_date"),
     gender: text("gender"),
     role: memberRoleEnum("role").notNull().default("MEMBER"),
+    cohort: memberCohortEnum("cohort"),
     currentGroupId: uuid("current_group_id").references((): AnyPgColumn => smallGroups.id, {
       onDelete: "set null",
     }),
@@ -713,6 +717,60 @@ export const groupMemberships = pgTable(
   ],
 );
 
+/** 목사에게 묻는 질문입니다. 보이는 범위는 질문할 때 고릅니다. */
+export const questions = pgTable(
+  "questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    communityId: uuid("community_id")
+      .notNull()
+      .references(() => communities.id, { onDelete: "cascade" }),
+    authorUserId: uuid("author_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    designatedPastorMemberId: uuid("designated_pastor_member_id").references(() => members.id, {
+      onDelete: "set null",
+    }),
+    audience: questionAudienceEnum("audience").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("questions_community_id_idx").on(table.communityId),
+    index("questions_author_user_id_idx").on(table.authorUserId),
+    check("questions_body_not_blank", sql`length(btrim(${table.body})) > 0`),
+  ],
+);
+
+/** 목사가 단 답글입니다. 승인 전에는 질문한 사람에게 보이지 않습니다. */
+export const questionReplies = pgTable(
+  "question_replies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    communityId: uuid("community_id")
+      .notNull()
+      .references(() => communities.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    authorMemberId: uuid("author_member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    status: questionReplyStatusEnum("status").notNull().default("PENDING"),
+    approvedByUserId: uuid("approved_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("question_replies_community_id_idx").on(table.communityId),
+    index("question_replies_question_id_idx").on(table.questionId),
+    check("question_replies_body_not_blank", sql`length(btrim(${table.body})) > 0`),
+  ],
+);
+
 /** 안뜨레에 남긴 방문 문의입니다. */
 export const websiteInquiries = pgTable(
   "website_inquiries",
@@ -761,4 +819,6 @@ export const dbSchema = {
   websiteConfigs,
   websiteInquiries,
   groupMemberships,
+  questions,
+  questionReplies,
 };

@@ -3,6 +3,7 @@ import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermHeading } from "@/components/term-heading";
 import { TermText } from "@/components/term-text";
 import { loadRosterPage } from "@/server/community/service";
+import { COHORT_LABEL } from "@/questions/rules";
 import type { TermKey } from "@/theme/dictionary";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,7 @@ export default async function RosterPage({
                   </Link>
                   <span className="flex flex-wrap gap-x-3 gap-y-1">
                     {member.userId ? <TermText termKey={member.role} /> : <TermText termKey="UNREGISTERED" />}
+                    {member.cohort ? <span>{COHORT_LABEL[member.cohort]}</span> : null}
                     <TermText termKey={STATUS_TERM[member.status]} />
                   </span>
                   <span className="flex flex-wrap gap-x-3 gap-y-1 text-[#5c5148]">

@@ -1,30 +1,22 @@
-import Link from "next/link";
+import { ErrorNote } from "@/components/form-note";
+import { QuestionComposer, QuestionList } from "@/components/question-board";
+import { loadQuestionHome } from "@/server/questions/service";
 
-const TASKS = [
-  { href: "/roster", label: "교인" },
-  { href: "/attendance", label: "출석" },
-  { href: "/bulletin", label: "주보" },
-  { href: "/finance", label: "재정" },
-  { href: "/approvals", label: "승인" },
-] as const;
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const query = await searchParams;
+  const home = await loadQuestionHome();
+
   return (
-    <section className="grid gap-8">
-      <h1 className="text-[clamp(1.8rem,1.2rem+1.5vw,2.4rem)] font-semibold leading-tight">운영</h1>
-      <ul className="grid list-none gap-3 sm:grid-cols-2">
-        {TASKS.map((task) => (
-          <li key={task.href}>
-            <Link
-              href={task.href}
-              data-testid={`home-${task.label}`}
-              className="block rounded-3xl bg-[#fffaf3] px-5 py-8 text-[clamp(1.35rem,1.1rem+0.8vw,1.8rem)] font-semibold leading-snug"
-            >
-              {task.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <section className="grid gap-4">
+      <ErrorNote message={query.error} />
+      <QuestionComposer canAsk={home.canAsk} pastors={home.pastors} />
+      <QuestionList questions={home.questions} />
     </section>
   );
 }

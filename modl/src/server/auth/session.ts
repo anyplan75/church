@@ -83,6 +83,7 @@ export async function loadActor(): Promise<Actor> {
     communityId: row.communityId,
     memberId: row.id,
     role: row.role,
+    cohort: row.cohort,
     currentGroupId: row.currentGroupId,
     leaderGroupIds: led.filter((group) => group.leaderMemberId === row.id).map((group) => group.id),
   }));

@@ -4,8 +4,8 @@
  *
  * 역할
  * - PASTOR: 그 공동체의 모든 일. 사역자 전용 기도, 말투, 사용 등급 포함.
- * - EXECUTIVE: 교적, 주보 발행, 전체 출석 수정, 출석 통계, 보고픈 괸당, 재정, 설문·회의록, 홈페이지, 리더 일정.
- *   사역자 전용 기도는 볼 수 없습니다.
+ * - EXECUTIVE: 교적, 주보 발행, 전체 출석 수정, 출석 통계, 보고픈 괸당, 재정, 설문·회의록, 홈페이지, 리더 일정, 질문 답글 승인.
+ *   교적에서 목사 등록과 또래·선배 구분도 합니다. 사역자 전용 기도는 볼 수 없습니다.
  * - CELL_LEADER: 자신이 맡은 모들, 또는 지금 속한 모들의 출석·게시·사진.
  *   리더 전용 기도는 그 모들만. 리더 일정은 볼 수 있습니다.
  *   말씀 트멍과 행사 기록은 사역자와 함께 등록합니다.
@@ -50,7 +50,9 @@ export type AppAction =
   | { type: "review_approval"; communityId: string }
   | { type: "manage_groups"; communityId: string }
   | { type: "manage_daily_qt"; communityId: string }
-  | { type: "manage_archive"; communityId: string };
+  | { type: "manage_archive"; communityId: string }
+  | { type: "ask_question"; communityId: string }
+  | { type: "review_question_reply"; communityId: string };
 
 const ROSTER_ROLES = ["PASTOR", "EXECUTIVE"] as const satisfies readonly MemberRole[];
 const LEADER_CALENDAR_ROLES = ["PASTOR", "EXECUTIVE", "CELL_LEADER"] as const satisfies readonly MemberRole[];
@@ -116,7 +118,10 @@ export function can(actor: Actor, action: AppAction): boolean {
     case "manage_finance":
     case "manage_surveys_and_minutes":
     case "manage_website":
+    case "review_question_reply":
       return roleIs(actor, action.communityId, ROSTER_ROLES);
+    case "ask_question":
+      return formalMembership(actor, action.communityId) !== null;
     case "create_community":
     case "apply_to_join":
       return actor.kind === "user";
