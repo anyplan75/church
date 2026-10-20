@@ -27,7 +27,16 @@ describe("폰 패드 맥 껍데기", () => {
     assert.match(entitlements, /com\.apple\.security\.app-sandbox/);
     assert.match(entitlements, /com\.apple\.security\.network\.client/);
     assert.match(entitlements, /com\.apple\.security\.files\.user-selected\.read-only/);
-    assert.match(project, /CURRENT_PROJECT_VERSION = 2;/);
+    assert.match(project, /CURRENT_PROJECT_VERSION = 3;/);
+    const iconSet = readProject("Modl/Assets.xcassets/AppIcon.appiconset/Contents.json");
+    assert.match(iconSet, /"platform" : "ios"/);
+    assert.match(iconSet, /"size" : "1024x1024"/);
+    assert.match(iconSet, /"idiom" : "mac"/);
+    assert.match(iconSet, /"scale" : "2x"/);
+    assert.match(iconSet, /"size" : "512x512"/);
+    const icon = readFileSync(path.join(appleRoot, "Modl/Assets.xcassets/AppIcon.appiconset/AppIcon.png"));
+    assert.equal(icon.readUInt32BE(16), 1024);
+    assert.equal(icon.readUInt32BE(20), 1024);
     const app = readProject("Modl/ModlApp.swift");
     assert.match(app, /CommandGroup\(replacing: \.appSettings\)/);
     assert.doesNotMatch(app, /CommandGroup\(after: \.appSettings\)/);
