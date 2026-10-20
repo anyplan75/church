@@ -1,6 +1,9 @@
 node_modules
 .next
 tsconfig.tsbuildinfo
+.firebase
+firebase-debug.log
+firebase-debug.*.log
 
 # 비밀은 올리지 않습니다. 예시는 .env.example 만 올립니다.
 .env

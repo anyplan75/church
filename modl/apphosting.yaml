@@ -1,0 +1,28 @@
+# 모들 앱 호스팅 설정입니다.
+# 비밀번호와 접속 문자열은 이 파일에 적지 않습니다.
+# 데이터베이스 비밀번호는 비밀 저장소 modl-db-password 에만 있습니다.
+
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  minInstances: 0
+  maxInstances: 2
+  concurrency: 80
+
+env:
+  - variable: CLOUD_SQL_CONNECTION_NAME
+    value: modl-comm:asia-east1:modl-pg
+    availability:
+      - RUNTIME
+  - variable: DB_USER
+    value: modl_app
+    availability:
+      - RUNTIME
+  - variable: DB_NAME
+    value: modl
+    availability:
+      - RUNTIME
+  - variable: DB_PASSWORD
+    secret: modl-db-password
+    availability:
+      - RUNTIME

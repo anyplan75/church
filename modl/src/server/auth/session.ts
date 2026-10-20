@@ -19,6 +19,7 @@ export function hashToken(token: string): string {
 }
 
 export async function openSession(userId: string): Promise<void> {
+  await ensureDatabase();
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
   await getDb().insert(sessions).values({
@@ -36,6 +37,7 @@ export async function openSession(userId: string): Promise<void> {
 }
 
 export async function closeSession(): Promise<void> {
+  await ensureDatabase();
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (token) {

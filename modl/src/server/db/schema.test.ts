@@ -112,7 +112,7 @@ describe("표 정의와 마이그레이션", () => {
     const previous = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
     try {
-      assert.throws(() => createDbFromEnv(), /DATABASE_URL/);
+      assert.throws(() => createDbFromEnv(), /DATABASE_URL|데이터베이스 설정이 없습니다/);
     } finally {
       if (previous) process.env.DATABASE_URL = previous;
     }
