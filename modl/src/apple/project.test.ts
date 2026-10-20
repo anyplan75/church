@@ -17,10 +17,15 @@ describe("폰 패드 맥 껍데기", () => {
     assert.match(project, /TARGETED_DEVICE_FAMILY = "1,2";/);
     assert.match(project, /SUPPORTS_MACCATALYST = YES;/);
     assert.match(project, /PRODUCT_BUNDLE_IDENTIFIER = "\$\(MODL_BUNDLE_ID\)";/);
+    assert.match(project, /"PRODUCT_BUNDLE_IDENTIFIER\[sdk=macosx\*\]" = "\$\(MODL_BUNDLE_ID\)";/);
+    assert.doesNotMatch(project, /DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER/);
     assert.match(project, /DEVELOPMENT_TEAM = "\$\(APPLE_TEAM_ID\)";/);
     assert.match(project, /productType = "com\.apple\.product-type\.application";/);
     assert.match(scheme, /BlueprintName = "Modl"/);
     assert.match(readProject("Modl/Info.plist"), /UISupportedInterfaceOrientations~ipad/);
+    const entitlements = readProject("Modl/Modl.entitlements");
+    assert.match(entitlements, /com\.apple\.security\.app-sandbox/);
+    assert.match(project, /"CODE_SIGN_ENTITLEMENTS\[sdk=macosx\*\]" = Modl\/Modl\.entitlements;/);
   });
 
   it("서버 주소를 빌드에 적지 않고, 주소가 없으면 안내 문구가 있습니다", () => {
