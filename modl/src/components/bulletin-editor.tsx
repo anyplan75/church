@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { createBlock, moveBlock, safeScoreUrl, type BlockType, type BulletinBlock } from "@/bulletin/blocks";
-import { TermField } from "@/components/term-field";
+import type { IntakeFields } from "@/bulletin/intake";
+import { BulletinIntake } from "@/components/bulletin-intake";
 import { TermText } from "@/components/term-text";
 import { useCommunityTerm } from "@/components/use-community-term";
 import type { TermKey } from "@/theme/dictionary";
@@ -39,6 +40,18 @@ export function BulletinEditor({
   blocks: BulletinBlock[];
 }) {
   const [items, setItems] = useState(blocks);
+  const [date, setDate] = useState(worshipDate);
+  const [title, setTitle] = useState(sermonTitle);
+  const [scripture, setScripture] = useState(scriptureText);
+  const [speaker, setSpeaker] = useState(preacher);
+
+  function applyIntake(fields: IntakeFields) {
+    if (fields.worshipDate) setDate(fields.worshipDate);
+    setTitle(fields.sermonTitle);
+    setScripture(fields.scriptureText);
+    setSpeaker(fields.preacher);
+    setItems(fields.blocks);
+  }
 
   function addBlock(type: BlockType) {
     setItems((current) => [...current, createBlock(type, newId())]);
@@ -49,21 +62,38 @@ export function BulletinEditor({
   }
 
   return (
-    <form action={action} id="bulletin-form" className="grid gap-4">
+    <div className="grid gap-4">
+      <BulletinIntake onApply={applyIntake} />
+      <form action={action} id="bulletin-form" className="grid gap-4">
       {bulletinId ? <input type="hidden" name="bulletinId" value={bulletinId} /> : null}
       <input type="hidden" name="blocksJson" value={JSON.stringify(items)} />
       <p className="leading-relaxed text-[#5c5148]">
         설교 제목, 본문 말씀, 설교자는 목록과 공유 카드에 나갑니다. 아래 블록은 교회마다 순서를 바꿔도 됩니다.
       </p>
-      <TermField termKey="field_worship_date" name="worshipDate" type="date" required defaultValue={worshipDate} />
-      <TermField termKey="field_sermon_title" name="sermonTitle" required defaultValue={sermonTitle} />
+      <label className="grid gap-1">
+        <span className="font-semibold">
+          <TermText termKey="field_worship_date" />
+        </span>
+        <input className={inputClass} name="worshipDate" type="date" required value={date} onChange={(event) => setDate(event.target.value)} />
+      </label>
+      <label className="grid gap-1">
+        <span className="font-semibold">
+          <TermText termKey="field_sermon_title" />
+        </span>
+        <input className={inputClass} name="sermonTitle" required value={title} onChange={(event) => setTitle(event.target.value)} />
+      </label>
       <label className="grid gap-1">
         <span className="font-semibold">
           <TermText termKey="field_scripture" />
         </span>
-        <textarea className={inputClass} name="scriptureText" rows={3} defaultValue={scriptureText} />
+        <textarea className={inputClass} name="scriptureText" rows={3} value={scripture} onChange={(event) => setScripture(event.target.value)} />
       </label>
-      <TermField termKey="field_preacher" name="preacher" defaultValue={preacher} />
+      <label className="grid gap-1">
+        <span className="font-semibold">
+          <TermText termKey="field_preacher" />
+        </span>
+        <input className={inputClass} name="preacher" value={speaker} onChange={(event) => setSpeaker(event.target.value)} />
+      </label>
       <div className="flex flex-wrap gap-2">
         {(Object.keys(BLOCK_TERM) as BlockType[]).map((type) => (
           <AddBlockButton key={type} type={type} onAdd={() => addBlock(type)} />
@@ -94,7 +124,8 @@ export function BulletinEditor({
         <IntentButton termKey="bulletin_save" intent="save" primary={false} />
         <IntentButton termKey="bulletin_publish" intent="publish" primary />
       </div>
-    </form>
+      </form>
+    </div>
   );
 }
 

@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
     "@grpc/grpc-js",
     "google-gax",
     "pg",
+    "mammoth",
+    "unpdf",
+    "cfb",
   ],
   outputFileTracingIncludes: {
     "/**": ["./src/server/db/migrations/**/*.sql"],
@@ -22,7 +25,7 @@ const nextConfig: NextConfig = {
   ],
   experimental: {
     serverActions: {
-      bodySizeLimit: "6mb",
+      bodySizeLimit: "16mb",
       allowedOrigins: [
         "surrounding-impressive-beads-reception.trycloudflare.com",
         "milwaukee-biographies-double-habitat.trycloudflare.com",
