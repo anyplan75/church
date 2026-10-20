@@ -5,9 +5,12 @@
 
 import {
   googleCalendarConfigFromEnv,
+  googleCalendarWaitFromEnv,
   googleDeleteRequest,
   googleEventRequest,
+  withGoogleApiKey,
   type GoogleCalendarConfig,
+  type GoogleCalendarWait,
 } from "@/calendar/rules";
 
 export class GoogleCalendarError extends Error {
@@ -19,16 +22,34 @@ export class GoogleCalendarError extends Error {
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-export function readGoogleCalendarConfig(): GoogleCalendarConfig | null {
-  return googleCalendarConfigFromEnv({
+function calendarEnv() {
+  return {
     GOOGLE_CALENDAR_CLIENT_ID: process.env.GOOGLE_CALENDAR_CLIENT_ID,
     GOOGLE_CALENDAR_CLIENT_SECRET: process.env.GOOGLE_CALENDAR_CLIENT_SECRET,
     GOOGLE_CALENDAR_REFRESH_TOKEN: process.env.GOOGLE_CALENDAR_REFRESH_TOKEN,
     GOOGLE_CALENDAR_ID: process.env.GOOGLE_CALENDAR_ID,
-  });
+    GOOGLE_CALENDAR_API_KEY: process.env.GOOGLE_CALENDAR_API_KEY,
+  };
+}
+
+export function readGoogleCalendarConfig(): GoogleCalendarConfig | null {
+  return googleCalendarConfigFromEnv(calendarEnv());
+}
+
+export function readGoogleCalendarWait(): GoogleCalendarWait {
+  return googleCalendarWaitFromEnv(calendarEnv());
+}
+
+async function requestHeaders(config: GoogleCalendarConfig, fetchImpl: FetchLike): Promise<Record<string, string>> {
+  if (!config.clientId || !config.clientSecret || !config.refreshToken) return {};
+  const token = await accessToken(config, fetchImpl);
+  return { authorization: `Bearer ${token}` };
 }
 
 async function accessToken(config: GoogleCalendarConfig, fetchImpl: FetchLike): Promise<string> {
+  if (!config.clientId || !config.clientSecret || !config.refreshToken) {
+    throw new GoogleCalendarError("구글 달력 열쇠로 접속하지 못했습니다.");
+  }
   const response = await fetchImpl("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -52,7 +73,7 @@ export async function pushGoogleEvent(
   event: { googleEventId: string | null; title: string; startAt: Date; endAt: Date },
   fetchImpl: FetchLike = fetch,
 ): Promise<string> {
-  const token = await accessToken(config, fetchImpl);
+  const headers = await requestHeaders(config, fetchImpl);
   const request = googleEventRequest({
     calendarId: config.calendarId,
     googleEventId: event.googleEventId,
@@ -60,10 +81,10 @@ export async function pushGoogleEvent(
     startAt: event.startAt.toISOString(),
     endAt: event.endAt.toISOString(),
   });
-  const response = await fetchImpl(request.url, {
+  const response = await fetchImpl(withGoogleApiKey(request.url, config.apiKey), {
     method: request.method,
     headers: {
-      authorization: `Bearer ${token}`,
+      ...headers,
       "content-type": "application/json",
     },
     body: JSON.stringify(request.body),
@@ -81,11 +102,11 @@ export async function removeGoogleEvent(
   googleEventId: string,
   fetchImpl: FetchLike = fetch,
 ): Promise<void> {
-  const token = await accessToken(config, fetchImpl);
+  const headers = await requestHeaders(config, fetchImpl);
   const request = googleDeleteRequest(config.calendarId, googleEventId);
-  const response = await fetchImpl(request.url, {
+  const response = await fetchImpl(withGoogleApiKey(request.url, config.apiKey), {
     method: request.method,
-    headers: { authorization: `Bearer ${token}` },
+    headers,
   });
   if (!response.ok) throw new GoogleCalendarError("구글 달력에서 일정을 빼지 못했습니다.");
 }

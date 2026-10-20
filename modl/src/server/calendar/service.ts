@@ -15,7 +15,7 @@ import type { Actor } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
 import { assertCan, assertSameCommunity, can, formalMembership } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { pushGoogleEvent, readGoogleCalendarConfig, removeGoogleEvent } from "@/server/calendar/google";
+import { pushGoogleEvent, readGoogleCalendarConfig, readGoogleCalendarWait, removeGoogleEvent } from "@/server/calendar/google";
 import { calendarEvents, communities, members } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 
@@ -99,7 +99,8 @@ export async function loadCalendarMonth(year: number, month: number) {
     ok: true as const,
     communityName: community.name,
     canEdit: leaderView,
-    googleReady: readGoogleCalendarConfig() !== null,
+    googleReady: readGoogleCalendarWait() === "ready",
+    googleNeedsCalendar: readGoogleCalendarWait() === "needs_calendar",
     events: visible.map((event) => ({
       id: event.id,
       title: event.title,
@@ -141,7 +142,8 @@ export async function loadCalendarEvent(eventId: string) {
   return {
     ok: true as const,
     canEdit: leaderView,
-    googleReady: readGoogleCalendarConfig() !== null,
+    googleReady: readGoogleCalendarWait() === "ready",
+    googleNeedsCalendar: readGoogleCalendarWait() === "needs_calendar",
     event: {
       id: event.id,
       title: event.title,

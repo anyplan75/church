@@ -5,9 +5,11 @@ import {
   canSeeEvent,
   eventsForActor,
   googleCalendarConfigFromEnv,
+  googleCalendarWaitFromEnv,
   googleDeleteRequest,
   googleEventRequest,
   parseLocalDateTime,
+  withGoogleApiKey,
 } from "@/calendar/rules";
 
 const COMMUNITY = "community-1";
@@ -89,6 +91,26 @@ describe("구글 달력 설정", () => {
     });
     assert.equal(googleCalendarConfigFromEnv({ ...full, GOOGLE_CALENDAR_REFRESH_TOKEN: "  " }), null);
     assert.equal(googleCalendarConfigFromEnv({}), null);
+    assert.equal(googleCalendarConfigFromEnv({ GOOGLE_CALENDAR_API_KEY: "test-key" }), null);
+    assert.equal(googleCalendarWaitFromEnv({ GOOGLE_CALENDAR_API_KEY: "test-key" }), "needs_calendar");
+    assert.deepEqual(googleCalendarConfigFromEnv({ GOOGLE_CALENDAR_API_KEY: "test-key", GOOGLE_CALENDAR_ID: "calendar-id" }), {
+      apiKey: "test-key",
+      calendarId: "calendar-id",
+    });
+  });
+
+  it("열쇠는 주소에만 붙이고 일정 본문에는 넣지 않습니다", () => {
+    const created = googleEventRequest({
+      calendarId: "cal id",
+      googleEventId: null,
+      title: "전체 모임",
+      startAt: "2026-10-19T10:00:00.000Z",
+      endAt: "2026-10-19T11:00:00.000Z",
+    });
+    const url = withGoogleApiKey(created.url, "test-key");
+    assert.match(url, /[?&]key=test-key$/);
+    assert.equal(JSON.stringify(created.body).includes("test-key"), false);
+    assert.equal(withGoogleApiKey(created.url, "  "), created.url);
   });
 
   it("새 일정은 추가하고 있는 번호는 고칩니다. 본문에 열쇠를 넣지 않습니다", () => {

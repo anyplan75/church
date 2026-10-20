@@ -41,6 +41,10 @@ export default async function CalendarEventPage({
               <input type="hidden" name="eventId" value={page.event.id} />
               <SubmitButton termKey="google_sync" />
             </form>
+          ) : page.googleNeedsCalendar ? (
+            <p data-testid="google-sync-note" className="rounded-2xl bg-[#fffaf3] px-4 py-3 leading-relaxed">
+              구글 달력 번호가 아직 없습니다. 모들 달력만 쓰고, 없는 일정은 만들지 않습니다.
+            </p>
           ) : (
             <p data-testid="google-sync-note" className="rounded-2xl bg-[#fffaf3] px-4 py-3 leading-relaxed">
               구글 달력 열쇠가 있어야 보낼 수 있습니다. 모들 달력은 그대로 씁니다.

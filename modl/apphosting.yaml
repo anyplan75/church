@@ -26,3 +26,7 @@ env:
     secret: modl-db-password
     availability:
       - RUNTIME
+  - variable: GOOGLE_CALENDAR_API_KEY
+    secret: GOOGLE_CALENDAR_API_KEY
+    availability:
+      - RUNTIME

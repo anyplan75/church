@@ -84,24 +84,58 @@ export function birthdaysForActor(
 }
 
 export type GoogleCalendarConfig = {
-  clientId: string;
-  clientSecret: string;
-  refreshToken: string;
+  clientId?: string;
+  clientSecret?: string;
+  refreshToken?: string;
   calendarId: string;
+  apiKey?: string;
 };
+
+export type GoogleCalendarWait = "ready" | "needs_calendar" | "missing";
 
 export function googleCalendarConfigFromEnv(env: {
   GOOGLE_CALENDAR_CLIENT_ID?: string;
   GOOGLE_CALENDAR_CLIENT_SECRET?: string;
   GOOGLE_CALENDAR_REFRESH_TOKEN?: string;
   GOOGLE_CALENDAR_ID?: string;
+  GOOGLE_CALENDAR_API_KEY?: string;
 }): GoogleCalendarConfig | null {
   const clientId = env.GOOGLE_CALENDAR_CLIENT_ID?.trim() ?? "";
   const clientSecret = env.GOOGLE_CALENDAR_CLIENT_SECRET?.trim() ?? "";
   const refreshToken = env.GOOGLE_CALENDAR_REFRESH_TOKEN?.trim() ?? "";
   const calendarId = env.GOOGLE_CALENDAR_ID?.trim() ?? "";
-  if (!clientId || !clientSecret || !refreshToken || !calendarId) return null;
-  return { clientId, clientSecret, refreshToken, calendarId };
+  const apiKey = env.GOOGLE_CALENDAR_API_KEY?.trim() ?? "";
+  if (clientId && clientSecret && refreshToken && calendarId) {
+    return apiKey
+      ? { clientId, clientSecret, refreshToken, calendarId, apiKey }
+      : { clientId, clientSecret, refreshToken, calendarId };
+  }
+  if (apiKey && calendarId) return { apiKey, calendarId };
+  return null;
+}
+
+/** 달력 번호가 없으면 열쇠만 있어도 구글에 보내지 않습니다. */
+export function googleCalendarWaitFromEnv(env: {
+  GOOGLE_CALENDAR_CLIENT_ID?: string;
+  GOOGLE_CALENDAR_CLIENT_SECRET?: string;
+  GOOGLE_CALENDAR_REFRESH_TOKEN?: string;
+  GOOGLE_CALENDAR_ID?: string;
+  GOOGLE_CALENDAR_API_KEY?: string;
+}): GoogleCalendarWait {
+  if (googleCalendarConfigFromEnv(env)) return "ready";
+  const apiKey = env.GOOGLE_CALENDAR_API_KEY?.trim() ?? "";
+  const calendarId = env.GOOGLE_CALENDAR_ID?.trim() ?? "";
+  if (apiKey && !calendarId) return "needs_calendar";
+  return "missing";
+}
+
+/** 주소에 열쇠를 붙입니다. 일정 본문에는 넣지 않습니다. */
+export function withGoogleApiKey(url: string, apiKey: string | undefined): string {
+  const trimmed = apiKey?.trim() ?? "";
+  if (!trimmed) return url;
+  const parsed = new URL(url);
+  parsed.searchParams.set("key", trimmed);
+  return parsed.toString();
 }
 
 export type GoogleEventBody = {
