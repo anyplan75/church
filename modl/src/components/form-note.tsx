@@ -16,6 +16,9 @@ const OK_TERM = {
   saved: "bulletin_save",
   published: "bulletin_publish",
   unpublished: "bulletin_unpublish",
+  session: "create_session",
+  event: "save_event",
+  google: "google_synced",
 } as const;
 
 export function OkNote({ code }: { code?: string }) {

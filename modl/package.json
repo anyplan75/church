@@ -2,11 +2,11 @@
   "name": "modl",
   "private": true,
   "version": "0.1.0",
-  "description": "모들 — 제주어 감성 기독교 공동체 플랫폼 3단계",
+  "description": "모들 — 제주어 감성 기독교 공동체 플랫폼 4단계",
   "scripts": {
     "dev": "next dev --port 3210",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/bulletin/blocks.test.ts src/components/menu-shortcuts.test.ts src/server/auth/boundary.test.ts src/server/auth/prayer-visibility.test.ts src/server/auth/rbac.test.ts src/server/bulletin/access.test.ts src/server/community/rules.test.ts src/server/db/schema.test.ts src/server/theme/resolve-term.test.ts"
+    "test": "tsx --test src/attendance/rules.test.ts src/bulletin/blocks.test.ts src/calendar/rules.test.ts src/components/menu-shortcuts.test.ts src/server/auth/boundary.test.ts src/server/auth/prayer-visibility.test.ts src/server/auth/rbac.test.ts src/server/bulletin/access.test.ts src/server/community/rules.test.ts src/server/db/schema.test.ts src/server/theme/resolve-term.test.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.6",

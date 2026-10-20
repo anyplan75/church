@@ -40,10 +40,14 @@ export function TermField({
   );
 }
 
-export function SubmitButton({ termKey }: { termKey: TermKey }) {
+export function SubmitButton({ termKey, testId }: { termKey: TermKey; testId?: string }) {
   const term = useCommunityTerm(termKey);
   return (
-    <button type="submit" className="rounded-2xl bg-[#1d6b45] px-4 py-3 text-left font-semibold leading-snug text-white">
+    <button
+      type="submit"
+      data-testid={testId}
+      className="w-fit max-w-full whitespace-normal rounded-2xl bg-[#1d6b45] px-4 py-3 text-left font-semibold leading-snug text-white"
+    >
       {term.primary}
     </button>
   );

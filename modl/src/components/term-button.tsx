@@ -8,9 +8,15 @@ import type { ActionButtonKey } from "@/theme/dictionary";
 export function TermButton({
   termKey,
   onPress,
+  testId,
+  toastOnPress = true,
+  submitFormId,
 }: {
   termKey: ActionButtonKey;
   onPress?: () => void;
+  testId?: string;
+  toastOnPress?: boolean;
+  submitFormId?: string;
 }) {
   const term = useCommunityTerm(termKey);
   const [toast, setToast] = useState<string | null>(null);
@@ -25,10 +31,15 @@ export function TermButton({
     <div className="grid gap-2">
       <button
         type="button"
+        data-testid={testId}
         className="rounded-2xl bg-[#1d6b45] px-4 py-3 text-left text-white"
         onClick={() => {
           onPress?.();
-          if (term.toast) setToast(term.toast);
+          if (submitFormId) {
+            const form = document.getElementById(submitFormId);
+            if (form instanceof HTMLFormElement) form.requestSubmit();
+          }
+          if (toastOnPress && term.toast) setToast(term.toast);
         }}
       >
         <span className="block text-[clamp(1rem,0.95rem+0.25vw,1.2rem)] font-semibold leading-snug">

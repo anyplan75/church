@@ -67,6 +67,10 @@ describe("역할별 권한", () => {
     assert.equal(can(actor, { type: "manage_roster", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "publish_bulletin", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "view_attendance_stats", communityId: COMMUNITY }), true);
+    assert.equal(
+      can(actor, { type: "manage_group_attendance", communityId: COMMUNITY, groupId: "group-9" }),
+      true,
+    );
     assert.equal(can(actor, { type: "view_long_absent", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "manage_finance", communityId: COMMUNITY }), true);
     assert.equal(can(actor, { type: "manage_surveys_and_minutes", communityId: COMMUNITY }), true);
