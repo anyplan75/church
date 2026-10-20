@@ -13,7 +13,7 @@ export default async function HomePage({
   const home = await loadQuestionHome();
 
   return (
-    <section className="grid gap-4">
+    <section className="grid gap-10 pt-4 md:pt-[8vh]">
       <ErrorNote message={query.error} />
       <QuestionComposer canAsk={home.canAsk} pastors={home.pastors} />
       <QuestionList questions={home.questions} />

@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
     "milwaukee-biographies-double-habitat.trycloudflare.com",
     "influences-dramatic-customers-tissue.trycloudflare.com",
     "shape-recreational-character-transition.trycloudflare.com",
+    "phd-poker-longer-arctic.trycloudflare.com",
   ],
   experimental: {
     serverActions: {
@@ -17,6 +18,7 @@ const nextConfig: NextConfig = {
         "milwaukee-biographies-double-habitat.trycloudflare.com",
         "influences-dramatic-customers-tissue.trycloudflare.com",
         "shape-recreational-character-transition.trycloudflare.com",
+        "phd-poker-longer-arctic.trycloudflare.com",
       ],
     },
   },
