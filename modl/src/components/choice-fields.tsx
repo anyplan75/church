@@ -70,6 +70,50 @@ export function VisibilityField({ defaultValue = "PUBLIC" }: { defaultValue?: (t
   );
 }
 
+export function FinanceTypeField() {
+  return (
+    <label className="grid gap-1">
+      <span className="font-semibold">
+        <TermText termKey="field_money_type" />
+      </span>
+      <select className={inputClass} name="type" defaultValue="EXPENSE" data-testid="finance-type">
+        <OptionLabel value="INCOME" termKey="money_income" />
+        <OptionLabel value="EXPENSE" termKey="money_expense" />
+      </select>
+    </label>
+  );
+}
+
+export function FinanceCategoryField({
+  categories,
+}: {
+  categories: Array<{ id: string; name: string }>;
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="font-semibold">
+        <TermText termKey="field_category_pick" />
+      </span>
+      <select className={inputClass} name="categoryId" required data-testid="finance-category">
+        {categories.map((category) => (
+          <option key={category.id} value={category.id}>
+            {category.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function SurveyAnonymousField() {
+  return (
+    <label className="flex flex-wrap items-start gap-2 leading-snug">
+      <input type="checkbox" name="allowAnonymous" value="yes" className="mt-1" data-testid="allow-anonymous" />
+      <TermText termKey="allow_anonymous_survey" />
+    </label>
+  );
+}
+
 export function AnonymousField() {
   return (
     <label className="flex flex-wrap items-start gap-2 leading-snug">

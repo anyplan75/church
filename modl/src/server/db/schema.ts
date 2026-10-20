@@ -578,10 +578,33 @@ export const surveys = pgTable(
     questionsJson: jsonValue("questions_json"),
     allowAnonymous: boolean("allow_anonymous").notNull().default(false),
     deadline: timestamp("deadline", { withTimezone: true }),
+    createdByMemberId: uuid("created_by_member_id").references(() => members.id, { onDelete: "set null" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [index("surveys_community_id_idx").on(table.communityId)],
+  (table) => [
+    index("surveys_community_id_idx").on(table.communityId),
+    index("surveys_created_by_member_id_idx").on(table.createdByMemberId),
+  ],
+);
+
+/** 설문에 보낸 답입니다. 익명이면 구성원 번호가 비어 있습니다. */
+export const surveyResponses = pgTable(
+  "survey_responses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    surveyId: uuid("survey_id")
+      .notNull()
+      .references(() => surveys.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id").references(() => members.id, { onDelete: "set null" }),
+    answersJson: jsonValue("answers_json"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("survey_responses_survey_id_idx").on(table.surveyId),
+    index("survey_responses_member_id_idx").on(table.memberId),
+  ],
 );
 
 /** 회의록입니다. */
@@ -731,6 +754,7 @@ export const dbSchema = {
   financeCategories,
   transactions,
   surveys,
+  surveyResponses,
   meetingMinutes,
   eventArchives,
   quizzes,

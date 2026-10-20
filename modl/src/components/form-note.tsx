@@ -29,6 +29,19 @@ const OK_TERM = {
   score: "quiz_score",
   grace_kept: "grace_kept",
   pray_kept: "pray_kept",
+  category: "category_saved",
+  transaction: "transaction_saved",
+  sheets: "sheets_synced",
+  survey: "survey_saved",
+  answer: "answer_saved",
+  minutes: "minutes_saved",
+} as const;
+
+const NOTE_TERM = {
+  sheets_needs_key: "sheets_needs_key",
+  no_receipts: "no_receipts",
+  receipts_unreadable: "receipts_unreadable",
+  survey_closed: "survey_closed",
 } as const;
 
 export function OkNote({ code }: { code?: string }) {
@@ -36,6 +49,16 @@ export function OkNote({ code }: { code?: string }) {
   return (
     <p role="status" className="rounded-2xl bg-[#e7f3ec] px-4 py-3 leading-relaxed">
       <TermText termKey={OK_TERM[code as keyof typeof OK_TERM] as TermKey} />
+    </p>
+  );
+}
+
+export function NoteBanner({ code }: { code?: string }) {
+  if (!code || !(code in NOTE_TERM)) return null;
+  const termKey = NOTE_TERM[code as keyof typeof NOTE_TERM];
+  return (
+    <p role="status" data-testid={`note-${code}`} className="rounded-2xl bg-[#fff4e5] px-4 py-3 leading-relaxed">
+      <TermText termKey={termKey} />
     </p>
   );
 }

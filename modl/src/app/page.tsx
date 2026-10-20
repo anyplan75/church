@@ -42,6 +42,9 @@ const WORK_LINKS: Array<{ href: string; termKey: TermKey }> = [
   { href: "/prayer", termKey: "prayer" },
   { href: "/prayer_letter", termKey: "prayer_letter" },
   { href: "/archive", termKey: "archive" },
+  { href: "/finance", termKey: "finance" },
+  { href: "/survey", termKey: "survey" },
+  { href: "/minutes", termKey: "minutes" },
 ];
 
 const PREVIEW_MENUS: MenuKey[] = ["group", "bulletin", "prayer", "website"];
