@@ -4,7 +4,7 @@
  *
  * 역할
  * - PASTOR: 그 공동체의 모든 일. 사역자 전용 기도, 말투, 사용 등급 포함.
- * - EXECUTIVE: 교적, 주보 발행, 전체 출석 수정, 출석 통계, 보고픈 괸당, 재정, 설문·회의록, 리더 일정.
+ * - EXECUTIVE: 교적, 주보 발행, 전체 출석 수정, 출석 통계, 보고픈 괸당, 재정, 설문·회의록, 홈페이지, 리더 일정.
  *   사역자 전용 기도는 볼 수 없습니다.
  * - CELL_LEADER: 자신이 맡은 모들, 또는 지금 속한 모들의 출석·게시·사진.
  *   리더 전용 기도는 그 모들만. 리더 일정은 볼 수 있습니다.
@@ -25,6 +25,7 @@ export type AppAction =
   | { type: "view_attendance_stats"; communityId: string }
   | { type: "view_long_absent"; communityId: string }
   | { type: "manage_finance"; communityId: string }
+  | { type: "manage_website"; communityId: string }
   | { type: "manage_surveys_and_minutes"; communityId: string }
   | { type: "view_leader_calendar"; communityId: string }
   | { type: "manage_group_attendance"; communityId: string; groupId: string }
@@ -114,6 +115,7 @@ export function can(actor: Actor, action: AppAction): boolean {
     case "view_long_absent":
     case "manage_finance":
     case "manage_surveys_and_minutes":
+    case "manage_website":
       return roleIs(actor, action.communityId, ROSTER_ROLES);
     case "create_community":
     case "apply_to_join":

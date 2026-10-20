@@ -35,6 +35,9 @@ const OK_TERM = {
   survey: "survey_saved",
   answer: "answer_saved",
   minutes: "minutes_saved",
+  website: "website_saved",
+  inquiry: "inquiry_saved",
+  resolved: "inquiry_done",
 } as const;
 
 const NOTE_TERM = {

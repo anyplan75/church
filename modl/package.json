@@ -2,11 +2,11 @@
   "name": "modl",
   "private": true,
   "version": "0.1.0",
-  "description": "모들 — 제주어 감성 기독교 공동체 플랫폼 6단계",
+  "description": "모들 — 제주어 감성 기독교 공동체 플랫폼 7단계",
   "scripts": {
     "dev": "next dev --port 3210",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/archive/rules.test.ts src/attendance/rules.test.ts src/bulletin/blocks.test.ts src/calendar/rules.test.ts src/components/menu-shortcuts.test.ts src/export/xlsx.test.ts src/finance/rules.test.ts src/prayer/rules.test.ts src/qt/rules.test.ts src/server/auth/boundary.test.ts src/server/auth/prayer-visibility.test.ts src/server/auth/rbac.test.ts src/server/bulletin/access.test.ts src/server/community/rules.test.ts src/server/db/schema.test.ts src/server/finance/zip.test.ts src/server/public-url.test.ts src/server/theme/resolve-term.test.ts src/survey/rules.test.ts"
+    "test": "tsx --test src/archive/rules.test.ts src/attendance/rules.test.ts src/bulletin/blocks.test.ts src/calendar/rules.test.ts src/components/menu-shortcuts.test.ts src/export/xlsx.test.ts src/finance/rules.test.ts src/prayer/rules.test.ts src/qt/rules.test.ts src/server/auth/boundary.test.ts src/server/auth/prayer-visibility.test.ts src/server/auth/rbac.test.ts src/server/bulletin/access.test.ts src/server/community/rules.test.ts src/server/db/schema.test.ts src/server/finance/zip.test.ts src/server/public-url.test.ts src/server/theme/resolve-term.test.ts src/survey/rules.test.ts src/website/rules.test.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.6",
@@ -14,6 +14,7 @@
     "jszip": "^3.10.2",
     "next": "^15.5.4",
     "pg": "^8.16.3",
+    "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "zod": "^3.25.76"
@@ -22,6 +23,7 @@
     "@tailwindcss/postcss": "^4.1.14",
     "@types/node": "^22.18.8",
     "@types/pg": "^8.15.5",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "tailwindcss": "^4.1.14",
