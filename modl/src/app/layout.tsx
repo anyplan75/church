@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "모들",
-  description: "제주 공동체의 말투로 여는 기독교 공동체",
+  description: "교인, 출석, 주보, 재정을 다루는 공동체 운영",
 };
 
 export const viewport: Viewport = {

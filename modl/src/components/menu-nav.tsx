@@ -21,7 +21,6 @@ function MenuLink({ menuKey }: { menuKey: MenuKey }) {
       }`}
     >
       <span className="nav-label font-semibold">{term.primary}</span>
-      {term.secondary ? <span className="nav-label text-[0.8em] opacity-80">{term.secondary}</span> : null}
     </Link>
   );
 }

@@ -32,7 +32,6 @@ export function AppShell({
       <aside className="hidden w-[clamp(15rem,28vw,22rem)] shrink-0 flex-col border-[#e4d8c8] bg-[#fffaf3] md:sticky md:top-0 md:flex md:h-dvh md:overflow-y-auto md:border-r">
         <div className="px-4 py-5">
           <Link href="/" className="block rounded-xl px-2 py-1" aria-current={home ? "page" : undefined}>
-            <span className="block text-xs text-[#1d6b45]">제주 공동체</span>
             <span className="block text-[clamp(1.4rem,1.1rem+0.6vw,1.8rem)] font-semibold leading-tight">모들</span>
           </Link>
         </div>

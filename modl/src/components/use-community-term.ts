@@ -2,11 +2,11 @@
 
 import { useCommunityTermState } from "@/components/community-term-provider";
 import type { TermKey } from "@/theme/dictionary";
-import { resolveTerm } from "@/theme/resolve-term";
+import { termForScreen } from "@/theme/screen-term";
 import type { ResolvedTerm } from "@/theme/types";
 
-/** 화면에서 사전 키 하나의 말을 가져옵니다. */
+/** 화면 문장은 표준어이고, 메뉴와 역할만 공동체가 정한 이름을 씁니다. */
 export function useCommunityTerm(key: TermKey): ResolvedTerm {
   const { languageMode, overrides } = useCommunityTermState();
-  return resolveTerm(key, { languageMode, overrides });
+  return termForScreen(key, { languageMode, overrides });
 }

@@ -114,7 +114,7 @@ export async function createCommunityAction(formData: FormData) {
       denomination: text(formData, "denomination"),
       slug: text(formData, "slug"),
       planTier: text(formData, "planTier") || "FREE",
-      languageMode: text(formData, "languageMode") || "JEJU_DUAL",
+      languageMode: text(formData, "languageMode") || "STANDARD",
       phone: text(formData, "phone"),
     });
   if (!parsed.success) fail("/community/new", new Error(parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요."));

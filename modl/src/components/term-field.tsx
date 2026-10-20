@@ -201,7 +201,7 @@ export function PlanField({ defaultValue = "FREE" }: { defaultValue?: "FREE" | "
 }
 
 export function LanguageField({
-  defaultValue = "JEJU_DUAL",
+  defaultValue = "STANDARD",
 }: {
   defaultValue?: "JEJU_DUAL" | "JEJU_ONLY" | "STANDARD";
 }) {

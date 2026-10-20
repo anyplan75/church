@@ -45,9 +45,6 @@ export function TermButton({
         <span className="block text-[clamp(1rem,0.95rem+0.25vw,1.2rem)] font-semibold leading-snug">
           {term.primary}
         </span>
-        {term.secondary ? (
-          <span className="mt-1 block text-[0.85em] leading-snug text-white/80">{term.secondary}</span>
-        ) : null}
       </button>
       {toast ? (
         <p role="status" className="rounded-2xl bg-[#241c16] px-4 py-3 leading-relaxed text-white">

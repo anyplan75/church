@@ -22,13 +22,7 @@ export function TermHeading({
 
   return (
     <Tag className={`${LEVEL_CLASS[level]} font-semibold leading-snug text-balance text-[#241c16]`}>
-      <span className="block">{term.primary}</span>
-      {term.secondary ? (
-        <span className="mt-1 block text-[0.62em] font-normal leading-snug text-[#5c5148]">{term.secondary}</span>
-      ) : null}
-      {term.hint ? (
-        <span className="mt-2 block text-[0.55em] font-normal leading-relaxed text-[#6d6258]">{term.hint}</span>
-      ) : null}
+      {term.primary}
     </Tag>
   );
 }
