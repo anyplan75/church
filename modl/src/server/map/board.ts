@@ -10,7 +10,7 @@ import { type ChurchInput, type ChurchPin, type ChurchRecord, parseChurchRows } 
 import type { MapPoint } from "@/map/rules";
 import { formalMembership } from "@/server/auth/membership";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { mapChurches, members } from "@/server/db/schema";
+import { communities, mapChurches, members } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { geocodeAddress } from "@/server/map/mapbox";
 import { MapServiceError } from "@/server/map/service";
@@ -93,23 +93,31 @@ async function pointFor(address: string, previous: { address: string; lat: numbe
   return { point: null, missed: true };
 }
 
+async function operatorCommunityId(): Promise<string | null> {
+  const rows = await getDb().select({ id: communities.id }).from(communities).where(eq(communities.slug, "modl")).limit(1);
+  return rows[0]?.id ?? null;
+}
+
 export async function loadMapBoard(): Promise<MapBoardData> {
   const seen = await viewer();
-  if (!seen) return { churches: [], pickups: [], self: null, hasChurches: false };
+  const communityId = seen?.communityId ?? (await operatorCommunityId());
+  if (!communityId) return { churches: [], pickups: [], self: null, hasChurches: false };
   const db = getDb();
-  const churchRows = await db.select().from(mapChurches).where(eq(mapChurches.communityId, seen.communityId));
-  const memberRows = await db
-    .select({
-      id: members.id,
-      userId: members.userId,
-      name: members.name,
-      address: members.address,
-      pickupConsentAt: members.pickupConsentAt,
-      pickupLat: members.pickupLat,
-      pickupLon: members.pickupLon,
-    })
-    .from(members)
-    .where(eq(members.communityId, seen.communityId));
+  const churchRows = await db.select().from(mapChurches).where(eq(mapChurches.communityId, communityId));
+  const memberRows = seen
+    ? await db
+        .select({
+          id: members.id,
+          userId: members.userId,
+          name: members.name,
+          address: members.address,
+          pickupConsentAt: members.pickupConsentAt,
+          pickupLat: members.pickupLat,
+          pickupLon: members.pickupLon,
+        })
+        .from(members)
+        .where(eq(members.communityId, seen.communityId))
+    : [];
   const churches = churchRows.flatMap((row) => {
     if (!row.address.trim()) return [];
     const point = finitePoint(row.lat, row.lon);
@@ -132,6 +140,7 @@ export async function loadMapBoard(): Promise<MapBoardData> {
     const point = finitePoint(row.pickupLat, row.pickupLon);
     if (!point) return [];
     if (
+      !seen ||
       !canSeePickupPin({
         viewerUserId: seen.actor.userId,
         viewerRole: seen.membership.role,
@@ -142,7 +151,7 @@ export async function loadMapBoard(): Promise<MapBoardData> {
     }
     return [{ id: row.id, name: row.name, point }];
   });
-  const mine = memberRows.find((row) => row.id === seen.membership.memberId) ?? null;
+  const mine = seen ? memberRows.find((row) => row.id === seen.membership.memberId) ?? null : null;
   return {
     churches,
     pickups,
