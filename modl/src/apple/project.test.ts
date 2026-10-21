@@ -23,6 +23,7 @@ describe("폰 패드 맥 껍데기", () => {
     assert.match(project, /productType = "com\.apple\.product-type\.application";/);
     assert.match(scheme, /BlueprintName = "Modl"/);
     assert.match(readProject("Modl/Info.plist"), /UISupportedInterfaceOrientations~ipad/);
+    assert.match(readProject("Modl/Info.plist"), /ITSAppUsesNonExemptEncryption/);
     const entitlements = readProject("Modl/Modl.entitlements");
     assert.match(entitlements, /com\.apple\.security\.app-sandbox/);
     assert.match(entitlements, /com\.apple\.security\.network\.client/);
