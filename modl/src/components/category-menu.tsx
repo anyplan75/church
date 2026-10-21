@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { NavIcon } from "@/components/nav-icons";
 import { CATEGORY_MENUS } from "@/theme/categories";
 
@@ -51,6 +52,63 @@ export function CategoryMenu({
           </ul>
         </section>
       ))}
+    </div>
+  );
+}
+
+/** 폰 위쪽 두 줄입니다. 첫 줄은 구역, 둘째 줄은 그 구역의 메뉴입니다. */
+export function PhoneCategoryTabs({ menuHrefs }: { menuHrefs: readonly string[] }) {
+  const pathname = usePathname();
+  const allowed = new Set(menuHrefs);
+  const groups = CATEGORY_MENUS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => allowed.has(item.href)),
+  })).filter((group) => group.items.length > 0);
+  const pathGroup = groups.find((group) => group.items.some((item) => active(pathname, item.href)))?.label;
+  const [override, setOverride] = useState<{ path: string; label: string } | null>(null);
+  const selectedLabel = override?.path === pathname ? override.label : (pathGroup ?? groups[0]?.label ?? "");
+  const selected = groups.find((group) => group.label === selectedLabel) ?? groups[0];
+  if (!selected) return null;
+
+  return (
+    <div className="grid gap-1 px-2 pb-2">
+      <div role="tablist" aria-label="구역" className="flex gap-1 overflow-x-auto">
+        {groups.map((group) => {
+          const current = group.label === selected.label;
+          return (
+            <button
+              key={group.label}
+              type="button"
+              role="tab"
+              aria-selected={current}
+              className={`h-9 shrink-0 rounded-full px-3 text-sm font-medium leading-5 ${
+                current ? "bg-[#1e293b] text-white" : "bg-[#f8fafc] text-[#475569]"
+              }`}
+              onClick={() => setOverride({ path: pathname, label: group.label })}
+            >
+              {group.label}
+            </button>
+          );
+        })}
+      </div>
+      <div role="tablist" aria-label={selected.label} className="flex gap-1">
+        {selected.items.map((item) => {
+          const current = active(pathname, item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              role="tab"
+              aria-selected={current}
+              className={`inline-flex h-9 shrink-0 items-center rounded-full px-2 text-sm font-medium leading-5 ${
+                current ? "bg-[#f1f5f9] text-[#1e293b]" : "text-[#475569]"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
