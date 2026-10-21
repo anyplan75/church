@@ -14,6 +14,7 @@ import {
   check,
   date,
   index,
+  doublePrecision,
   integer,
   jsonb,
   numeric,
@@ -154,6 +155,10 @@ export const members = pgTable(
       onDelete: "set null",
     }),
     status: memberStatusEnum("status").notNull().default("ACTIVE"),
+    address: text("address"),
+    pickupConsentAt: timestamp("pickup_consent_at", { withTimezone: true }),
+    pickupLat: doublePrecision("pickup_lat"),
+    pickupLon: doublePrecision("pickup_lon"),
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -771,6 +776,31 @@ export const questionReplies = pgTable(
   ],
 );
 
+/** 지도에 올린 교회입니다. 좌표는 주소 검색이 돌려준 값만 저장합니다. */
+export const mapChurches = pgTable(
+  "map_churches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    communityId: uuid("community_id")
+      .notNull()
+      .references(() => communities.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    pastorName: text("pastor_name").notNull().default(""),
+    address: text("address").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    serviceTime: text("service_time").notNull().default(""),
+    memo: text("memo").notNull().default(""),
+    lat: doublePrecision("lat"),
+    lon: doublePrecision("lon"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("map_churches_community_id_idx").on(table.communityId),
+    check("map_churches_name_not_blank", sql`length(btrim(${table.name})) > 0`),
+  ],
+);
+
 /** 안뜨레에 남긴 방문 문의입니다. */
 export const websiteInquiries = pgTable(
   "website_inquiries",
@@ -821,4 +851,5 @@ export const dbSchema = {
   groupMemberships,
   questions,
   questionReplies,
+  mapChurches,
 };

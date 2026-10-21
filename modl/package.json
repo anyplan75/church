@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/archive/rules.test.ts src/attendance/rules.test.ts src/bulletin/blocks.test.ts src/bulletin/intake.test.ts src/server/bulletin/read/files.test.ts src/calendar/rules.test.ts src/components/menu-shortcuts.test.ts src/export/xlsx.test.ts src/finance/rules.test.ts src/prayer/rules.test.ts src/qt/rules.test.ts src/server/auth/boundary.test.ts src/server/auth/prayer-visibility.test.ts src/server/auth/rbac.test.ts src/server/bulletin/access.test.ts src/server/community/rules.test.ts src/server/db/schema.test.ts src/server/finance/zip.test.ts src/server/public-url.test.ts src/server/theme/resolve-term.test.ts src/survey/rules.test.ts src/website/rules.test.ts src/apple/project.test.ts src/theme/screen-term.test.ts src/theme/categories.test.ts src/questions/rules.test.ts src/map/rules.test.ts"
+    "test": "tsx --test src/archive/rules.test.ts src/attendance/rules.test.ts src/bulletin/blocks.test.ts src/bulletin/intake.test.ts src/server/bulletin/read/files.test.ts src/calendar/rules.test.ts src/components/menu-shortcuts.test.ts src/export/xlsx.test.ts src/finance/rules.test.ts src/prayer/rules.test.ts src/qt/rules.test.ts src/server/auth/boundary.test.ts src/server/auth/prayer-visibility.test.ts src/server/auth/rbac.test.ts src/server/bulletin/access.test.ts src/server/community/rules.test.ts src/server/db/schema.test.ts src/server/finance/zip.test.ts src/server/public-url.test.ts src/server/theme/resolve-term.test.ts src/survey/rules.test.ts src/website/rules.test.ts src/apple/project.test.ts src/theme/screen-term.test.ts src/theme/categories.test.ts src/questions/rules.test.ts src/map/rules.test.ts src/map/church-sheet.test.ts"
   },
   "dependencies": {
     "@google-cloud/cloud-sql-connector": "^1.8.3",
@@ -16,8 +16,8 @@
     "drizzle-orm": "^0.44.6",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.2",
-    "leaflet": "^1.9.4",
     "mammoth": "^1.13.0",
+    "mapbox-gl": "^3.33.0",
     "next": "^15.5.4",
     "pg": "^8.16.3",
     "qrcode": "^1.5.4",
@@ -28,7 +28,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
-    "@types/leaflet": "^1.9.21",
     "@types/node": "^22.18.8",
     "@types/pg": "^8.15.5",
     "@types/qrcode": "^1.5.5",

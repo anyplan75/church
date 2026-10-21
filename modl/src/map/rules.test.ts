@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseMatch, parseNearest, parsePlaces, parseRoute, placeKind } from "@/map/rules";
+import { canSeePickupPin } from "@/map/access";
+import { MAPBOX_ALLOWED_ORIGIN } from "@/map/origin";
+import { parseMapboxGeocode, parseMatch, parseNearest, parsePlaces, parseRoute, placeKind } from "@/map/rules";
 
 describe("장소 구분", () => {
   it("식당과 숙소 태그만 구분하고 나머지는 비웁니다", () => {
@@ -91,5 +93,29 @@ describe("길 응답", () => {
     assert.equal(route?.line.length, 2);
     assert.equal(route?.distanceMeters, 1200);
     assert.equal(parseRoute({ code: "NoRoute", routes: [] }), null);
+  });
+
+  it("맵박스 좌표는 응답에 있는 것만 읽고 없으면 비웁니다", () => {
+    assert.deepEqual(parseMapboxGeocode({ features: [{ center: [126.97, 37.56] }] }), { lat: 37.56, lon: 126.97 });
+    assert.equal(parseMapboxGeocode({ features: [] }), null);
+    assert.equal(parseMapboxGeocode({}), null);
+  });
+});
+
+describe("지도 출처", () => {
+  it("허용 주소는 경로와 별표가 없는 한 줄입니다", () => {
+    assert.equal(MAPBOX_ALLOWED_ORIGIN, "https://modl--modl-comm.asia-east1.hosted.app");
+    assert.equal(new URL(MAPBOX_ALLOWED_ORIGIN).pathname, "/");
+    assert.equal(MAPBOX_ALLOWED_ORIGIN.includes("*"), false);
+  });
+});
+
+describe("데리러 가기 핀", () => {
+  it("본인과 사역자와 임원만 봅니다", () => {
+    assert.equal(canSeePickupPin({ viewerUserId: "me", viewerRole: "MEMBER", pinUserId: "me" }), true);
+    assert.equal(canSeePickupPin({ viewerUserId: "me", viewerRole: "MEMBER", pinUserId: "other" }), false);
+    assert.equal(canSeePickupPin({ viewerUserId: "me", viewerRole: "PASTOR", pinUserId: "other" }), true);
+    assert.equal(canSeePickupPin({ viewerUserId: "me", viewerRole: "EXECUTIVE", pinUserId: "other" }), true);
+    assert.equal(canSeePickupPin({ viewerUserId: null, viewerRole: null, pinUserId: "other" }), false);
   });
 });

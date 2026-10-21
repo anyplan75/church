@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  transpilePackages: ["mapbox-gl"],
   serverExternalPackages: [
     "@google-cloud/cloud-sql-connector",
     "@google-cloud/sql",

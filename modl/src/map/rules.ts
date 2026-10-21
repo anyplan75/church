@@ -144,3 +144,11 @@ export function parseRoute(payload: unknown): RouteResult | null {
     durationSeconds: optionalNumber(body.duration),
   };
 }
+
+/** 맵박스 주소 검색이 돌려준 첫 좌표만 읽습니다. 없으면 비웁니다. */
+export function parseMapboxGeocode(payload: unknown): MapPoint | null {
+  if (!payload || typeof payload !== "object") return null;
+  const features = (payload as Record<string, unknown>).features;
+  if (!Array.isArray(features) || !features[0] || typeof features[0] !== "object") return null;
+  return lonLatPair((features[0] as Record<string, unknown>).center);
+}

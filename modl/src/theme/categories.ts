@@ -23,6 +23,7 @@ export const CATEGORY_MENUS = [
   {
     label: "운영",
     items: [
+      { href: "/settings", label: "설정" },
       { href: "/finance", label: "재정" },
       { href: "/approvals", label: "승인" },
       { href: "/survey", label: "설문" },

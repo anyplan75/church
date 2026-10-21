@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { LayerGroup, Map as LeafletMap } from "leaflet";
-import "leaflet/dist/leaflet.css";
+import "mapbox-gl/dist/mapbox-gl.css";
+import type { ChurchPin } from "@/map/church-sheet";
 import { PLACE_KIND_LABEL, type MapPoint, type PlaceHit, type RouteResult, type SnapResult } from "@/map/rules";
 import { routeBetweenAction, searchPlacesAction, snapToRoadAction } from "@/server/map/actions";
+import { saveMyAddressAction, setPickupConsentAction } from "@/server/map/church-actions";
 
 type ClickMode = "point" | "start" | "end";
-type Pending = "search" | "snap" | "route" | "gps" | null;
+type Pending = "search" | "snap" | "route" | "gps" | "address" | "consent" | null;
+type PickupPin = { id: string; name: string; point: MapPoint };
+type MapSelf = { address: string; consented: boolean };
 
 function routeSummary(route: RouteResult): string {
   const parts: string[] = [];
@@ -20,7 +23,17 @@ function routeSummary(route: RouteResult): string {
   return parts.join(" · ");
 }
 
-export function MapBoard() {
+export function MapBoard({
+  churches,
+  pickups,
+  self,
+  hasChurches,
+}: {
+  churches: ChurchPin[];
+  pickups: PickupPin[];
+  self: MapSelf | null;
+  hasChurches: boolean;
+}) {
   const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<PlaceHit[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -33,6 +46,8 @@ export function MapBoard() {
   const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
+  const [address, setAddress] = useState(self?.address ?? "");
+  const [consented, setConsented] = useState(self?.consented ?? false);
 
   function clickMap(point: MapPoint) {
     setError("");
@@ -84,15 +99,11 @@ export function MapBoard() {
     setNote(result.data.snapped.some((point) => point === null) ? "붙이지 못한 점이 있습니다." : "가까운 길에 붙였습니다.");
   }
 
-  async function onRoute() {
-    if (!start || !end) {
-      setError("시작과 끝을 먼저 찍어 주세요.");
-      return;
-    }
+  async function drawRoute(from: MapPoint, to: MapPoint) {
     setPending("route");
     setError("");
     setNote("");
-    const result = await routeBetweenAction(start, end);
+    const result = await routeBetweenAction(from, to);
     setPending(null);
     if (!result.ok) {
       setRoute(null);
@@ -102,6 +113,14 @@ export function MapBoard() {
     setRoute(result.data);
     const summary = routeSummary(result.data);
     setNote(summary ? `길을 그렸습니다. ${summary}` : "길을 그렸습니다.");
+  }
+
+  async function onRoute() {
+    if (!start || !end) {
+      setError("시작과 끝을 먼저 찍어 주세요.");
+      return;
+    }
+    await drawRoute(start, end);
   }
 
   function onLocate() {
@@ -134,6 +153,44 @@ export function MapBoard() {
     setNote(target === "start" ? "검색 결과를 시작으로 두었습니다." : "검색 결과를 끝으로 두었습니다.");
   }
 
+  async function guideTo(pin: PickupPin) {
+    setEnd(pin.point);
+    setSelectedId(pin.id);
+    if (!start) {
+      setRoute(null);
+      setNote("이 핀을 끝으로 두었습니다. 시작을 찍고 길 그리기를 누르세요.");
+      return;
+    }
+    await drawRoute(start, pin.point);
+  }
+
+  async function onSaveAddress(event: FormEvent) {
+    event.preventDefault();
+    setPending("address");
+    setError("");
+    const result = await saveMyAddressAction(address);
+    setPending(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    if (!address.trim()) setConsented(false);
+    setNote(address.trim() ? "주소를 저장했습니다." : "주소를 지웠습니다.");
+  }
+
+  async function onConsent(next: boolean) {
+    setPending("consent");
+    setError("");
+    const result = await setPickupConsentAction(next);
+    setPending(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setConsented(next);
+    setNote(next ? "데리러 가기 주소를 지도에 올렸습니다." : "데리러 가기 핀을 지웠습니다.");
+  }
+
   return (
     <section className="grid gap-4">
       <h1 className="page-title text-[clamp(1.22rem,1rem+0.5vw,1.6rem)] leading-tight">지도</h1>
@@ -146,6 +203,9 @@ export function MapBoard() {
         <p role="status" className="rounded-2xl bg-[#ecfdf3] px-4 py-3 leading-relaxed">
           {note}
         </p>
+      ) : null}
+      {churches.length === 0 ? (
+        <p className="leading-relaxed">{hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다."}</p>
       ) : null}
       <form onSubmit={onSearch} className="grid gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm">
         <label className="grid gap-1">
@@ -184,6 +244,44 @@ export function MapBoard() {
           ))}
         </ul>
       ) : null}
+      {self ? (
+        <form onSubmit={onSaveAddress} className="grid gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm">
+          <h2 className="font-semibold leading-snug">데리러 가기 주소 제공</h2>
+          <p className="leading-relaxed">이 주소를 데리러 가는 사역자에게 지도로 보여 줍니다.</p>
+          <label className="grid gap-1">
+            <span className="font-semibold">내 주소</span>
+            <input
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+              className="w-full rounded-xl border border-[#e5e7eb] px-3 py-2 leading-snug"
+            />
+          </label>
+          <button type="submit" disabled={pending === "address"} className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
+            주소 저장
+          </button>
+          <label className="flex items-start gap-2 leading-relaxed">
+            <input
+              type="checkbox"
+              checked={consented}
+              disabled={pending === "consent"}
+              onChange={(event) => void onConsent(event.target.checked)}
+            />
+            <span>데리러 가기 주소 제공</span>
+          </label>
+        </form>
+      ) : null}
+      {pickups.length > 0 ? (
+        <ul className="grid list-none gap-3">
+          {pickups.map((pin) => (
+            <li key={pin.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm">
+              <span className="font-semibold">{pin.name}</span>
+              <button type="button" className="rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 font-semibold" onClick={() => void guideTo(pin)}>
+                이 핀까지
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className="grid gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm">
         <div className="flex flex-wrap gap-2">
           <ModeButton current={mode} mode="point" label="점 찍기" onPick={setMode} />
@@ -198,17 +296,19 @@ export function MapBoard() {
           start={start}
           end={end}
           route={route}
+          churches={churches}
+          pickups={pickups}
           onClick={clickMap}
         />
-        <p className="leading-relaxed text-[#4b5563]">지도: 오픈스트리트맵</p>
+        <p className="leading-relaxed text-[#4b5563]">지도: 맵박스</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold" onClick={onLocate} disabled={pending === "gps"}>
             내 위치
           </button>
-          <button type="button" className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white" onClick={onSnap} disabled={pending === "snap"}>
+          <button type="button" className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white" onClick={() => void onSnap()} disabled={pending === "snap"}>
             길에 붙이기
           </button>
-          <button type="button" className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white" onClick={onRoute} disabled={pending === "route"}>
+          <button type="button" className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white" onClick={() => void onRoute()} disabled={pending === "route"}>
             길 그리기
           </button>
           <button
@@ -252,6 +352,15 @@ function ModeButton({
   );
 }
 
+function infoLine(root: HTMLElement, label: string, value: string) {
+  const line = document.createElement("p");
+  const name = document.createElement("span");
+  name.style.fontWeight = "600";
+  name.textContent = label;
+  line.append(name, document.createTextNode(` ${value}`));
+  root.append(line);
+}
+
 function MapCanvas({
   places,
   selectedId,
@@ -260,6 +369,8 @@ function MapCanvas({
   start,
   end,
   route,
+  churches,
+  pickups,
   onClick,
 }: {
   places: PlaceHit[];
@@ -269,36 +380,59 @@ function MapCanvas({
   start: MapPoint | null;
   end: MapPoint | null;
   route: RouteResult | null;
+  churches: ChurchPin[];
+  pickups: PickupPin[];
   onClick: (point: MapPoint) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<LeafletMap | null>(null);
-  const layerRef = useRef<LayerGroup | null>(null);
+  const mapRef = useRef<import("mapbox-gl").Map | null>(null);
+  const markersRef = useRef<import("mapbox-gl").Marker[]>([]);
   const clickRef = useRef(onClick);
   const [ready, setReady] = useState(false);
+  const [mapError, setMapError] = useState("");
   clickRef.current = onClick;
 
   useEffect(() => {
     let alive = true;
-    let map: LeafletMap | null = null;
-    void import("leaflet").then((L) => {
+    let map: import("mapbox-gl").Map | null = null;
+    void import("mapbox-gl").then((mod) => {
       if (!alive || !host.current || mapRef.current) return;
-      map = L.map(host.current).setView([36.4, 127.8], 7);
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(map);
-      map.on("click", (event) => {
-        clickRef.current({ lat: event.latlng.lat, lon: event.latlng.lng });
+      const mapboxgl = mod.default;
+      map = new mapboxgl.Map({
+        container: host.current,
+        style: {
+          version: 8,
+          sources: {
+            modl: {
+              type: "raster",
+              tiles: ["/map/tiles/{z}/{x}/{y}"],
+              tileSize: 256,
+              attribution: "© Mapbox © OpenStreetMap",
+            },
+          },
+          layers: [{ id: "modl", type: "raster", source: "modl" }],
+        },
+        center: [127.8, 36.4],
+        zoom: 6,
       });
-      mapRef.current = map;
-      setReady(true);
+      map.on("click", (event) => {
+        clickRef.current({ lat: event.lngLat.lat, lon: event.lngLat.lng });
+      });
+      map.on("error", () => {
+        if (alive) setMapError("지도 그림을 열지 못했습니다.");
+      });
+      map.on("load", () => {
+        if (!alive || !map) return;
+        mapRef.current = map;
+        setReady(true);
+      });
     });
     return () => {
       alive = false;
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
       map?.remove();
       mapRef.current = null;
-      layerRef.current = null;
     };
   }, []);
 
@@ -306,76 +440,105 @@ function MapCanvas({
     if (!ready) return;
     const map = mapRef.current;
     if (!map) return;
-    void import("leaflet").then((L) => {
-      layerRef.current?.remove();
-      const group = L.layerGroup();
+    void import("mapbox-gl").then((mod) => {
+      const mapboxgl = mod.default;
+      markersRef.current.forEach((marker) => marker.remove());
+      const markers: import("mapbox-gl").Marker[] = [];
+      const add = (marker: import("mapbox-gl").Marker) => {
+        markers.push(marker);
+      };
+      for (const church of churches) {
+        const body = document.createElement("div");
+        infoLine(body, "담임목사", church.pastorName);
+        infoLine(body, "주일 예배시간", church.serviceTime);
+        infoLine(body, "전화번호", church.phone);
+        infoLine(body, "주소", church.address);
+        infoLine(body, "메모", church.memo);
+        const popup = new mapboxgl.Popup({ offset: 24, maxWidth: "280px" }).setDOMContent(body);
+        const marker = new mapboxgl.Marker({ color: "#1d4ed8" })
+          .setLngLat([church.point.lon, church.point.lat])
+          .setPopup(popup)
+          .addTo(map);
+        marker.getElement().setAttribute("aria-label", church.name);
+        marker.getElement().addEventListener("mouseenter", () => {
+          if (window.matchMedia("(hover: hover)").matches) popup.addTo(map);
+        });
+        marker.getElement().addEventListener("click", (event) => {
+          event.stopPropagation();
+          popup.addTo(map);
+        });
+        add(marker);
+      }
+      for (const pin of pickups) {
+        const popup = new mapboxgl.Popup({ offset: 24 }).setText(pin.name);
+        add(new mapboxgl.Marker({ color: "#b45309" }).setLngLat([pin.point.lon, pin.point.lat]).setPopup(popup).addTo(map));
+      }
       for (const place of places) {
-        L.circleMarker([place.point.lat, place.point.lon], {
-          radius: place.id === selectedId ? 11 : 8,
-          color: "#111827",
-          weight: 2,
-          fillColor: place.kind === "restaurant" ? "#111827" : "#93c5fd",
-          fillOpacity: 0.95,
-        })
-          .bindTooltip(`${PLACE_KIND_LABEL[place.kind]} · ${place.name}`)
-          .addTo(group);
+        const popup = new mapboxgl.Popup({ offset: 16 }).setText(`${PLACE_KIND_LABEL[place.kind]} · ${place.name}`);
+        add(
+          new mapboxgl.Marker({ color: place.id === selectedId ? "#111827" : "#64748b" })
+            .setLngLat([place.point.lon, place.point.lat])
+            .setPopup(popup)
+            .addTo(map),
+        );
       }
       for (const point of points) {
-        L.circleMarker([point.lat, point.lon], {
-          radius: 6,
-          color: "#6b7280",
-          weight: 2,
-          fillColor: "#e5e7eb",
-          fillOpacity: 0.95,
-        }).addTo(group);
+        add(new mapboxgl.Marker({ color: "#9ca3af", scale: 0.7 }).setLngLat([point.lon, point.lat]).addTo(map));
       }
       for (const point of snap?.snapped ?? []) {
         if (!point) continue;
-        L.circleMarker([point.lat, point.lon], {
-          radius: 7,
-          color: "#166534",
-          weight: 2,
-          fillColor: "#22c55e",
-          fillOpacity: 0.95,
-        }).addTo(group);
+        add(new mapboxgl.Marker({ color: "#166534", scale: 0.7 }).setLngLat([point.lon, point.lat]).addTo(map));
       }
-      if ((snap?.line.length ?? 0) > 1 && snap) {
-        L.polyline(snap.line.map((point) => [point.lat, point.lon]), { color: "#166534", weight: 4 }).addTo(group);
-      }
-      if (start) {
-        L.circleMarker([start.lat, start.lon], { radius: 9, color: "#166534", fillColor: "#22c55e", fillOpacity: 1, weight: 2 })
-          .bindTooltip("시작")
-          .addTo(group);
-      }
-      if (end) {
-        L.circleMarker([end.lat, end.lon], { radius: 9, color: "#111827", fillColor: "#111827", fillOpacity: 1, weight: 2 })
-          .bindTooltip("끝")
-          .addTo(group);
-      }
-      if ((route?.line.length ?? 0) > 1 && route) {
-        L.polyline(route.line.map((point) => [point.lat, point.lon]), { color: "#1d4ed8", weight: 5 }).addTo(group);
-      }
-      group.addTo(map);
-      layerRef.current = group;
+      if (start) add(new mapboxgl.Marker({ color: "#15803d" }).setLngLat([start.lon, start.lat]).setPopup(new mapboxgl.Popup().setText("시작")).addTo(map));
+      if (end) add(new mapboxgl.Marker({ color: "#111827" }).setLngLat([end.lon, end.lat]).setPopup(new mapboxgl.Popup().setText("끝")).addTo(map));
+      markersRef.current = markers;
+
+      const drawLine = (id: string, line: MapPoint[], color: string) => {
+        const data =
+          line.length < 2
+            ? { type: "FeatureCollection" as const, features: [] }
+            : {
+                type: "Feature" as const,
+                properties: {},
+                geometry: { type: "LineString" as const, coordinates: line.map((point) => [point.lon, point.lat]) },
+              };
+        const source = map.getSource(id);
+        if (source && "setData" in source) {
+          source.setData(data);
+          return;
+        }
+        if (line.length < 2) return;
+        map.addSource(id, { type: "geojson", data });
+        map.addLayer({ id, type: "line", source: id, paint: { "line-color": color, "line-width": 4 } });
+      };
+      drawLine("snap-line", snap?.line ?? [], "#166534");
+      drawLine("route-line", route?.line ?? [], "#1d4ed8");
     });
-  }, [ready, places, selectedId, points, snap, start, end, route]);
+  }, [ready, churches, pickups, places, selectedId, points, snap, start, end, route]);
 
   useEffect(() => {
     if (!ready) return;
     const map = mapRef.current;
     const place = places.find((item) => item.id === selectedId);
     if (!map || !place) return;
-    map.setView([place.point.lat, place.point.lon], Math.max(map.getZoom(), 15));
+    map.easeTo({ center: [place.point.lon, place.point.lat], zoom: Math.max(map.getZoom(), 14) });
   }, [ready, selectedId, places]);
 
   useEffect(() => {
     if (!ready || !route || route.line.length < 2) return;
     const map = mapRef.current;
     if (!map) return;
-    void import("leaflet").then((L) => {
-      map.fitBounds(L.latLngBounds(route.line.map((point) => [point.lat, point.lon])), { padding: [24, 24] });
+    void import("mapbox-gl").then((mod) => {
+      const bounds = new mod.default.LngLatBounds();
+      for (const point of route.line) bounds.extend([point.lon, point.lat]);
+      map.fitBounds(bounds, { padding: 24 });
     });
   }, [ready, route]);
 
-  return <div ref={host} className="modl-map" aria-label="지도" />;
+  return (
+    <div className="grid gap-2">
+      {mapError ? <p className="leading-relaxed">{mapError}</p> : null}
+      <div ref={host} className="modl-map" aria-label="지도" />
+    </div>
+  );
 }

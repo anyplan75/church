@@ -30,3 +30,9 @@ env:
     secret: GOOGLE_CALENDAR_API_KEY
     availability:
       - RUNTIME
+  - variable: MAPBOX_ACCESS_TOKEN
+    secret: MAPBOX_ACCESS_TOKEN
+    availability:
+      - RUNTIME
+  - variable: MAPBOX_ACCESS_TOKEN
+    secret: MAPBOX_ACCESS_TOKEN
