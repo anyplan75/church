@@ -13,15 +13,20 @@ const LEVEL_CLASS = {
 export function TermHeading({
   termKey,
   level = 2,
+  pageTitle,
 }: {
   termKey: TermKey;
   level?: 1 | 2 | 3;
+  pageTitle?: boolean;
 }) {
   const term = useCommunityTerm(termKey);
   const Tag = level === 1 ? "h1" : level === 2 ? "h2" : "h3";
+  const isPageTitle = pageTitle ?? level === 1;
 
   return (
-    <Tag className={`${LEVEL_CLASS[level]} font-semibold leading-snug text-balance text-[#241c16]`}>
+    <Tag
+      className={`${LEVEL_CLASS[level]} leading-snug text-balance text-[#241c16] ${isPageTitle ? "page-title" : "font-semibold"}`}
+    >
       {term.primary}
     </Tag>
   );

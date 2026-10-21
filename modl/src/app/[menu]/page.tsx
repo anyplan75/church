@@ -12,7 +12,7 @@ export default async function MenuPlaceholderPage({
 
   return (
     <section className="grid gap-4">
-      <TermHeading termKey={menu} />
+      <TermHeading termKey={menu} pageTitle />
       <div className="rounded-3xl border border-dashed border-[#cbbba6] bg-[#fffaf3] p-6 leading-relaxed">
         <p className="text-[clamp(1.1rem,1rem+0.4vw,1.4rem)] font-semibold">곧 열립니다.</p>
         <p className="mt-2 text-[#5c5148]">

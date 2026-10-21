@@ -136,7 +136,7 @@ export function MapBoard() {
 
   return (
     <section className="grid gap-4">
-      <h1 className="text-[clamp(1.35rem,1.1rem+0.6vw,1.8rem)] font-semibold leading-tight">지도</h1>
+      <h1 className="page-title text-[clamp(1.35rem,1.1rem+0.6vw,1.8rem)] leading-tight">지도</h1>
       {error ? (
         <p role="alert" className="rounded-2xl bg-[#fde8e2] px-4 py-3 leading-relaxed">
           {error}

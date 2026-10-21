@@ -16,7 +16,7 @@ export default async function JoinPage({
   const account = await loadAccountPage();
   return (
     <section className="grid gap-4">
-      <h1 className="text-[clamp(1.6rem,1.2rem+1vw,2.2rem)] font-semibold leading-tight">
+      <h1 className="page-title text-[clamp(1.6rem,1.2rem+1vw,2.2rem)] leading-tight">
         <TermText termKey="apply_join" />
       </h1>
       <p className="leading-relaxed text-[#5c5148]">

@@ -16,7 +16,7 @@ export default async function AccountPage({
 
   return (
     <section className="grid gap-6">
-      <h1 className="text-[clamp(1.6rem,1.2rem+1vw,2.2rem)] font-semibold leading-tight">
+      <h1 className="page-title text-[clamp(1.6rem,1.2rem+1vw,2.2rem)] leading-tight">
         <TermText termKey="account" />
       </h1>
       <ErrorNote message={query.error} />

@@ -17,9 +17,9 @@ import {
 } from "@/website/rules";
 
 const FONT_FAMILY = {
-  sans: "ui-sans-serif, system-ui, sans-serif",
-  serif: "ui-serif, Georgia, serif",
-  rounded: "ui-rounded, ui-sans-serif, system-ui, sans-serif",
+  sans: '"JejuGothic", "제주고딕", sans-serif',
+  serif: '"JejuMyeongjo", "제주명조", serif',
+  rounded: '"JejuGothic", "제주고딕", sans-serif',
 } as const;
 
 const BUTTON_CLASS = {

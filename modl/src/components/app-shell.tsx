@@ -42,6 +42,7 @@ export function AppShell({
           <CategoryMenu className="min-h-0 flex-1 overflow-y-auto" />
           <div className="mt-2 border-t border-[#e2e8f0] pt-2">
             <AccountLink accountName={accountName} />
+            <FontCredit />
           </div>
         </nav>
       </aside>
@@ -64,6 +65,7 @@ export function AppShell({
             <CategoryMenu onNavigate={closeMenu} />
             <div className="mt-2 border-t border-[#e2e8f0] pt-2">
               <AccountLink accountName={accountName} />
+              <FontCredit />
             </div>
           </nav>
         ) : null}
@@ -72,6 +74,17 @@ export function AppShell({
         </main>
       </div>
     </div>
+  );
+}
+
+function FontCredit() {
+  return (
+    <p className="px-3 py-2 text-[11px] leading-4 text-[#94a3b8]">
+      글꼴 출처{" "}
+      <a className="underline" href="https://www.jeju.go.kr/jeju/symbol/font/infor.htm" rel="noreferrer" target="_blank">
+        제주특별자치도
+      </a>
+    </p>
   );
 }
 
