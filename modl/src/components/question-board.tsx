@@ -11,7 +11,7 @@ const ANSWER_NOTE = {
 } as const;
 
 function Wordmark() {
-  return <p className="text-center text-[2.15rem] font-bold leading-none tracking-[-0.045em] text-[#0f172a]">모들</p>;
+  return <p className="page-title text-center text-[2.15rem] leading-none tracking-[-0.045em] text-[#0f172a]">모들</p>;
 }
 
 function SendMark() {

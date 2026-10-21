@@ -9,6 +9,12 @@ const LEVEL_CLASS = {
   3: "text-[clamp(1.05rem,0.95rem+0.4vw,1.35rem)]",
 } as const;
 
+const PAGE_TITLE_CLASS = {
+  1: "text-[clamp(1.45rem,1.1rem+1.2vw,2.15rem)]",
+  2: "text-[clamp(1.15rem,0.92rem+0.7vw,1.6rem)]",
+  3: "text-[clamp(0.98rem,0.9rem+0.35vw,1.22rem)]",
+} as const;
+
 /** 사전을 통과한 제목입니다. 글자가 커져도 줄바꿈되며 잘리지 않습니다. */
 export function TermHeading({
   termKey,
@@ -25,7 +31,7 @@ export function TermHeading({
 
   return (
     <Tag
-      className={`${LEVEL_CLASS[level]} leading-snug text-balance text-[#241c16] ${isPageTitle ? "page-title" : "font-semibold"}`}
+      className={`${isPageTitle ? PAGE_TITLE_CLASS[level] : LEVEL_CLASS[level]} leading-snug text-balance text-[#241c16] ${isPageTitle ? "page-title" : "font-semibold"}`}
     >
       {term.primary}
     </Tag>
