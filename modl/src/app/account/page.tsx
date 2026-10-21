@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { showsCommunitySettings, showsOwnPickup, showsPeopleSettings } from "@/account/access";
-import { BannedWordSettings, OwnPickupSettings, PeopleWorkTab, SurveyAccountSettings } from "@/components/account-settings";
+import { ApprovalWork, GroupWork, InviteWork, NewcomerWork, RosterWork, seasonYear } from "@/components/account-work";
+import { BannedWordSettings, OwnPickupSettings, SurveyAccountSettings } from "@/components/account-settings";
 import { ChurchSettingsPanel } from "@/components/church-settings-panel";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
@@ -34,19 +35,20 @@ function note(ok: string | undefined, count: string | undefined, missed: string 
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; ok?: string; count?: string; missed?: string; tab?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string; count?: string; missed?: string; tab?: string; year?: string }>;
 }) {
   const query = await searchParams;
   const account = await loadAccountPage();
   const status = note(query.ok, query.count, query.missed);
   const tabs: Array<{ id: string; label: string; panel: ReactNode }> = [];
   if (account.user && showsPeopleSettings(account.role)) {
+    const year = seasonYear(query.year);
     tabs.push(
-      { id: "roster", label: "교인", panel: <PeopleWorkTab href="/roster" title="교인" body="교인 목록을 보고 고칩니다." extraHref="/roster/new" extraLabel="교인 추가" /> },
-      { id: "group", label: "모임", panel: <PeopleWorkTab href="/group" title="모임" body="모임 편성을 보고 고칩니다." /> },
-      { id: "invite", label: "초대", panel: <PeopleWorkTab href="/invite" title="초대" body="초대 코드를 만들고 확인합니다." /> },
-      { id: "newcomer", label: "새가족", panel: <PeopleWorkTab href="/newcomer" title="새가족" body="새가족 안내 화면을 엽니다." /> },
-      { id: "approval", label: "승인", panel: <PeopleWorkTab href="/approvals" title="승인" body="가입과 답글 승인을 처리합니다." /> },
+      { id: "roster", label: "교인", panel: <RosterWork /> },
+      { id: "group", label: "모임", panel: <GroupWork year={year} scope="account" /> },
+      { id: "invite", label: "초대", panel: <InviteWork /> },
+      { id: "newcomer", label: "새가족", panel: <NewcomerWork /> },
+      { id: "approval", label: "승인", panel: <ApprovalWork /> },
     );
   }
   if (account.user) {
@@ -99,9 +101,7 @@ export default async function AccountPage({
                   </Link>
                 ))}
               </nav>
-              <div role="tabpanel" className="max-h-[32rem] overflow-y-auto">
-                {current.panel}
-              </div>
+              <div role="tabpanel">{current.panel}</div>
             </div>
           ) : null}
           <form action={logoutAction} data-testid="account-logout" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">

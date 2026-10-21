@@ -170,17 +170,19 @@ export async function loadChurchSettings(): Promise<ChurchSettings> {
   const rows = await getDb().select().from(mapChurches).where(eq(mapChurches.communityId, seen.communityId));
   return {
     ok: true,
-    churches: rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      pastorName: row.pastorName,
-      address: row.address,
-      phone: row.phone,
-      serviceTime: row.serviceTime,
-      memo: row.memo,
-      pinned: Boolean(row.address.trim() && finitePoint(row.lat, row.lon)),
-      region: cityFromStored(row.sido, row.district, row.regionId),
-    })),
+    churches: rows
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        pastorName: row.pastorName,
+        address: row.address,
+        phone: row.phone,
+        serviceTime: row.serviceTime,
+        memo: row.memo,
+        pinned: Boolean(row.address.trim() && finitePoint(row.lat, row.lon)),
+        region: cityFromStored(row.sido, row.district, row.regionId),
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name, "ko")),
   };
 }
 

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { SurveyAnonymousField } from "@/components/choice-fields";
 import { SurveyDeskLive } from "@/components/survey-desk";
 import { SubmitButton, TermArea, TermField } from "@/components/term-field";
@@ -36,26 +35,6 @@ export async function OwnPickupSettings() {
           동의 저장
         </button>
       </form>
-    </section>
-  );
-}
-
-/** 계정 탭 안에서 사람 일을 엽니다. */
-export function PeopleWorkTab({ href, title, body, extraHref, extraLabel }: { href: string; title: string; body: string; extraHref?: string; extraLabel?: string }) {
-  return (
-    <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
-      <h2 className="font-semibold leading-snug">{title}</h2>
-      <p className="leading-relaxed text-[#5c5148]">{body}</p>
-      <div className="flex flex-wrap gap-2">
-        <Link href={href} className="inline-flex w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
-          {title} 열기
-        </Link>
-        {extraHref && extraLabel ? (
-          <Link href={extraHref} className="inline-flex w-fit rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold">
-            {extraLabel}
-          </Link>
-        ) : null}
-      </div>
     </section>
   );
 }
