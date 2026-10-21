@@ -112,6 +112,10 @@ export default async function CalendarPage({
                                     <span data-testid="google-event" className="block break-words text-[11px] leading-snug text-[#241c16] sm:text-xs">
                                       {mark.title}
                                     </span>
+                                  ) : mark.kind === "season" ? (
+                                    <span data-testid="season-mark" className="block break-words text-[11px] leading-snug text-[#8a4b32] sm:text-xs">
+                                      {mark.title}
+                                    </span>
                                   ) : (
                                     <span data-testid="birthday-name" className="block break-words text-[11px] leading-snug text-[#5c5148] sm:text-xs">
                                       {mark.title} 생일

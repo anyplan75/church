@@ -12,8 +12,11 @@ import {
   googleDeleteRequest,
   googleEventCoversDate,
   googleEventRequest,
+  churchSeasonMarks,
   monthCells,
   monthDayMarks,
+  westernAdventStart,
+  westernEaster,
   parseLocalDateTime,
   withGoogleApiKey,
 } from "@/calendar/rules";
@@ -183,6 +186,73 @@ describe("월 달력", () => {
     assert.deepEqual(on19?.marks.map((mark) => mark.title), ["전체 모임", "새벽", "밤 모임"]);
     assert.deepEqual(on20?.marks.map((mark) => mark.title), ["밤 모임"]);
     assert.equal(googleEventCoversDate(googleEvents[0], "2026-10-20"), false);
+    assert.equal(on19?.marks.every((mark) => mark.kind !== "season"), true);
+  });
+});
+
+describe("교회 절기", () => {
+  it("서력 부활절과 그에 매인 하루 절기만 계산합니다", () => {
+    assert.deepEqual(westernEaster(2024), { year: 2024, month: 3, day: 31 });
+    assert.deepEqual(westernEaster(2025), { year: 2025, month: 4, day: 20 });
+    assert.deepEqual(westernEaster(2026), { year: 2026, month: 4, day: 5 });
+    assert.deepEqual(westernEaster(2027), { year: 2027, month: 3, day: 28 });
+    assert.equal(new Date(Date.UTC(2026, 3, 5)).getUTCDay(), 0);
+    assert.deepEqual(westernAdventStart(2026), { year: 2026, month: 11, day: 29 });
+    assert.deepEqual(westernAdventStart(2023), { year: 2023, month: 12, day: 3 });
+    assert.deepEqual(westernAdventStart(2022), { year: 2022, month: 11, day: 27 });
+
+    const titles = (year: number, month: number, day: number) =>
+      churchSeasonMarks(year, month)
+        .filter((mark) => mark.date === `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`)
+        .map((mark) => mark.title);
+
+    assert.deepEqual(titles(2026, 1, 6), ["주현절"]);
+    assert.deepEqual(titles(2026, 2, 18), ["재의 수요일", "사순절 시작"]);
+    assert.deepEqual(titles(2026, 2, 19), ["사순절"]);
+    assert.deepEqual(titles(2026, 3, 29), ["사순절", "종려주일"]);
+    assert.deepEqual(titles(2026, 4, 3), ["사순절", "성금요일"]);
+    assert.deepEqual(titles(2026, 4, 4), ["사순절"]);
+    assert.deepEqual(titles(2026, 4, 5), ["부활절"]);
+    assert.deepEqual(titles(2026, 4, 6), []);
+    assert.deepEqual(titles(2026, 5, 14), ["승천일"]);
+    assert.deepEqual(titles(2026, 5, 24), ["성령강림절"]);
+    assert.deepEqual(titles(2026, 10, 21), []);
+    assert.deepEqual(titles(2026, 11, 29), ["대림절 시작"]);
+    assert.deepEqual(titles(2026, 11, 30), ["대림절"]);
+    assert.deepEqual(titles(2026, 12, 24), ["대림절"]);
+    assert.deepEqual(titles(2026, 12, 25), ["성탄절"]);
+    assert.deepEqual(titles(2026, 12, 26), []);
+  });
+
+  it("절기는 칸에만 보이고 저장된 일정을 지우지 않습니다", () => {
+    const allowed = new Set([
+      "대림절 시작",
+      "대림절",
+      "성탄절",
+      "주현절",
+      "재의 수요일",
+      "사순절 시작",
+      "사순절",
+      "종려주일",
+      "성금요일",
+      "부활절",
+      "승천일",
+      "성령강림절",
+    ]);
+    const seasons = [1, 2, 3, 4, 5, 6, 10, 11, 12].flatMap((month) => churchSeasonMarks(2026, month));
+    assert.equal(seasons.every((mark) => allowed.has(mark.title)), true);
+    assert.equal(churchSeasonMarks(2026, 10).length, 0);
+    const days = monthDayMarks(
+      2026,
+      12,
+      [{ id: "modl-1", title: "전체 모임", startAt: "2026-12-25T10:00", endAt: "2026-12-25T11:00", isLeaderOnly: false }],
+      [],
+      [],
+    );
+    const christmas = days.find((cell) => cell.date === "2026-12-25");
+    assert.deepEqual(christmas?.marks.map((mark) => mark.title), ["전체 모임", "성탄절"]);
+    assert.equal(christmas?.marks[1]?.kind, "season");
+    assert.equal(christmas?.marks[1]?.href, null);
   });
 });
 

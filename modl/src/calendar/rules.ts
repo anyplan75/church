@@ -244,7 +244,7 @@ export type GoogleEventView = {
 export type DayMark = {
   key: string;
   title: string;
-  kind: "event" | "birthday" | "google";
+  kind: "event" | "birthday" | "google" | "season";
   href: string | null;
   leaderOnly: boolean;
 };
@@ -307,7 +307,97 @@ function eventCoversLocalDate(event: Pick<CalendarDayEvent, "startAt" | "endAt">
   return startUtc < range.end && endUtc > range.start;
 }
 
-/** 저장된 일정과 읽어 온 구글 일정만 날짜 칸에 놓습니다. 없는 일정은 만들지 않습니다. */
+type CivilDate = { year: number; month: number; day: number };
+
+function civilKey(date: CivilDate): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.year}-${pad(date.month)}-${pad(date.day)}`;
+}
+
+function addCivilDays(date: CivilDate, days: number): CivilDate {
+  const utc = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
+  return { year: utc.getUTCFullYear(), month: utc.getUTCMonth() + 1, day: utc.getUTCDate() };
+}
+
+function eachCivilDate(start: CivilDate, end: CivilDate): CivilDate[] {
+  const dates: CivilDate[] = [];
+  let cursor = start;
+  while (civilKey(cursor) <= civilKey(end)) {
+    dates.push(cursor);
+    cursor = addCivilDays(cursor, 1);
+    if (dates.length > 80) break;
+  }
+  return dates;
+}
+
+/** 서력 교회력의 부활절입니다. 3월 21일 이후 보름 다음 일요일을 교회의 계산으로 고릅니다. */
+export function westernEaster(year: number): CivilDate {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return { year, month, day };
+}
+
+/** 성탄 직전 일요일에서 세 주 앞인 대림절 시작입니다. */
+export function westernAdventStart(year: number): CivilDate {
+  const christmasWeekday = new Date(Date.UTC(year, 11, 25)).getUTCDay();
+  const daysBeforeChristmas = christmasWeekday === 0 ? 7 : christmasWeekday;
+  return addCivilDays({ year, month: 12, day: 25 }, -(daysBeforeChristmas + 21));
+}
+
+/**
+ * 그 해의 교회 절기만 날짜에 붙입니다.
+ * 대림절과 사순절은 기간이고, 나머지 여덟은 하루입니다. 모임 일정은 만들지 않습니다.
+ */
+export function churchSeasonMarks(year: number, month: number): Array<{ date: string; title: string }> {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return [];
+  const titles = new Map<string, string[]>();
+  const add = (date: CivilDate, title: string) => {
+    if (date.year !== year || date.month !== month) return;
+    const key = civilKey(date);
+    const list = titles.get(key) ?? [];
+    list.push(title);
+    titles.set(key, list);
+  };
+
+  const adventStart = westernAdventStart(year);
+  for (const date of eachCivilDate(adventStart, { year, month: 12, day: 24 })) {
+    add(date, civilKey(date) === civilKey(adventStart) ? "대림절 시작" : "대림절");
+  }
+  add({ year, month: 12, day: 25 }, "성탄절");
+  add({ year, month: 1, day: 6 }, "주현절");
+
+  const easter = westernEaster(year);
+  const ashWednesday = addCivilDays(easter, -46);
+  for (const date of eachCivilDate(ashWednesday, addCivilDays(easter, -1))) {
+    if (civilKey(date) === civilKey(ashWednesday)) {
+      add(date, "재의 수요일");
+      add(date, "사순절 시작");
+    } else {
+      add(date, "사순절");
+    }
+  }
+  add(addCivilDays(easter, -7), "종려주일");
+  add(addCivilDays(easter, -2), "성금요일");
+  add(easter, "부활절");
+  add(addCivilDays(easter, 39), "승천일");
+  add(addCivilDays(easter, 49), "성령강림절");
+
+  return [...titles.entries()].flatMap(([date, names]) => names.map((title) => ({ date, title })));
+}
+
+/** 저장된 일정, 읽어 온 구글 일정, 계산한 교회 절기만 날짜 칸에 놓습니다. 없는 모임은 만들지 않습니다. */
 export function monthDayMarks(
   year: number,
   month: number,
@@ -315,6 +405,7 @@ export function monthDayMarks(
   birthdays: readonly BirthdayMark[],
   googleEvents: readonly GoogleEventView[] = [],
 ): MonthDayCell[] {
+  const seasons = churchSeasonMarks(year, month);
   return monthCells(year, month).map((cell) => {
     if (!cell.date || cell.day === null) return { date: null, day: null, marks: [] };
     const marks: DayMark[] = [];
@@ -336,6 +427,16 @@ export function monthDayMarks(
         key: `google-${event.id}`,
         title,
         kind: "google",
+        href: null,
+        leaderOnly: false,
+      });
+    }
+    for (const season of seasons) {
+      if (season.date !== cell.date) continue;
+      marks.push({
+        key: `season-${season.date}-${season.title}`,
+        title: season.title,
+        kind: "season",
         href: null,
         leaderOnly: false,
       });
