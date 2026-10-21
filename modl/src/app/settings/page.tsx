@@ -1,3 +1,4 @@
+import { ChurchFileField } from "@/components/church-file-field";
 import { ErrorNote } from "@/components/form-note";
 import { importChurchSheetAction, removeChurchAction, saveChurchAction } from "@/server/map/church-actions";
 import { loadChurchSettings } from "@/server/map/board";
@@ -74,7 +75,7 @@ export default async function SettingsPage({
           <form action={importChurchSheetAction} className="grid gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm">
             <h2 className="font-semibold leading-snug">엑셀로 넣기</h2>
             <p className="leading-relaxed text-[#4b5563]">첫 줄 칸 이름은 교회이름, 담임목사, 주소, 전화번호, 주일 예배시간, 메모 순서입니다.</p>
-            <input name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required className={FIELD} />
+            <ChurchFileField />
             <button type="submit" className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
               엑셀 넣기
             </button>
