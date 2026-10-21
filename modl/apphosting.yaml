@@ -34,3 +34,11 @@ env:
     secret: MAPBOX_ACCESS_TOKEN
     availability:
       - RUNTIME
+  - variable: GOOGLE_CALENDAR_ID
+    secret: GOOGLE_CALENDAR_ID
+    availability:
+      - RUNTIME
+  - variable: GOOGLE_SHEETS_SERVICE_ACCOUNT
+    secret: GOOGLE_SHEETS_SERVICE_ACCOUNT
+    availability:
+      - RUNTIME

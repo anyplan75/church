@@ -1,6 +1,7 @@
 /**
  * 공동체 일정을 저장하고, 생일은 명부에서 그 달에 보여 줍니다.
- * 구글 달력은 열쇠가 네 개 모두 있을 때만 보내고, 없으면 보냈다고 말하지 않습니다.
+ * 구글 달력은 보낼 열쇠가 있을 때만 보내고, 없으면 보냈다고 말하지 않습니다.
+ * 달력 번호가 있으면 그 달력의 실제 일정만 읽어 화면에 얹습니다. 읽은 일정을 새로 만들지 않습니다.
  */
 
 import { and, asc, eq, gte, lt } from "drizzle-orm";
@@ -8,14 +9,25 @@ import {
   birthdaysForActor,
   eventsForActor,
   formatLocalDateTime,
+  seoulMonthRange,
   type BirthdayMark,
   type CalendarCategory,
+  type GoogleEventView,
 } from "@/calendar/rules";
 import type { Actor } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
 import { assertCan, assertSameCommunity, can, formalMembership } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { pushGoogleEvent, readGoogleCalendarConfig, readGoogleCalendarWait, removeGoogleEvent } from "@/server/calendar/google";
+import {
+  pushGoogleEvent,
+  readGoogleCalendarCanWrite,
+  readGoogleCalendarConfig,
+  readGoogleCalendarHasId,
+  readGoogleCalendarMonth,
+  readGoogleCalendarWait,
+  removeGoogleEvent,
+  type GoogleCalendarReadResult,
+} from "@/server/calendar/google";
 import { calendarEvents, communities, members } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 
@@ -95,12 +107,23 @@ export async function loadCalendarMonth(year: number, month: number) {
     month,
     true,
   );
+  const range = seoulMonthRange(year, month);
+  let google: GoogleCalendarReadResult = { status: "skipped", items: [] };
+  try {
+    google = await readGoogleCalendarMonth(range.timeMin, range.timeMax);
+  } catch {
+    google = { status: "failed", items: [] };
+  }
+  const knownGoogleIds = new Set(visible.map((event) => event.googleEventId).filter((id): id is string => Boolean(id)));
+  const googleEvents: GoogleEventView[] = google.items.filter((item) => !knownGoogleIds.has(item.id));
   return {
     ok: true as const,
     communityName: community.name,
     canEdit: leaderView,
-    googleReady: readGoogleCalendarWait() === "ready",
+    googleCanWrite: readGoogleCalendarCanWrite(),
     googleNeedsCalendar: readGoogleCalendarWait() === "needs_calendar",
+    googleHasId: readGoogleCalendarHasId(),
+    googleRead: google.status,
     events: visible.map((event) => ({
       id: event.id,
       title: event.title,
@@ -111,6 +134,7 @@ export async function loadCalendarMonth(year: number, month: number) {
       googleEventId: event.googleEventId,
     })),
     birthdays,
+    googleEvents,
   };
 }
 
@@ -142,8 +166,9 @@ export async function loadCalendarEvent(eventId: string) {
   return {
     ok: true as const,
     canEdit: leaderView,
-    googleReady: readGoogleCalendarWait() === "ready",
+    googleCanWrite: readGoogleCalendarCanWrite(),
     googleNeedsCalendar: readGoogleCalendarWait() === "needs_calendar",
+    googleHasId: readGoogleCalendarHasId(),
     event: {
       id: event.id,
       title: event.title,
@@ -158,7 +183,7 @@ export async function loadCalendarEvent(eventId: string) {
 
 async function sendIfConfigured(communityId: string, eventId: string): Promise<"skipped" | "synced" | "failed"> {
   const config = readGoogleCalendarConfig();
-  if (!config) return "skipped";
+  if (!config?.clientId || !config.clientSecret || !config.refreshToken) return "skipped";
   const db = getDb();
   const [event] = await db
     .select()
@@ -239,7 +264,7 @@ export async function syncCalendarEvent(eventId: string): Promise<"skipped" | "s
   if (!existing) throw new CalendarFlowError("일정을 찾지 못했습니다.");
   assertSameCommunity(communityId, existing.communityId);
   const config = readGoogleCalendarConfig();
-  if (!config) {
+  if (!config?.clientId || !config.clientSecret || !config.refreshToken) {
     throw new CalendarFlowError("구글 달력 열쇠가 있어야 보낼 수 있습니다. 모들 달력은 그대로 씁니다.");
   }
   return sendIfConfigured(communityId, eventId);

@@ -1,16 +1,23 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { generateKeyPairSync } from "node:crypto";
 import {
   birthdaysForActor,
   canSeeEvent,
   eventsForActor,
+  googleCalendarCanWriteFromEnv,
   googleCalendarConfigFromEnv,
+  googleCalendarReadPlan,
   googleCalendarWaitFromEnv,
   googleDeleteRequest,
+  googleEventCoversDate,
   googleEventRequest,
+  monthCells,
+  monthDayMarks,
   parseLocalDateTime,
   withGoogleApiKey,
 } from "@/calendar/rules";
+import { buildServiceAccountAssertion, readGoogleCalendarMonth } from "@/server/calendar/google";
 
 const COMMUNITY = "community-1";
 const OTHER = "community-2";
@@ -142,5 +149,148 @@ describe("구글 달력 설정", () => {
   it("날짜 입력은 년월일 시각 모양만 받습니다", () => {
     assert.ok(parseLocalDateTime("2026-10-19T10:30"));
     assert.equal(parseLocalDateTime("2026-10-19"), null);
+  });
+
+  it("열쇠만 있으면 보내기 설정이 되지 않습니다", () => {
+    assert.equal(googleCalendarCanWriteFromEnv({ GOOGLE_CALENDAR_API_KEY: "test-key", GOOGLE_CALENDAR_ID: "calendar-id" }), false);
+  });
+});
+
+describe("월 달력", () => {
+  it("빈 달의 날짜 칸을 만들고 없는 일정은 넣지 않습니다", () => {
+    const cells = monthCells(2026, 10);
+    assert.equal(cells.length, 35);
+    assert.equal(cells[0].date, null);
+    assert.deepEqual(cells[4], { date: "2026-10-01", day: 1 });
+    assert.deepEqual(cells[33], { date: "2026-10-30", day: 30 });
+    const marks = monthDayMarks(2026, 10, [], []);
+    assert.equal(marks.filter((cell) => cell.date).every((cell) => cell.marks.length === 0), true);
+  });
+
+  it("저장된 일정과 구글 일정만 그 날짜에 놓습니다", () => {
+    const events = [
+      { id: "modl-1", title: "전체 모임", startAt: "2026-10-19T10:00", endAt: "2026-10-19T11:00", isLeaderOnly: false },
+    ];
+    const googleEvents = [
+      { id: "g-1", title: "새벽", startAt: "2026-10-19", endAt: "2026-10-20", allDay: true },
+      { id: "g-2", title: "밤 모임", startAt: "2026-10-19T23:30:00+09:00", endAt: "2026-10-20T01:00:00+09:00", allDay: false },
+    ];
+    const days = monthDayMarks(2026, 10, events, [], googleEvents);
+    const on18 = days.find((cell) => cell.date === "2026-10-18");
+    const on19 = days.find((cell) => cell.date === "2026-10-19");
+    const on20 = days.find((cell) => cell.date === "2026-10-20");
+    assert.deepEqual(on18?.marks ?? [], []);
+    assert.deepEqual(on19?.marks.map((mark) => mark.title), ["전체 모임", "새벽", "밤 모임"]);
+    assert.deepEqual(on20?.marks.map((mark) => mark.title), ["밤 모임"]);
+    assert.equal(googleEventCoversDate(googleEvents[0], "2026-10-20"), false);
+  });
+});
+
+describe("구글 달력 읽기", () => {
+  const keys = ["GOOGLE_CALENDAR_ID", "GOOGLE_CALENDAR_API_KEY", "GOOGLE_SHEETS_SERVICE_ACCOUNT"] as const;
+
+  async function withEnv(env: Record<(typeof keys)[number], string | undefined>, run: () => Promise<void>) {
+    const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    for (const key of keys) {
+      if (env[key] === undefined) delete process.env[key];
+      else process.env[key] = env[key];
+    }
+    try {
+      await run();
+    } finally {
+      for (const key of keys) {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      }
+    }
+  }
+
+  it("달력 번호가 없으면 읽지 않습니다", () => {
+    assert.deepEqual(
+      googleCalendarReadPlan({ calendarId: "  ", apiKey: "test-key", hasServiceAccount: true, timeMin: "a", timeMax: "b" }),
+      { mode: "skip" },
+    );
+    assert.equal(googleCalendarReadPlan({ calendarId: "calendar-id", apiKey: "", hasServiceAccount: false, timeMin: "a", timeMax: "b" }).mode, "skip");
+  });
+
+  it("공개 달력은 열쇠 주소로, 공유 달력은 열쇠 없는 주소로 읽습니다", () => {
+    const range = { timeMin: "2026-10-01T00:00:00+09:00", timeMax: "2026-11-01T00:00:00+09:00" };
+    const pub = googleCalendarReadPlan({ calendarId: "calendar-id", apiKey: "test-key", hasServiceAccount: false, ...range });
+    assert.equal(pub.mode, "public");
+    if (pub.mode === "public") {
+      assert.match(pub.url, /calendars\/calendar-id\/events/);
+      assert.match(pub.url, /key=test-key/);
+      assert.equal(pub.url.includes("events?"), true);
+    }
+    const shared = googleCalendarReadPlan({ calendarId: "calendar-id", apiKey: "", hasServiceAccount: true, ...range });
+    assert.equal(shared.mode, "shared");
+    if (shared.mode === "shared") assert.equal(shared.url.includes("key="), false);
+  });
+
+  it("달력 번호가 없으면 구글을 부르지 않고 일정을 만들지 않습니다", async () => {
+    await withEnv({ GOOGLE_CALENDAR_ID: undefined, GOOGLE_CALENDAR_API_KEY: "test-key", GOOGLE_SHEETS_SERVICE_ACCOUNT: undefined }, async () => {
+      let called = false;
+      const result = await readGoogleCalendarMonth("2026-10-01T00:00:00+09:00", "2026-11-01T00:00:00+09:00", async () => {
+        called = true;
+        return new Response("{}", { status: 200 });
+      });
+      assert.equal(called, false);
+      assert.deepEqual(result, { status: "skipped", items: [] });
+    });
+  });
+
+  it("공개로 읽히면 그 일정만 가져오고 새로 만들지 않습니다", async () => {
+    await withEnv({ GOOGLE_CALENDAR_ID: "calendar-id", GOOGLE_CALENDAR_API_KEY: "test-key", GOOGLE_SHEETS_SERVICE_ACCOUNT: undefined }, async () => {
+      const methods: string[] = [];
+      const result = await readGoogleCalendarMonth("2026-10-01T00:00:00+09:00", "2026-11-01T00:00:00+09:00", async (url, init) => {
+        methods.push(init?.method ?? "GET");
+        assert.match(url, /key=test-key/);
+        return Response.json({
+          items: [
+            { id: "real-1", summary: "새벽 기도", status: "confirmed", start: { date: "2026-10-03" }, end: { date: "2026-10-04" } },
+            { id: "gone", summary: "지운 일정", status: "cancelled", start: { date: "2026-10-04" }, end: { date: "2026-10-05" } },
+          ],
+        });
+      });
+      assert.deepEqual(methods, ["GET"]);
+      assert.equal(result.status, "ok");
+      assert.deepEqual(result.items.map((item) => item.title), ["새벽 기도"]);
+    });
+  });
+
+  it("403이면 서비스 계정으로 읽고, 그것도 막히면 일정을 비웁니다", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const pem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const account = JSON.stringify({ client_email: "reader@example.com", private_key: pem });
+    await withEnv({ GOOGLE_CALENDAR_ID: "calendar-id", GOOGLE_CALENDAR_API_KEY: "test-key", GOOGLE_SHEETS_SERVICE_ACCOUNT: account }, async () => {
+      const seen: string[] = [];
+      const blocked = await readGoogleCalendarMonth("2026-10-01T00:00:00+09:00", "2026-11-01T00:00:00+09:00", async (url, init) => {
+        seen.push(`${init?.method ?? "GET"} ${url}`);
+        if (url.includes("oauth2.googleapis.com")) return Response.json({ access_token: "access-token-fixture" });
+        if (url.includes("key=")) return new Response("", { status: 403 });
+        const headers = new Headers(init?.headers);
+        assert.equal(headers.get("authorization"), "Bearer access-token-fixture");
+        return new Response("", { status: 403 });
+      });
+      assert.equal(blocked.status, "needs_share");
+      assert.deepEqual(blocked.items, []);
+      assert.equal(seen.some((line) => line.startsWith("POST") && line.includes("/events")), false);
+
+      const opened = await readGoogleCalendarMonth("2026-10-01T00:00:00+09:00", "2026-11-01T00:00:00+09:00", async (url, init) => {
+        if (url.includes("oauth2.googleapis.com")) return Response.json({ access_token: "access-token-fixture" });
+        if (url.includes("key=")) return new Response("", { status: 404 });
+        assert.equal(init?.method ?? "GET", "GET");
+        return Response.json({
+          items: [{ id: "real-2", summary: "청년 모임", start: { dateTime: "2026-10-11T14:00:00+09:00" }, end: { dateTime: "2026-10-11T16:00:00+09:00" } }],
+        });
+      });
+      assert.equal(opened.status, "ok");
+      assert.deepEqual(opened.items.map((item) => item.title), ["청년 모임"]);
+    });
+    const assertion = buildServiceAccountAssertion({ clientEmail: "reader@example.com", privateKey: pem }, 1_700_000_000_000);
+    assert.equal(assertion.includes(pem), false);
+    assert.equal(assertion.includes("PRIVATE KEY"), false);
+    const payload = JSON.parse(Buffer.from(assertion.split(".")[1] ?? "", "base64url").toString());
+    assert.equal(payload.scope, "https://www.googleapis.com/auth/calendar.readonly");
   });
 });
