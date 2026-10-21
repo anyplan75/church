@@ -22,11 +22,26 @@ export type BusPass = {
   running: boolean;
 };
 
+export type BusRouteFact = {
+  id: string;
+  number: string;
+  detail: string;
+  colorCode: string;
+};
+
+export type BusRouteChip = {
+  id: string;
+  number: string;
+  detail: string;
+  background: string | null;
+  text: string | null;
+};
+
 export type BusGuideStop = {
   id: string;
   name: string;
-  routes: string[];
-  arrivals: Array<{ label: string; minutes: number | null; stopsLeft: number | null }>;
+  routes: BusRouteChip[];
+  arrivals: Array<{ routeId: string; label: string; minutes: number | null; stopsLeft: number | null }>;
 };
 
 export type BusGuide =
@@ -80,17 +95,73 @@ export function parseStations(xml: string): BusStation[] {
   return stations;
 }
 
-export function parseRouteNames(xml: string): Map<string, string> {
-  const names = new Map<string, string>();
-  if (xmlResultCode(xml) !== "00") return names;
+const ROUTE_COLOR: Record<string, { background: string; text: string }> = {
+  "0": { background: "#8a4b2f", text: "#ffffff" },
+  "1": { background: "#8a4b2f", text: "#ffffff" },
+  "2": { background: "#1d4ed8", text: "#ffffff" },
+  "3": { background: "#15803d", text: "#ffffff" },
+  "4": { background: "#dc2626", text: "#ffffff" },
+  "5": { background: "#ea580c", text: "#ffffff" },
+  "6": { background: "#7c3aed", text: "#ffffff" },
+  "7": { background: "#eab308", text: "#1f2937" },
+};
+
+/** 정의서의 노선 색을 따르고, 색 코드가 없으면 이름에 적힌 지선·간선·급행만 칠합니다. */
+export function routeInk(colorCode: string, label: string): { background: string; text: string } | null {
+  const documented = ROUTE_COLOR[colorCode];
+  if (documented) return documented;
+  if (label.includes("급행")) return { background: "#dc2626", text: "#ffffff" };
+  if (label.includes("간선")) return { background: "#1d4ed8", text: "#ffffff" };
+  if (label.includes("지선")) return { background: "#15803d", text: "#ffffff" };
+  return null;
+}
+
+export function parseRouteFacts(xml: string): Map<string, BusRouteFact> {
+  const facts = new Map<string, BusRouteFact>();
+  if (xmlResultCode(xml) !== "00") return facts;
   for (const row of parseXmlItems(xml)) {
     const id = row.routeId ?? "";
-    const name = row.routeNm || row.routeNum || "";
-    if (!id || !name || names.has(id)) continue;
-    const sub = row.routeSubNm ?? "";
-    names.set(id, sub ? `${name} ${sub}` : name);
+    const number = row.routeNm || row.routeNum || "";
+    if (!id || !number || facts.has(id)) continue;
+    facts.set(id, {
+      id,
+      number,
+      detail: row.routeSubNm ?? "",
+      colorCode: row.routeColor ?? "",
+    });
   }
-  return names;
+  return facts;
+}
+
+export function parseRouteStopOrder(xml: string): Array<{ id: string; order: number }> {
+  if (xmlResultCode(xml) !== "00") return [];
+  const stops: Array<{ id: string; order: number }> = [];
+  const seen = new Set<string>();
+  for (const row of parseXmlItems(xml)) {
+    const id = row.stationId ?? "";
+    const order = Number(row.stationOrd);
+    if (!id || !Number.isFinite(order) || seen.has(id) || (row.useYn !== undefined && row.useYn !== "" && row.useYn !== "Y")) continue;
+    seen.add(id);
+    stops.push({ id, order });
+  }
+  stops.sort((a, b) => a.order - b.order);
+  return stops;
+}
+
+/** 정류장 좌표가 응답에 있는 점만 노선 순서로 잇습니다. */
+export function lineFromStops(
+  order: readonly { id: string; order: number }[],
+  stations: ReadonlyMap<string, BusStation>,
+): MapPoint[] {
+  const line: MapPoint[] = [];
+  for (const stop of order) {
+    const station = stations.get(stop.id);
+    if (!station) continue;
+    const last = line[line.length - 1];
+    if (last && last.lat === station.point.lat && last.lon === station.point.lon) continue;
+    line.push(station.point);
+  }
+  return line;
 }
 
 /** 도착 예정 시간이 있고, 산출 시각이 최근일 때만 남깁니다. */
@@ -150,28 +221,49 @@ export function nearbyStations(stations: readonly BusStation[], point: MapPoint,
     .map((item) => item.station);
 }
 
+function chipFromFact(id: string, facts: ReadonlyMap<string, BusRouteFact>): BusRouteChip | null {
+  const fact = facts.get(id);
+  const number = fact?.number || "";
+  if (!number) return null;
+  const ink = routeInk(fact?.colorCode ?? "", `${number} ${fact?.detail ?? ""}`);
+  return {
+    id,
+    number,
+    detail: fact?.detail ?? "",
+    background: ink?.background ?? null,
+    text: ink?.text ?? null,
+  };
+}
+
 export function shapeStop(
   station: BusStation,
   arrivals: readonly BusArrival[],
   passing: readonly BusPass[],
-  names: ReadonlyMap<string, string>,
+  facts: ReadonlyMap<string, BusRouteFact>,
 ): BusGuideStop {
-  const routes: string[] = [];
+  const routes: BusRouteChip[] = [];
   const seen = new Set<string>();
   for (const route of passing) {
-    const label = names.get(route.routeId);
-    if (!label || seen.has(label)) continue;
-    seen.add(label);
-    routes.push(label);
+    if (seen.has(route.routeId)) continue;
+    const chip = chipFromFact(route.routeId, facts);
+    if (!chip) continue;
+    seen.add(route.routeId);
+    routes.push(chip);
   }
   return {
     id: station.id,
     name: station.name,
     routes,
-    arrivals: arrivals.map((arrival) => ({
-      label: names.get(arrival.routeId) || arrival.routeId,
-      minutes: arrival.minutes,
-      stopsLeft: arrival.stopsLeft,
-    })),
+    arrivals: arrivals.flatMap((arrival) => {
+      const chip = chipFromFact(arrival.routeId, facts);
+      return [
+        {
+          routeId: arrival.routeId,
+          label: chip ? `${chip.number}${chip.detail ? ` ${chip.detail}` : ""}` : arrival.routeId,
+          minutes: arrival.minutes,
+          stopsLeft: arrival.stopsLeft,
+        },
+      ];
+    }),
   };
 }

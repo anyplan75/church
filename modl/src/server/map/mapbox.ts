@@ -51,6 +51,7 @@ export async function routeOnMapbox(start: MapPoint, end: MapPoint, mode: Mapbox
   );
   url.searchParams.set("geometries", "geojson");
   url.searchParams.set("overview", "full");
+  url.searchParams.set("steps", "true");
   url.searchParams.set("language", "ko");
   url.searchParams.set("access_token", mapboxToken());
   let response: Response;

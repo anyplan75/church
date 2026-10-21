@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { followWindowMeters } from "@/map/follow";
 import {
   isJejuPoint,
+  lineFromStops,
   nearbyStations,
   parseArrivals,
   parsePassingRoutes,
   parseStations,
+  routeInk,
   shapeStop,
+  type BusRouteFact,
 } from "@/map/jeju-bus";
 
 const stationXml = `<?xml version="1.0"?>
@@ -50,9 +54,21 @@ describe("제주 버스 응답", () => {
     assert.deepEqual(passing.map((route) => route.routeId), ["405"]);
     const station = parseStations(stationXml)[0];
     assert.ok(station);
-    const shaped = shapeStop(station, arrivals, passing, new Map([["405", "365 용천"]]));
-    assert.deepEqual(shaped.routes, ["365 용천"]);
+    const facts = new Map<string, BusRouteFact>([["405", { id: "405", number: "365", detail: "용천", colorCode: "3" }]]);
+    const shaped = shapeStop(station, arrivals, passing, facts);
+    assert.equal(shaped.routes[0]?.number, "365");
+    assert.equal(shaped.routes[0]?.background, "#15803d");
     assert.equal(shaped.arrivals[0]?.label, "365 용천");
+    assert.equal(routeInk("", "급행1")?.background, "#dc2626");
+    assert.equal(routeInk("", "간선2")?.background, "#1d4ed8");
+    assert.equal(routeInk("", "지선3")?.background, "#15803d");
+    assert.equal(routeInk("", "공항"), null);
+    assert.equal(followWindowMeters(20) > followWindowMeters(1), true);
+    const line = lineFromStops(
+      [{ id: "405000151", order: 2 }, { id: "없는정류장", order: 1 }],
+      new Map([[station.id, station]]),
+    );
+    assert.equal(line.length, 1);
     const far = nearbyStations([station], { lat: 33.2, lon: 126.2 });
     assert.equal(far.length, 0);
     assert.equal(nearbyStations([station], station.point).length, 1);

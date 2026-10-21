@@ -118,10 +118,16 @@ export function parseMatch(payload: unknown): SnapResult | null {
   return { snapped, line };
 }
 
+export type RouteSegment = {
+  line: MapPoint[];
+  speedMps: number | null;
+};
+
 export type RouteResult = {
   line: MapPoint[];
   distanceMeters: number | null;
   durationSeconds: number | null;
+  segments: RouteSegment[];
 };
 
 function optionalNumber(value: unknown): number | null {
@@ -142,7 +148,27 @@ export function parseRoute(payload: unknown): RouteResult | null {
     line,
     distanceMeters: optionalNumber(body.distance),
     durationSeconds: optionalNumber(body.duration),
+    segments: routeSegments(body),
   };
+}
+
+function routeSegments(body: Record<string, unknown>): RouteSegment[] {
+  if (!Array.isArray(body.legs)) return [];
+  const segments: RouteSegment[] = [];
+  for (const leg of body.legs) {
+    if (!leg || typeof leg !== "object" || !Array.isArray((leg as Record<string, unknown>).steps)) continue;
+    for (const step of (leg as Record<string, unknown>).steps as unknown[]) {
+      if (!step || typeof step !== "object") continue;
+      const record = step as Record<string, unknown>;
+      const stepLine = lineFromGeometry(record.geometry);
+      if (stepLine.length < 2) continue;
+      const distance = optionalNumber(record.distance);
+      const duration = optionalNumber(record.duration);
+      const speed = distance !== null && duration !== null && duration > 0 ? distance / duration : null;
+      segments.push({ line: stepLine, speedMps: speed });
+    }
+  }
+  return segments;
 }
 
 /** 맵박스 주소 검색이 돌려준 첫 좌표만 읽습니다. 없으면 비웁니다. */

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { BusGuide } from "@/map/jeju-bus";
 import type { MapPoint, PlaceHit, RouteResult, SnapResult } from "@/map/rules";
-import { guideBus } from "@/server/map/jeju-bus";
+import { busRouteLine, guideBus } from "@/server/map/jeju-bus";
 import { routeOnMapbox, type MapboxTravel } from "@/server/map/mapbox";
 import { MapServiceError, routeBetween, searchPlaces, snapToRoad } from "@/server/map/service";
 
@@ -56,6 +56,15 @@ export async function travelAction(start: MapPoint, end: MapPoint, mode: MapboxT
   if (!parsed.success) return { ok: false, message: "시작과 끝을 확인해 주세요." };
   try {
     return { ok: true, data: await routeOnMapbox(parsed.data.start, parsed.data.end, parsed.data.mode) };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function busRouteLineAction(routeId: string): Promise<MapAction<MapPoint[]>> {
+  if (!/^[0-9]+$/.test(routeId)) return { ok: false, message: "노선 번호를 확인해 주세요." };
+  try {
+    return { ok: true, data: await busRouteLine(routeId) };
   } catch (error) {
     return fail(error);
   }
