@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { followWindowMeters } from "@/map/follow";
+import { followWindowMeters, distanceToLineMeters, HERE_RADIUS_METERS, JEJU_VIEW, lineLengthMeters, nearestSegmentIndex, OFF_ROUTE_METERS, radiusView } from "@/map/follow";
 import type { BusGuide } from "@/map/jeju-bus";
-import { metersBetween } from "@/map/jeju-bus";
 import type { ChurchPin } from "@/map/church-sheet";
 import { PLACE_KIND_LABEL, type MapPoint, type PlaceHit, type RouteResult, type RouteSegment } from "@/map/rules";
 import { busGuideAction, busRouteLineAction, searchPlacesAction, travelAction } from "@/server/map/actions";
@@ -58,6 +57,13 @@ export function MapBoard({
   const [busRouteId, setBusRouteId] = useState<string | null>(null);
   const [busLine, setBusLine] = useState<MapPoint[]>([]);
   const [following, setFollowing] = useState(false);
+  const [here, setHere] = useState<MapPoint | null>(null);
+  const [speed, setSpeed] = useState<number | null>(null);
+  const [rerouting, setRerouting] = useState(false);
+  const watchRef = useRef<number | null>(null);
+  const rerouteLock = useRef(false);
+  const rerouteAt = useRef(0);
+  const rerouteGen = useRef(0);
   const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
@@ -87,19 +93,19 @@ export function MapBoard({
     setBus(null);
     setBusRouteId(null);
     setBusLine([]);
-    setFollowing(false);
+    stopNavigation();
     setError("");
     setNote("");
   }
 
   function pickTravel(mode: TravelMode) {
     setTravel(mode);
-    setFollowing(false);
+    stopNavigation();
   }
 
   async function pickBus(routeId: string) {
     setBusRouteId(routeId);
-    setFollowing(false);
+    stopNavigation();
     setError("");
     const result = await busRouteLineAction(routeId);
     if (!result.ok) {
@@ -125,6 +131,61 @@ export function MapBoard({
     }
     setPlaces(result.data);
     if (result.data.length === 0) setNote("식당이나 숙소로 찾은 결과가 없습니다.");
+  }
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setHere({ lat: position.coords.latitude, lon: position.coords.longitude });
+        const reading = position.coords.speed;
+        if (typeof reading === "number" && Number.isFinite(reading) && reading >= 0) setSpeed(reading);
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+    );
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
+    };
+  }, []);
+
+  function stopNavigation() {
+    if (watchRef.current !== null) {
+      navigator.geolocation.clearWatch(watchRef.current);
+      watchRef.current = null;
+    }
+    setFollowing(false);
+    setRerouting(false);
+    rerouteGen.current += 1;
+  }
+
+  function beginNavigation() {
+    if (!canFollow) return;
+    if (!navigator.geolocation) {
+      setError("이 브라우저에서는 위치를 받지 못합니다.");
+      return;
+    }
+    setError("");
+    let started = false;
+    if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
+    watchRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        started = true;
+        setFollowing(true);
+        setHere({ lat: position.coords.latitude, lon: position.coords.longitude });
+        const reading = position.coords.speed;
+        setSpeed(typeof reading === "number" && Number.isFinite(reading) && reading >= 0 ? reading : null);
+      },
+      () => {
+        if (started) return;
+        stopNavigation();
+        setError("위치를 받지 못했습니다.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 1000 },
+    );
   }
 
   function locate(thenGuide: boolean) {
@@ -156,24 +217,101 @@ export function MapBoard({
     setBus(null);
     setBusRouteId(null);
     setBusLine([]);
-    setFollowing(false);
+    stopNavigation();
     setError("");
     if (!start) locate(false);
   }
 
   useEffect(() => {
-    if (!canFollow) setFollowing(false);
+    if (!canFollow) stopNavigation();
   }, [canFollow]);
+
+  useEffect(() => {
+    if (!following || !here || !target || rerouteLock.current) return;
+    const away = distanceToLineMeters(here, drawnLine);
+    if (away === null || away <= OFF_ROUTE_METERS) return;
+    if (Date.now() - rerouteAt.current < 15000) return;
+    rerouteLock.current = true;
+    rerouteAt.current = Date.now();
+    setRerouting(true);
+    setError("");
+    const mode = travel;
+    const from = here;
+    const to = target;
+    const previousRouteId = busRouteId;
+    const generation = rerouteGen.current;
+    const still = () => rerouteGen.current === generation;
+    const finish = () => {
+      rerouteLock.current = false;
+      if (still()) setRerouting(false);
+    };
+    if (mode === "bus") {
+      void busGuideAction(from).then(async (result) => {
+        if (!still()) {
+          finish();
+          return;
+        }
+        if (!result.ok) {
+          setError(result.message);
+          finish();
+          return;
+        }
+        setBus(result.data);
+        if (result.data.kind !== "stops") {
+          setBusLine([]);
+          setBusRouteId(null);
+          finish();
+          return;
+        }
+        const ids = result.data.stops.flatMap((stop) => stop.routes.map((item) => item.id)).filter((id) => id.length > 0);
+        const nextId = previousRouteId && ids.includes(previousRouteId) ? previousRouteId : (ids[0] ?? null);
+        if (!nextId) {
+          setBusLine([]);
+          setBusRouteId(null);
+          finish();
+          return;
+        }
+        const lineResult = await busRouteLineAction(nextId);
+        if (!still()) {
+          finish();
+          return;
+        }
+        if (!lineResult.ok) {
+          setError(lineResult.message);
+          finish();
+          return;
+        }
+        setBusRouteId(nextId);
+        setBusLine(lineResult.data.length >= 2 ? lineResult.data : []);
+        finish();
+      });
+      return;
+    }
+    void travelAction(from, to, mode).then((result) => {
+      if (!still()) {
+        finish();
+        return;
+      }
+      if (!result.ok) {
+        setError(result.message);
+        finish();
+        return;
+      }
+      if (result.data.line.length >= 2) setRoute(result.data);
+      else setRoute(null);
+      finish();
+    });
+  }, [following, here, drawnLine, travel, target, busRouteId]);
 
   useEffect(() => {
     if (!guiding || !target) return;
     let alive = true;
-      if (travel === "bus") {
+    stopNavigation();
+    if (travel === "bus") {
       setPending("bus");
       setRoute(null);
       setBusLine([]);
       setBusRouteId(null);
-      setFollowing(false);
       void busGuideAction(target).then((result) => {
         if (!alive) return;
         setPending(null);
@@ -245,9 +383,10 @@ export function MapBoard({
         line={drawnLine}
         followSegments={followSegments}
         following={following}
+        here={here}
+        speed={speed}
         mapboxToken={mapboxToken}
         onSelect={choose}
-        onFollowEnd={() => setFollowing(false)}
         onClear={() => {
           setSelected(null);
           setGuiding(false);
@@ -255,7 +394,7 @@ export function MapBoard({
           setBus(null);
           setBusLine([]);
           setBusRouteId(null);
-          setFollowing(false);
+          stopNavigation();
         }}
       />
       <div className="absolute right-2 top-2 z-20 w-[22rem] max-w-[calc(100%-1rem)]">
@@ -302,7 +441,7 @@ export function MapBoard({
                     setBus(null);
                     setBusLine([]);
                     setBusRouteId(null);
-                    setFollowing(false);
+                    stopNavigation();
                   }}
                 >
                   닫기
@@ -341,12 +480,13 @@ export function MapBoard({
                   ) : null}
                   {travel !== "bus" && route ? <p className="leading-relaxed">{routeSummary(route) || "길을 찾았습니다."}</p> : null}
                   {travel !== "bus" && pending === "route" ? <p className="leading-relaxed">길을 찾고 있습니다.</p> : null}
+                  {rerouting ? <p className="leading-relaxed">재탐색</p> : null}
                   <button
                     type="button"
                     className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white disabled:bg-[#e5e7eb] disabled:text-[#6b7280]"
                     disabled={!canFollow}
                     aria-pressed={following}
-                    onClick={() => setFollowing((value) => !value)}
+                    onClick={() => (following ? stopNavigation() : beginNavigation())}
                   >
                     {following ? "따라가는 중" : "따라가기"}
                   </button>
@@ -478,43 +618,6 @@ function ModeButton({
   );
 }
 
-function followPath(segments: readonly RouteSegment[]): Array<{ lat: number; lon: number; distance: number; speedMps: number | null; segment: number }> {
-  const samples: Array<{ lat: number; lon: number; distance: number; speedMps: number | null; segment: number }> = [];
-  let distance = 0;
-  segments.forEach((segment, segmentIndex) => {
-    if (segment.line.length < 2) return;
-    segment.line.forEach((point, index) => {
-      if (index > 0) {
-        const previous = segment.line[index - 1];
-        if (previous) distance += metersBetween(previous, point);
-      }
-      const last = samples[samples.length - 1];
-      if (last && last.lat === point.lat && last.lon === point.lon) return;
-      samples.push({ lat: point.lat, lon: point.lon, distance, speedMps: segment.speedMps, segment: segmentIndex });
-    });
-  });
-  return samples;
-}
-
-function placeAtDistance(
-  samples: readonly { lat: number; lon: number; distance: number; speedMps: number | null; segment: number }[],
-  target: number,
-): { lat: number; lon: number; speedMps: number | null; segment: number } {
-  let index = 1;
-  while (index < samples.length - 1 && (samples[index]?.distance ?? 0) < target) index += 1;
-  const previous = samples[index - 1] ?? samples[0];
-  const next = samples[index] ?? previous;
-  if (!previous || !next) return { lat: 0, lon: 0, speedMps: null, segment: 0 };
-  const span = next.distance - previous.distance;
-  const ratio = span > 0 ? Math.min(1, Math.max(0, (target - previous.distance) / span)) : 0;
-  return {
-    lat: previous.lat + (next.lat - previous.lat) * ratio,
-    lon: previous.lon + (next.lon - previous.lon) * ratio,
-    speedMps: next.speedMps,
-    segment: next.segment,
-  };
-}
-
 function MapCanvas({
   places,
   churches,
@@ -523,9 +626,10 @@ function MapCanvas({
   line,
   followSegments,
   following,
+  here,
+  speed,
   mapboxToken,
   onSelect,
-  onFollowEnd,
   onClear,
 }: {
   places: PlaceHit[];
@@ -535,24 +639,26 @@ function MapCanvas({
   line: MapPoint[];
   followSegments: RouteSegment[];
   following: boolean;
+  here: MapPoint | null;
+  speed: number | null;
   mapboxToken: string;
   onSelect: (selected: Selected) => void;
-  onFollowEnd: () => void;
   onClear: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("mapbox-gl").Map | null>(null);
   const markersRef = useRef<import("mapbox-gl").Marker[]>([]);
+  const hereMarkerRef = useRef<import("mapbox-gl").Marker | null>(null);
   const selectRef = useRef(onSelect);
   const clearRef = useRef(onClear);
-  const followEndRef = useRef(onFollowEnd);
   const followingRef = useRef(following);
+  const lineCountRef = useRef(line.length);
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState("");
   selectRef.current = onSelect;
   clearRef.current = onClear;
-  followEndRef.current = onFollowEnd;
   followingRef.current = following;
+  lineCountRef.current = line.length;
 
   useEffect(() => {
     let alive = true;
@@ -575,8 +681,8 @@ function MapCanvas({
           },
           layers: [{ id: "modl", type: "raster", source: "modl" }],
         },
-        center: [127.8, 36.4],
-        zoom: 6,
+        center: [(JEJU_VIEW.west + JEJU_VIEW.east) / 2, (JEJU_VIEW.south + JEJU_VIEW.north) / 2],
+        zoom: 9,
       });
       map.on("click", (event) => {
         const target = event.originalEvent.target;
@@ -588,6 +694,8 @@ function MapCanvas({
       });
       map.on("load", () => {
         if (!alive || !map) return;
+        const bounds = new mapboxgl.LngLatBounds([JEJU_VIEW.west, JEJU_VIEW.south], [JEJU_VIEW.east, JEJU_VIEW.north]);
+        map.fitBounds(bounds, { padding: 48, duration: 0 });
         mapRef.current = map;
         setReady(true);
       });
@@ -596,6 +704,8 @@ function MapCanvas({
       alive = false;
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
+      hereMarkerRef.current?.remove();
+      hereMarkerRef.current = null;
       map?.remove();
       mapRef.current = null;
     };
@@ -654,6 +764,34 @@ function MapCanvas({
   }, [ready, churches, pickups, places, selected, line]);
 
   useEffect(() => {
+    if (!ready) return;
+    const map = mapRef.current;
+    if (!map) return;
+    if (!here) {
+      hereMarkerRef.current?.remove();
+      hereMarkerRef.current = null;
+      return;
+    }
+    const point = here;
+    void import("mapbox-gl").then((mod) => {
+      if (!mapRef.current) return;
+      if (hereMarkerRef.current) {
+        hereMarkerRef.current.setLngLat([point.lon, point.lat]);
+        return;
+      }
+      const spot = document.createElement("div");
+      spot.setAttribute("aria-label", "내 위치");
+      spot.style.width = "18px";
+      spot.style.height = "18px";
+      spot.style.borderRadius = "999px";
+      spot.style.background = "#16a34a";
+      spot.style.border = "3px solid #ffffff";
+      spot.style.boxShadow = "0 0 0 2px #166534";
+      hereMarkerRef.current = new mod.default.Marker({ element: spot }).setLngLat([point.lon, point.lat]).addTo(mapRef.current);
+    });
+  }, [ready, here]);
+
+  useEffect(() => {
     if (!ready || !selected || followingRef.current) return;
     const map = mapRef.current;
     const point =
@@ -665,67 +803,58 @@ function MapCanvas({
   }, [ready, selected, churches, places, pickups]);
 
   useEffect(() => {
+    if (!ready || followingRef.current || line.length >= 2) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const view = here ? radiusView(here, HERE_RADIUS_METERS) : JEJU_VIEW;
+    void import("mapbox-gl").then((mod) => {
+      if (!mapRef.current || followingRef.current || lineCountRef.current >= 2) return;
+      const next = new mod.default.LngLatBounds([view.west, view.south], [view.east, view.north]);
+      mapRef.current.fitBounds(next, { padding: 48, duration: 0 });
+    });
+  }, [ready, here, line.length]);
+
+  useEffect(() => {
     if (!ready || followingRef.current || line.length < 2) return;
     const map = mapRef.current;
     if (!map) return;
     void import("mapbox-gl").then((mod) => {
-      if (followingRef.current) return;
+      if (!mapRef.current || followingRef.current) return;
       const bounds = new mod.default.LngLatBounds();
       for (const point of line) bounds.extend([point.lon, point.lat]);
-      map.fitBounds(bounds, { padding: { top: 60, bottom: 60, left: 60, right: map.getContainer().clientWidth > 800 ? 360 : 24 } });
+      const width = mapRef.current.getContainer().clientWidth;
+      mapRef.current.fitBounds(bounds, { padding: { top: 60, bottom: 60, left: 60, right: width > 800 ? 360 : 24 } });
     });
   }, [ready, line]);
 
   useEffect(() => {
-    if (!ready || !following) return;
+    if (!ready || !following || !here) return;
     const map = mapRef.current;
-    const samples = followPath(followSegments);
-    const total = samples[samples.length - 1]?.distance ?? 0;
-    if (!map || samples.length < 2 || total <= 0) {
-      followEndRef.current();
-      return;
-    }
-    let alive = true;
-    let frame = 0;
-    const started = performance.now();
+    if (!map) return;
+    const point = here;
+    const reading = speed;
     void import("mapbox-gl").then((mod) => {
-      if (!alive) return;
+      if (!mapRef.current || !followingRef.current) return;
       const mapboxgl = mod.default;
-      const tick = (now: number) => {
-        if (!alive || !mapRef.current) return;
-        const t = Math.min(1, (now - started) / 18000);
-        const place = placeAtDistance(samples, total * t);
-        const slowLine = place.speedMps !== null && place.speedMps <= 3 ? followSegments[place.segment]?.line : undefined;
-        const bounds = new mapboxgl.LngLatBounds();
-        if (slowLine && slowLine.length >= 2) {
-          for (const point of slowLine) bounds.extend([point.lon, point.lat]);
-        } else {
-          const meters = followWindowMeters(place.speedMps);
-          const latDelta = meters / 111320;
-          const cos = Math.cos((place.lat * Math.PI) / 180);
-          const lonDelta = meters / (111320 * (Math.abs(cos) < 0.2 ? 0.2 : cos));
-          bounds.extend([place.lon - lonDelta, place.lat - latDelta]);
-          bounds.extend([place.lon + lonDelta, place.lat + latDelta]);
-        }
-        const width = map.getContainer().clientWidth;
-        map.fitBounds(bounds, {
-          padding: { top: 60, bottom: 60, left: 60, right: width > 800 ? 360 : 24 },
-          animate: false,
-          maxZoom: slowLine && slowLine.length >= 2 ? 17 : 16,
-        });
-        if (t >= 1) {
-          followEndRef.current();
-          return;
-        }
-        frame = requestAnimationFrame(tick);
-      };
-      frame = requestAnimationFrame(tick);
+      const width = mapRef.current.getContainer().clientWidth;
+      const padding = { top: 72, bottom: 72, left: 48, right: width > 800 ? 380 : 24 };
+      const index = nearestSegmentIndex(point, followSegments);
+      const segment = index >= 0 ? followSegments[index]?.line : undefined;
+      const slow = reading !== null && reading <= 3;
+      const bounds = new mapboxgl.LngLatBounds();
+      if (slow && segment && segment.length >= 2 && lineLengthMeters(segment) <= 800) {
+        for (const spot of segment) bounds.extend([spot.lon, spot.lat]);
+        bounds.extend([point.lon, point.lat]);
+        mapRef.current.fitBounds(bounds, { padding, animate: false, maxZoom: 17 });
+        return;
+      }
+      const meters = slow ? 160 : followWindowMeters(reading);
+      const view = radiusView(point, meters);
+      bounds.extend([view.west, view.south]);
+      bounds.extend([view.east, view.north]);
+      mapRef.current.fitBounds(bounds, { padding, animate: false, maxZoom: slow ? 17 : 16 });
     });
-    return () => {
-      alive = false;
-      cancelAnimationFrame(frame);
-    };
-  }, [ready, following, followSegments]);
+  }, [ready, following, here, speed, followSegments]);
 
   return (
     <div className="h-full">
