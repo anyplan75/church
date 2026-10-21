@@ -5,6 +5,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { followWindowMeters, distanceToLineMeters, HERE_RADIUS_METERS, JEJU_VIEW, lineLengthMeters, nearestSegmentIndex, OFF_ROUTE_METERS, radiusView } from "@/map/follow";
 import type { BusGuide } from "@/map/jeju-bus";
 import type { ChurchPin } from "@/map/church-sheet";
+import type { JejuCity } from "@/map/region";
 import { PLACE_KIND_LABEL, type MapPoint, type PlaceHit, type RouteResult, type RouteSegment } from "@/map/rules";
 import { busGuideAction, busRouteLineAction, searchPlacesAction, travelAction } from "@/server/map/actions";
 import { saveMyAddressAction, setPickupConsentAction } from "@/server/map/church-actions";
@@ -70,8 +71,13 @@ export function MapBoard({
   const [addressOpen, setAddressOpen] = useState(false);
   const [address, setAddress] = useState(self?.address ?? "");
   const [consented, setConsented] = useState(self?.consented ?? false);
+  const [city, setCity] = useState<"all" | JejuCity>("all");
+  const visibleChurches = useMemo(
+    () => (city === "all" ? churches : churches.filter((item) => item.region === city)),
+    [churches, city],
+  );
 
-  const church = selected?.type === "church" ? churches.find((item) => item.id === selected.id) ?? null : null;
+  const church = selected?.type === "church" ? visibleChurches.find((item) => item.id === selected.id) ?? null : null;
   const place = selected?.type === "place" ? places.find((item) => item.id === selected.id) ?? null : null;
   const pickup = selected?.type === "pickup" ? pickups.find((item) => item.id === selected.id) ?? null : null;
   const target = church?.point ?? place?.point ?? pickup?.point ?? null;
@@ -377,7 +383,7 @@ export function MapBoard({
       <h1 className="page-title absolute left-3 top-3 z-20 rounded-xl bg-white px-3 py-2 text-[clamp(1.22rem,1rem+0.5vw,1.6rem)] leading-tight shadow-md">지도</h1>
       <MapCanvas
         places={places}
-        churches={churches}
+        churches={visibleChurches}
         pickups={pickups}
         selected={selected}
         line={drawnLine}
@@ -399,6 +405,26 @@ export function MapBoard({
       />
       <div className="absolute right-2 top-2 z-20 w-[22rem] max-w-[calc(100%-1rem)]">
         <div className="overflow-hidden rounded-2xl bg-white shadow-md">
+          <div role="tablist" aria-label="지역" className="flex flex-wrap gap-1 border-b border-[#e5e7eb] px-2 py-2">
+            {(
+              [
+                ["all", "전체"],
+                ["제주시", "제주시"],
+                ["서귀포시", "서귀포시"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={city === id}
+                className={`rounded-full px-3 py-1.5 text-sm font-semibold ${city === id ? "bg-[#111827] text-white" : "text-[#475569]"}`}
+                onClick={() => setCity(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <form onSubmit={onSearch} className="flex gap-2 p-2">
             <label className="min-w-0 flex-1">
               <span className="sr-only">장소 검색</span>
@@ -453,6 +479,7 @@ export function MapBoard({
                     <Detail label="교회이름" value={church.name} />
                     <Detail label="담임목사" value={church.pastorName} />
                     <Detail label="주소" value={church.address} />
+                    <Detail label="지역" value={church.region ?? ""} />
                     <Detail label="전화번호" value={church.phone} />
                     <Detail label="주일 예배시간" value={church.serviceTime} />
                     <Detail label="메모" value={church.memo} />
@@ -540,9 +567,9 @@ export function MapBoard({
             </article>
           ) : null}
         </div>
-        {churches.length === 0 ? (
+        {visibleChurches.length === 0 ? (
           <p className="mt-2 rounded-2xl bg-white/95 px-4 py-2 text-sm leading-relaxed shadow-md">
-            {hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다."}
+            {churches.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "이 지역의 교회 핀이 없습니다."}
           </p>
         ) : null}
         {error ? (

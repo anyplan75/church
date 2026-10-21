@@ -15,14 +15,13 @@ export const CATEGORY_MENUS = [
     items: [
       { href: "/finance", label: "재정" },
       { href: "/minutes", label: "회의록" },
-      { href: "/archive", label: "행사자료" },
-      { href: "/quiz", label: "퀴즈" },
-      { href: "/leader", label: "리더" },
     ],
   },
   {
     label: "연결",
     items: [
+      { href: "/archive", label: "행사자료" },
+      { href: "/quiz", label: "퀴즈" },
       { href: "/website", label: "웹사이트" },
       { href: "/map", label: "지도" },
     ],

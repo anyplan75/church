@@ -7,6 +7,7 @@
 import { and, eq } from "drizzle-orm";
 import { canSeePickupPin } from "@/map/access";
 import { type ChurchInput, type ChurchPin, type ChurchRecord, parseChurchRows } from "@/map/church-sheet";
+import { cityFromStored, regionFromAddress } from "@/map/region";
 import type { MapPoint } from "@/map/rules";
 import { formalMembership } from "@/server/auth/membership";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
@@ -133,6 +134,7 @@ export async function loadMapBoard(): Promise<MapBoardData> {
         serviceTime: row.serviceTime,
         memo: row.memo,
         point,
+        region: cityFromStored(row.sido, row.district, row.regionId),
       },
     ];
   });
@@ -177,6 +179,7 @@ export async function loadChurchSettings(): Promise<ChurchSettings> {
       serviceTime: row.serviceTime,
       memo: row.memo,
       pinned: Boolean(row.address.trim() && finitePoint(row.lat, row.lon)),
+      region: cityFromStored(row.sido, row.district, row.regionId),
     })),
   };
 }
@@ -207,6 +210,7 @@ async function writeChurch(communityId: string, church: ChurchInput, churchId: s
     church.address,
     existing ? { address: existing.address, lat: existing.lat, lon: existing.lon } : null,
   );
+  const region = regionFromAddress(church.address);
   const values = {
     name: church.name,
     pastorName: church.pastorName,
@@ -216,6 +220,9 @@ async function writeChurch(communityId: string, church: ChurchInput, churchId: s
     memo: church.memo,
     lat: located.point?.lat ?? null,
     lon: located.point?.lon ?? null,
+    sido: region?.sido ?? null,
+    district: region?.district ?? null,
+    regionId: region?.regionId ?? null,
     updatedAt: new Date(),
   };
   if (existing) {

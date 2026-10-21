@@ -5,7 +5,8 @@ import { z } from "zod";
 import { createSurvey, loadSurveyDesk, readableSurveyError, submitSurvey, SurveyFlowError } from "@/server/survey/service";
 
 function fail(path: string, error: unknown): never {
-  redirect(`${path}?error=${encodeURIComponent(readableSurveyError(error))}`);
+  const join = path.includes("?") ? "&" : "?";
+  redirect(`${path}${join}error=${encodeURIComponent(readableSurveyError(error))}`);
 }
 
 function text(formData: FormData, key: string): string {
@@ -27,13 +28,13 @@ export async function createSurveyAction(formData: FormData) {
       allowAnonymous: formData.get("allowAnonymous") === "yes",
       deadline: text(formData, "deadline"),
     });
-  if (!parsed.success) fail("/account", new SurveyFlowError(parsed.error.issues[0]?.message ?? "설문을 확인해 주세요."));
+  if (!parsed.success) fail("/account?tab=survey", new SurveyFlowError(parsed.error.issues[0]?.message ?? "설문을 확인해 주세요."));
   try {
     await createSurvey(parsed.data);
   } catch (error) {
-    fail("/account", error);
+    fail("/account?tab=survey", error);
   }
-  redirect("/account?ok=survey");
+  redirect("/account?tab=survey&ok=survey");
 }
 
 export async function submitSurveyAction(formData: FormData) {

@@ -11,8 +11,9 @@ function messageOf(error: unknown): string {
   return "교회 목록을 저장하지 못했습니다.";
 }
 
-function fail(error: unknown): never {
-  redirect(`/account?error=${encodeURIComponent(messageOf(error))}`);
+function fail(error: unknown, tab = ""): never {
+  const where = tab ? `/account?tab=${tab}&` : "/account?";
+  redirect(`${where}error=${encodeURIComponent(messageOf(error))}`);
 }
 
 function text(formData: FormData, key: string): string {
@@ -38,44 +39,44 @@ export async function saveChurchAction(formData: FormData) {
     serviceTime: text(formData, "serviceTime"),
     memo: text(formData, "memo"),
   });
-  if (!parsed.success) fail(new MapServiceError(parsed.error.issues[0]?.message ?? "교회를 확인해 주세요."));
+  if (!parsed.success) fail(new MapServiceError(parsed.error.issues[0]?.message ?? "교회를 확인해 주세요."), "church");
   const churchId = text(formData, "churchId");
   let missed = false;
   try {
     const saved = await saveChurch({ ...parsed.data, churchId: churchId || null });
     missed = saved.missed;
   } catch (error) {
-    fail(error);
+    fail(error, "church");
   }
-  redirect(missed ? "/account?ok=missed" : "/account?ok=church");
+  redirect(missed ? "/account?tab=church&ok=missed" : "/account?tab=church&ok=church");
 }
 
 export async function removeChurchAction(formData: FormData) {
   const churchId = text(formData, "churchId");
-  if (!churchId) fail(new MapServiceError("지울 교회를 찾지 못했습니다."));
+  if (!churchId) fail(new MapServiceError("지울 교회를 찾지 못했습니다."), "church");
   try {
     await removeChurch(churchId);
   } catch (error) {
-    fail(error);
+    fail(error, "church");
   }
-  redirect("/account?ok=removed");
+  redirect("/account?tab=church&ok=removed");
 }
 
 export async function importChurchSheetAction(formData: FormData) {
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) fail(new MapServiceError("엑셀 파일을 골라 주세요."));
-  if (file.size > 2_000_000) fail(new MapServiceError("엑셀 파일은 2MB 안으로 올려 주세요."));
+  if (!(file instanceof File) || file.size === 0) fail(new MapServiceError("엑셀 파일을 골라 주세요."), "church");
+  if (file.size > 2_000_000) fail(new MapServiceError("엑셀 파일은 2MB 안으로 올려 주세요."), "church");
   const name = file.name.toLowerCase();
-  if (!name.endsWith(".xlsx")) fail(new MapServiceError("엑셀 파일은 .xlsx 만 받습니다."));
+  if (!name.endsWith(".xlsx")) fail(new MapServiceError("엑셀 파일은 .xlsx 만 받습니다."), "church");
   let result = { count: 0, missed: 0 };
   try {
     const rows = await readChurchSheet(new Uint8Array(await file.arrayBuffer()));
     result = await importChurchRows(rows);
   } catch (error) {
-    fail(error);
+    fail(error, "church");
   }
   const missed = result.missed > 0 ? `&missed=${result.missed}` : "";
-  redirect(`/account?ok=sheet&count=${result.count}${missed}`);
+  redirect(`/account?tab=church&ok=sheet&count=${result.count}${missed}`);
 }
 
 export async function saveMyAddressAction(address: string): Promise<{ ok: true } | { ok: false; message: string }> {

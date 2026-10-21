@@ -3,8 +3,8 @@
  * 이 일은 사역자만 합니다. 목록을 고치는 저장은 내용 검사를 거치지 않습니다.
  */
 
-import { asc, eq } from "drizzle-orm";
-import { normalizeBannedWord } from "@/moderation/match";
+import { asc } from "drizzle-orm";
+import { parseBannedWordField } from "@/moderation/word-field";
 import { formalMembership } from "@/server/auth/membership";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { bannedWords } from "@/server/db/schema";
@@ -34,12 +34,6 @@ async function requirePastor(): Promise<void> {
   }
 }
 
-function cleanWord(raw: string): string {
-  const word = normalizeBannedWord(raw);
-  if (!word) throw new BannedWordAdminError("금지어를 적어 주세요.");
-  if (word.length > 40) throw new BannedWordAdminError("금지어는 40자 안으로 적어 주세요.");
-  return word;
-}
 
 export async function loadBannedWordsForEditor(): Promise<
   { ok: true; words: Array<{ id: string; word: string }> } | { ok: false; message: string }
@@ -56,35 +50,20 @@ export async function loadBannedWordsForEditor(): Promise<
   return { ok: true, words: rows };
 }
 
-export async function addBannedWord(raw: string): Promise<void> {
+/** 칸에 적힌 쉼표 목록으로 금지어를 바꿉니다. 칸이 비면 목록도 비우고, 다시 심지 않습니다. */
+export async function saveBannedWordList(raw: string): Promise<void> {
   await requirePastor();
-  const word = cleanWord(raw);
+  const parsed = parseBannedWordField(raw);
+  if (!parsed.ok) throw new BannedWordAdminError(parsed.message);
+  const db = getDb();
   try {
-    await getDb().insert(bannedWords).values({ word });
+    await db.transaction(async (tx) => {
+      await tx.delete(bannedWords);
+      if (parsed.words.length === 0) return;
+      await tx.insert(bannedWords).values(parsed.words.map((word) => ({ word })));
+    });
   } catch (error) {
-    if (isUniqueViolation(error)) throw new BannedWordAdminError("이미 있는 말입니다.");
+    if (isUniqueViolation(error)) throw new BannedWordAdminError("같은 말이 겹칩니다.");
     throw error;
   }
-}
-
-export async function updateBannedWord(id: string, raw: string): Promise<void> {
-  await requirePastor();
-  const word = cleanWord(raw);
-  try {
-    const updated = await getDb()
-      .update(bannedWords)
-      .set({ word, updatedAt: new Date() })
-      .where(eq(bannedWords.id, id))
-      .returning({ id: bannedWords.id });
-    if (updated.length === 0) throw new BannedWordAdminError("금지어를 찾지 못했습니다.");
-  } catch (error) {
-    if (error instanceof BannedWordAdminError) throw error;
-    if (isUniqueViolation(error)) throw new BannedWordAdminError("이미 있는 말입니다.");
-    throw error;
-  }
-}
-
-export async function removeBannedWord(id: string): Promise<void> {
-  await requirePastor();
-  await getDb().delete(bannedWords).where(eq(bannedWords.id, id));
 }

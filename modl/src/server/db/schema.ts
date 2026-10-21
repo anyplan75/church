@@ -811,12 +811,29 @@ export const mapChurches = pgTable(
     memo: text("memo").notNull().default(""),
     lat: doublePrecision("lat"),
     lon: doublePrecision("lon"),
+    /** 통역 커뮤니티의 시/도. 모들에서는 제주만 두고, 모르면 비웁니다. */
+    sido: text("sido"),
+    /** 시군구. 제주시 또는 서귀포시만 두고, 주소가 애매하면 비웁니다. */
+    district: text("district"),
+    /** 시/도와 시군구를 붙인 지역 키. 예: 제주-제주시 */
+    regionId: text("region_id"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
     index("map_churches_community_id_idx").on(table.communityId),
     check("map_churches_name_not_blank", sql`length(btrim(${table.name})) > 0`),
+    check(
+      "map_churches_region_pair",
+      sql`(
+        (${table.sido} IS NULL AND ${table.district} IS NULL AND ${table.regionId} IS NULL)
+        OR (
+          ${table.sido} = '제주'
+          AND ${table.district} IN ('제주시', '서귀포시')
+          AND ${table.regionId} = ('제주-' || ${table.district})
+        )
+      )`,
+    ),
   ],
 );
 

@@ -1,15 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { addBannedWord, BannedWordAdminError, removeBannedWord, updateBannedWord } from "@/server/moderation/words";
+import { BannedWordAdminError, saveBannedWordList } from "@/server/moderation/words";
 
 function messageOf(error: unknown): string {
   if (error instanceof BannedWordAdminError || error instanceof Error) return error.message;
   return "금지어를 저장하지 못했습니다.";
-}
-
-function fail(error: unknown): never {
-  redirect(`/account?error=${encodeURIComponent(messageOf(error))}`);
 }
 
 function text(formData: FormData, key: string): string {
@@ -17,29 +13,11 @@ function text(formData: FormData, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
-export async function addBannedWordAction(formData: FormData) {
+export async function saveBannedWordsAction(formData: FormData) {
   try {
-    await addBannedWord(text(formData, "word"));
+    await saveBannedWordList(text(formData, "words"));
   } catch (error) {
-    fail(error);
+    redirect(`/account?tab=banned&error=${encodeURIComponent(messageOf(error))}`);
   }
-  redirect("/account?ok=banned");
-}
-
-export async function updateBannedWordAction(formData: FormData) {
-  try {
-    await updateBannedWord(text(formData, "wordId"), text(formData, "word"));
-  } catch (error) {
-    fail(error);
-  }
-  redirect("/account?ok=banned");
-}
-
-export async function removeBannedWordAction(formData: FormData) {
-  try {
-    await removeBannedWord(text(formData, "wordId"));
-  } catch (error) {
-    fail(error);
-  }
-  redirect("/account?ok=banned-removed");
+  redirect("/account?tab=banned&ok=banned");
 }

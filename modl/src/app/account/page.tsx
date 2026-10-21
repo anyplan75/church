@@ -1,10 +1,16 @@
+import type { ReactNode } from "react";
+import Link from "next/link";
 import { showsCommunitySettings, showsOwnPickup, showsPeopleSettings } from "@/account/access";
-import { CommunityAccountSettings, OwnPickupSettings, PeopleSettings, SurveyAccountSettings } from "@/components/account-settings";
+import { BannedWordSettings, OwnPickupSettings, PeopleWorkTab, SurveyAccountSettings } from "@/components/account-settings";
+import { ChurchSettingsPanel } from "@/components/church-settings-panel";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
 import { TermText } from "@/components/term-text";
 import { loginAction, logoutAction, signupAction } from "@/server/community/actions";
 import { loadAccountPage } from "@/server/community/service";
+import { loadChurchSettings } from "@/server/map/board";
+import { loadBannedWordsForEditor } from "@/server/moderation/words";
+import { loadSurveyDesk } from "@/server/survey/service";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +34,34 @@ function note(ok: string | undefined, count: string | undefined, missed: string 
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; ok?: string; count?: string; missed?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string; count?: string; missed?: string; tab?: string }>;
 }) {
   const query = await searchParams;
   const account = await loadAccountPage();
   const status = note(query.ok, query.count, query.missed);
+  const tabs: Array<{ id: string; label: string; panel: ReactNode }> = [];
+  if (account.user && showsPeopleSettings(account.role)) {
+    tabs.push(
+      { id: "roster", label: "교인", panel: <PeopleWorkTab href="/roster" title="교인" body="교인 목록을 보고 고칩니다." extraHref="/roster/new" extraLabel="교인 추가" /> },
+      { id: "group", label: "모임", panel: <PeopleWorkTab href="/group" title="모임" body="모임 편성을 보고 고칩니다." /> },
+      { id: "invite", label: "초대", panel: <PeopleWorkTab href="/invite" title="초대" body="초대 코드를 만들고 확인합니다." /> },
+      { id: "newcomer", label: "새가족", panel: <PeopleWorkTab href="/newcomer" title="새가족" body="새가족 안내 화면을 엽니다." /> },
+      { id: "approval", label: "승인", panel: <PeopleWorkTab href="/approvals" title="승인" body="가입과 답글 승인을 처리합니다." /> },
+    );
+  }
+  if (account.user) {
+    const desk = await loadSurveyDesk();
+    if (desk) tabs.push({ id: "survey", label: "설문", panel: <SurveyAccountSettings desk={desk} /> });
+  }
+  if (account.user && showsCommunitySettings(account.role)) {
+    const churches = await loadChurchSettings();
+    const banned = await loadBannedWordsForEditor();
+    if (churches.ok) tabs.push({ id: "church", label: "교회", panel: <ChurchSettingsPanel churches={churches.churches} /> });
+    if (banned.ok) {
+      tabs.push({ id: "banned", label: "금지어", panel: <BannedWordSettings words={banned.words.map((item) => item.word).join(", ")} /> });
+    }
+  }
+  const current = tabs.find((tab) => tab.id === query.tab) ?? tabs[0];
 
   return (
     <section className="grid gap-6">
@@ -48,17 +77,36 @@ export default async function AccountPage({
       ) : null}
       {account.user ? (
         <div className="grid gap-6">
-          <form action={logoutAction} className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
+          <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
             <p className="font-semibold leading-snug">{account.user.name}</p>
             {account.pendingCount > 0 ? (
               <p className="leading-relaxed text-[#5c5148]">가입 승인을 기다리는 공동체가 있습니다. 승인이 나기 전에는 정식 일을 할 수 없습니다.</p>
             ) : null}
+          </section>
+          {showsOwnPickup(account.role) ? <OwnPickupSettings /> : null}
+          {current ? (
+            <div className="grid gap-4">
+              <nav role="tablist" aria-label="계정 설정" data-testid="account-tabs" className="flex flex-wrap gap-2">
+                {tabs.map((tab) => (
+                  <Link
+                    key={tab.id}
+                    href={`/account?tab=${tab.id}`}
+                    role="tab"
+                    aria-selected={tab.id === current.id}
+                    className={`rounded-full px-3 py-2 text-sm font-semibold ${tab.id === current.id ? "bg-[#111827] text-white" : "bg-[#fffaf3] text-[#475569]"}`}
+                  >
+                    {tab.label}
+                  </Link>
+                ))}
+              </nav>
+              <div role="tabpanel" className="max-h-[32rem] overflow-y-auto">
+                {current.panel}
+              </div>
+            </div>
+          ) : null}
+          <form action={logoutAction} data-testid="account-logout" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
             <SubmitButton termKey="logout" />
           </form>
-          {showsOwnPickup(account.role) ? <OwnPickupSettings /> : null}
-          {showsPeopleSettings(account.role) ? <PeopleSettings /> : null}
-          <SurveyAccountSettings />
-          {showsCommunitySettings(account.role) ? <CommunityAccountSettings /> : null}
         </div>
       ) : (
         <div className="grid gap-6">

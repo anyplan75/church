@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { CATEGORY_LINKS } from "@/theme/categories";
+import { CATEGORY_LINKS, CATEGORY_MENUS } from "@/theme/categories";
 import { sidebarHrefs } from "@/theme/menu-access";
 
 describe("분류 메뉴", () => {
@@ -17,12 +17,20 @@ describe("분류 메뉴", () => {
     assert.equal(found.get("퀴즈"), "/quiz");
     assert.equal(found.get("웹사이트"), "/website");
     assert.equal(found.get("지도"), "/map");
-    assert.equal(found.get("리더"), "/leader");
+    assert.equal(found.get("리더"), undefined);
     assert.equal(found.get("교인"), undefined);
     assert.equal(found.get("승인"), undefined);
     assert.equal(found.get("설문"), undefined);
     assert.equal(found.get("기도 편지"), undefined);
     assert.equal(found.get("설정"), undefined);
+    assert.deepEqual(
+      CATEGORY_MENUS.map((group) => [group.label, group.items.map((item) => item.label)]),
+      [
+        ["예배", ["출석", "주보", "QT", "기도", "달력"]],
+        ["운영", ["재정", "회의록"]],
+        ["연결", ["행사자료", "퀴즈", "웹사이트", "지도"]],
+      ],
+    );
   });
 
   it("손님은 지도만 보고 구성원은 퀴즈와 행사자료를 봅니다", () => {
