@@ -18,12 +18,14 @@ export type ChurchPin = ChurchInput & {
   id: string;
   point: { lat: number; lon: number };
   region: "제주시" | "서귀포시" | null;
+  tags: string[];
 };
 
 export type ChurchRecord = ChurchInput & {
   id: string;
   pinned: boolean;
   region: "제주시" | "서귀포시" | null;
+  tags: string[];
 };
 
 function cell(row: readonly string[], index: number): string {

@@ -821,6 +821,8 @@ export const mapChurches = pgTable(
     district: text("district"),
     /** 시/도와 시군구를 붙인 지역 키. 예: 제주-제주시 */
     regionId: text("region_id"),
+    /** 사람이 수정 화면에서 켠 태그입니다. 주소로 채우지 않습니다. */
+    tags: jsonb("tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

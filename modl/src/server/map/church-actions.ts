@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { normalizeChurchTags } from "@/map/church-tags";
 import { importChurchRows, removeChurch, saveChurch, saveMyAddress, setPickupConsent } from "@/server/map/board";
 import { MapServiceError } from "@/server/map/service";
 import { readChurchSheet } from "@/server/map/sheet";
@@ -43,7 +44,8 @@ export async function saveChurchAction(formData: FormData) {
   const churchId = text(formData, "churchId");
   let missed = false;
   try {
-    const saved = await saveChurch({ ...parsed.data, churchId: churchId || null });
+    const tags = normalizeChurchTags(formData.getAll("tags").flatMap((value) => (typeof value === "string" ? [value] : [])));
+    const saved = await saveChurch({ ...parsed.data, churchId: churchId || null, tags });
     missed = saved.missed;
   } catch (error) {
     fail(error, "church");

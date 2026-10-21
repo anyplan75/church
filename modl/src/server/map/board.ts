@@ -7,6 +7,7 @@
 import { and, eq } from "drizzle-orm";
 import { canSeePickupPin } from "@/map/access";
 import { type ChurchInput, type ChurchPin, type ChurchRecord, parseChurchRows } from "@/map/church-sheet";
+import { normalizeChurchTags, type ChurchTag } from "@/map/church-tags";
 import { cityFromStored, regionFromAddress } from "@/map/region";
 import type { MapPoint } from "@/map/rules";
 import { formalMembership } from "@/server/auth/membership";
@@ -135,6 +136,7 @@ export async function loadMapBoard(): Promise<MapBoardData> {
         memo: row.memo,
         point,
         region: cityFromStored(row.sido, row.district, row.regionId),
+        tags: normalizeChurchTags(row.tags),
       },
     ];
   });
@@ -181,12 +183,13 @@ export async function loadChurchSettings(): Promise<ChurchSettings> {
         memo: row.memo,
         pinned: Boolean(row.address.trim() && finitePoint(row.lat, row.lon)),
         region: cityFromStored(row.sido, row.district, row.regionId),
+        tags: normalizeChurchTags(row.tags),
       }))
       .sort((left, right) => left.name.localeCompare(right.name, "ko")),
   };
 }
 
-async function writeChurch(communityId: string, church: ChurchInput, churchId: string | null): Promise<boolean> {
+async function writeChurch(communityId: string, church: ChurchInput, churchId: string | null, tags?: ChurchTag[]): Promise<boolean> {
   await assertTextsAllowed(church.name, church.pastorName, church.address, church.phone, church.serviceTime, church.memo);
   const db = getDb();
   const byId = churchId
@@ -226,6 +229,7 @@ async function writeChurch(communityId: string, church: ChurchInput, churchId: s
     district: region?.district ?? null,
     regionId: region?.regionId ?? null,
     updatedAt: new Date(),
+    ...(tags ? { tags } : {}),
   };
   if (existing) {
     await db.update(mapChurches).set(values).where(eq(mapChurches.id, existing.id));
@@ -235,10 +239,11 @@ async function writeChurch(communityId: string, church: ChurchInput, churchId: s
   return located.missed;
 }
 
-export async function saveChurch(input: ChurchInput & { churchId?: string | null }): Promise<{ missed: boolean }> {
+export async function saveChurch(input: ChurchInput & { churchId?: string | null; tags?: readonly string[] }): Promise<{ missed: boolean }> {
   const seen = await pastor();
   const church = cleanChurch(input);
-  const missed = await writeChurch(seen.communityId, church, input.churchId?.trim() || null);
+  const tags = normalizeChurchTags(input.tags ?? []);
+  const missed = await writeChurch(seen.communityId, church, input.churchId?.trim() || null, tags);
   return { missed };
 }
 
