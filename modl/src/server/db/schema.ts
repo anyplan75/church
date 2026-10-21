@@ -301,6 +301,10 @@ export const bulletins = pgTable(
       .notNull()
       .references(() => communities.id, { onDelete: "cascade" }),
     worshipDate: date("worship_date").notNull(),
+    /** 주보에서 읽은 예배 이름. 1부, 2부, 3부와 새벽·수요·금요·특별입니다. */
+    serviceLabel: text("service_label").notNull().default(""),
+    /** 주보에서 읽은 시각. 글에 시각이 없으면 그 예배 종류의 기본 시각입니다. */
+    serviceTime: text("service_time").notNull().default(""),
     sermonTitle: text("sermon_title").notNull(),
     scriptureText: text("scripture_text").notNull(),
     preacher: text("preacher").notNull(),

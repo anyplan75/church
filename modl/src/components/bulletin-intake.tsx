@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { bulletinAccept, bulletinFormatNote, type IntakeFields } from "@/bulletin/intake";
+import { bulletinAccept, bulletinFormatNote, type BulletinServiceDraft } from "@/bulletin/intake";
 import { readBulletinSourceAction } from "@/server/bulletin/read-source";
 
-export function BulletinIntake({ onApply }: { onApply: (fields: IntakeFields) => void }) {
+export function BulletinIntake({ onApply }: { onApply: (services: BulletinServiceDraft[]) => void }) {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -21,7 +21,7 @@ export function BulletinIntake({ onApply }: { onApply: (fields: IntakeFields) =>
       return;
     }
     setNote(result.note);
-    if (result.filled) onApply(result.fields);
+    if (result.filled) onApply(result.services);
   }
 
   return (

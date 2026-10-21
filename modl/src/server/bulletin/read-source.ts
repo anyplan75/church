@@ -6,7 +6,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { fieldsFromBulletinText, BULLETIN_UPLOAD_BYTES, type IntakeFields } from "@/bulletin/intake";
+import { servicesFromBulletinText, BULLETIN_UPLOAD_BYTES, type BulletinServiceDraft } from "@/bulletin/intake";
 import { canPublishBulletin } from "@/server/bulletin/access";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { readBulletinImage } from "@/server/bulletin/read/image";
@@ -17,7 +17,7 @@ import { assertTextsAllowed, BannedWordError } from "@/server/moderation/guard";
 export type BulletinReadResult =
   | { ok: false; message: string }
   | { ok: true; filled: false; note: string; fileHref: string | null }
-  | { ok: true; filled: true; note: string; fileHref: string | null; fields: IntakeFields };
+  | { ok: true; filled: true; note: string; fileHref: string | null; services: BulletinServiceDraft[] };
 
 const EMPTY_NOTE = "파일을 저장했습니다. 글을 읽지 못해 칸은 비워 둡니다.";
 
@@ -62,8 +62,8 @@ export async function readBulletinSourceAction(formData: FormData): Promise<Bull
     return { ok: false, message: "주보 내용을 붙여 넣거나 파일을 선택해 주세요." };
   }
   let serial = 0;
-  const fields = fieldsFromBulletinText(text, () => `read-${randomBytes(4).toString("hex")}-${serial++}`);
-  if (!fields) {
+  const services = servicesFromBulletinText(text, () => `read-${randomBytes(4).toString("hex")}-${serial++}`);
+  if (services.length === 0) {
     return {
       ok: true,
       filled: false,
@@ -71,5 +71,11 @@ export async function readBulletinSourceAction(formData: FormData): Promise<Bull
       fileHref,
     };
   }
-  return { ok: true, filled: true, note: "주보 글을 칸에 넣었습니다.", fileHref, fields };
+  return {
+    ok: true,
+    filled: true,
+    note: `주보에서 예배 ${services.length}개를 함께 읽었습니다.`,
+    fileHref,
+    services,
+  };
 }

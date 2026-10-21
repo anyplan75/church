@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { parseBlocks } from "@/bulletin/blocks";
-import { readableBulletinError, saveBulletin, unpublishBulletin } from "@/server/bulletin/service";
+import { parseBlocks, type BulletinBlock } from "@/bulletin/blocks";
+import { readableBulletinError, saveBulletin, saveBulletinWeek, unpublishBulletin } from "@/server/bulletin/service";
 
 function fail(path: string, error: unknown): never {
   redirect(`${path}?error=${encodeURIComponent(readableBulletinError(error))}`);
@@ -58,6 +58,58 @@ export async function saveBulletinAction(formData: FormData) {
     fail(back, error);
   }
   redirect(`/bulletin/${savedId}?ok=${intent === "publish" ? "published" : "saved"}`);
+}
+
+export async function saveBulletinWeekAction(formData: FormData) {
+  let raw: unknown = [];
+  try {
+    raw = JSON.parse(text(formData, "weekJson") || "[]");
+  } catch {
+    fail("/bulletin/new", new Error("이번 주 예배를 읽지 못했습니다. 다시 읽어 주세요."));
+  }
+  if (!Array.isArray(raw) || raw.length === 0) {
+    fail("/bulletin/new", new Error("저장할 예배가 없습니다."));
+  }
+  const services: Array<{
+    label: string;
+    time: string;
+    worshipDate: string;
+    sermonTitle: string;
+    scriptureText: string;
+    preacher: string;
+    blocks: BulletinBlock[];
+  }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") fail("/bulletin/new", new Error("이번 주 예배를 확인해 주세요."));
+    const row = item as Record<string, unknown>;
+    const parsed = z
+      .object({
+        label: z.string().trim().min(1, "예배 이름을 읽지 못했습니다.").max(80),
+        time: z.string().regex(/^$|^\d{2}:\d{2}$/, "예배 시각을 확인하지 못했습니다."),
+        worshipDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "예배 날짜를 주보에서 찾지 못했습니다."),
+        sermonTitle: z.string().max(200),
+        scriptureText: z.string().max(500),
+        preacher: z.string().max(120),
+      })
+      .safeParse({
+        label: typeof row.label === "string" ? row.label : "",
+        time: typeof row.time === "string" ? row.time : "",
+        worshipDate: typeof row.worshipDate === "string" ? row.worshipDate : "",
+        sermonTitle: typeof row.sermonTitle === "string" ? row.sermonTitle : "",
+        scriptureText: typeof row.scriptureText === "string" ? row.scriptureText : "",
+        preacher: typeof row.preacher === "string" ? row.preacher : "",
+      });
+    if (!parsed.success) fail("/bulletin/new", new Error(parsed.error.issues[0]?.message ?? "이번 주 예배를 확인해 주세요."));
+    const blocks = parseBlocks(row.blocks);
+    if (!blocks.ok) fail("/bulletin/new", new Error(blocks.message));
+    services.push({ ...parsed.data, blocks: blocks.blocks });
+  }
+  try {
+    await saveBulletinWeek(services);
+  } catch (error) {
+    fail("/bulletin/new", error);
+  }
+  redirect("/bulletin?ok=week");
 }
 
 export async function unpublishBulletinAction(formData: FormData) {

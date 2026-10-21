@@ -21,6 +21,11 @@ export default async function BulletinListPage({
       <TermHeading termKey="bulletin" level={1} />
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
+      {query.ok === "week" ? (
+        <p role="status" className="rounded-2xl bg-[#e7f3ec] px-4 py-3 leading-relaxed">
+          이번 주 예배를 함께 저장했습니다.
+        </p>
+      ) : null}
         <>
           <p className="leading-relaxed text-[#5c5148]">{page.communityName}</p>
           {page.canPublish ? (
@@ -45,9 +50,11 @@ export default async function BulletinListPage({
                     data-testid="bulletin-link"
                     className="grid gap-1 rounded-2xl bg-[#fffaf3] px-4 py-3 leading-snug"
                   >
-                    <span className="text-[#5c5148]">{bulletin.worshipDate}</span>
+                    <span className="text-[#5c5148]">
+                      {[bulletin.worshipDate, bulletin.serviceLabel, bulletin.serviceTime].filter(Boolean).join(" · ")}
+                    </span>
                     <span className="break-words font-semibold" data-testid="bulletin-title">
-                      {bulletin.sermonTitle}
+                      {bulletin.sermonTitle || bulletin.serviceLabel}
                     </span>
                   </Link>
                 </li>

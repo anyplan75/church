@@ -46,6 +46,11 @@ export default async function BulletinDetailPage({
       <TermHeading termKey="bulletin" level={1} />
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
+      {page.bulletin.serviceLabel ? (
+        <p className="font-semibold leading-snug">
+          {[page.bulletin.serviceLabel, page.bulletin.serviceTime].filter(Boolean).join(" ")}
+        </p>
+      ) : null}
       {page.canPublish ? (
         <>
           <BulletinEditor

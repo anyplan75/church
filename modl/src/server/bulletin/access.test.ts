@@ -25,10 +25,10 @@ function user(role: MemberRole, communityId = COMMUNITY): Actor {
 }
 
 const rows = [
-  { id: "old", communityId: COMMUNITY, isPublic: true, worshipDate: "2026-10-04", sermonTitle: "지난 말씀" },
-  { id: "draft", communityId: COMMUNITY, isPublic: false, worshipDate: "2026-10-25", sermonTitle: "아직 비공개" },
-  { id: "new", communityId: COMMUNITY, isPublic: true, worshipDate: "2026-10-18", sermonTitle: "이번 말씀" },
-  { id: "other", communityId: OTHER, isPublic: true, worshipDate: "2026-10-25", sermonTitle: "다른 교회" },
+  { id: "old", communityId: COMMUNITY, isPublic: true, worshipDate: "2026-10-04", sermonTitle: "지난 말씀", serviceLabel: "" },
+  { id: "draft", communityId: COMMUNITY, isPublic: false, worshipDate: "2026-10-25", sermonTitle: "아직 비공개", serviceLabel: "" },
+  { id: "new", communityId: COMMUNITY, isPublic: true, worshipDate: "2026-10-18", sermonTitle: "이번 말씀", serviceLabel: "주일 2부 예배" },
+  { id: "other", communityId: OTHER, isPublic: true, worshipDate: "2026-10-25", sermonTitle: "다른 교회", serviceLabel: "" },
 ];
 
 describe("주보 열람 권한", () => {

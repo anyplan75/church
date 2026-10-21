@@ -52,6 +52,8 @@ export type BulletinRecord = {
   id: string;
   communityId: string;
   worshipDate: string;
+  serviceLabel: string;
+  serviceTime: string;
   sermonTitle: string;
   scriptureText: string;
   preacher: string;
@@ -64,6 +66,8 @@ function toRecord(row: {
   id: string;
   communityId: string;
   worshipDate: string;
+  serviceLabel: string;
+  serviceTime: string;
   sermonTitle: string;
   scriptureText: string;
   preacher: string;
@@ -79,6 +83,8 @@ function toRecord(row: {
     id: row.id,
     communityId: row.communityId,
     worshipDate: row.worshipDate,
+    serviceLabel: row.serviceLabel,
+    serviceTime: row.serviceTime,
     sermonTitle: row.sermonTitle,
     scriptureText: row.scriptureText,
     preacher: row.preacher,
@@ -115,6 +121,7 @@ export async function loadBulletinList() {
       isPublic: row.isPublic,
       worshipDate: row.worshipDate,
       sermonTitle: row.sermonTitle,
+      serviceLabel: row.serviceLabel,
     })),
   );
   const byId = new Map(rows.map((row) => [row.id, row]));
@@ -127,6 +134,8 @@ export async function loadBulletinList() {
       return {
         id: item.id,
         worshipDate: item.worshipDate,
+        serviceLabel: item.serviceLabel,
+        serviceTime: row?.serviceTime ?? "",
         sermonTitle: item.sermonTitle,
         isPublic: item.isPublic,
         shareToken: row?.shareToken ?? null,
@@ -218,6 +227,54 @@ export async function saveBulletin(input: {
   return existing.id;
 }
 
+export async function saveBulletinWeek(
+  services: Array<{
+    label: string;
+    time: string;
+    worshipDate: string;
+    sermonTitle: string;
+    scriptureText: string;
+    preacher: string;
+    blocks: BulletinBlock[];
+  }>,
+) {
+  await ensureDatabase();
+  const actor = await loadActor();
+  const communityId = await requireCommunity(actor);
+  assertCan(actor, { type: "publish_bulletin", communityId });
+  if (services.length === 0) throw new BulletinFlowError("저장할 예배가 없습니다.");
+  const ready = services.map((service) => {
+    const parsed = parseBlocks(service.blocks);
+    if (!parsed.ok) throw new BulletinFlowError(parsed.message);
+    return { ...service, blocks: parsed.blocks };
+  });
+  await assertTextsAllowed(ready);
+  const db = getDb();
+  const ids = await db.transaction(async (tx) => {
+    const created: string[] = [];
+    for (const service of ready) {
+      const [row] = await tx
+        .insert(bulletins)
+        .values({
+          communityId,
+          worshipDate: service.worshipDate,
+          serviceLabel: service.label,
+          serviceTime: service.time,
+          sermonTitle: service.sermonTitle,
+          scriptureText: service.scriptureText,
+          preacher: service.preacher,
+          blocksJson: service.blocks,
+          isPublic: false,
+          shareToken: null,
+        })
+        .returning({ id: bulletins.id });
+      created.push(row.id);
+    }
+    return created;
+  });
+  return ids;
+}
+
 export async function unpublishBulletin(bulletinId: string) {
   await ensureDatabase();
   const actor = await loadActor();
@@ -264,6 +321,7 @@ export async function loadPublicBulletin(token: string): Promise<PublicBulletinP
   const [found] = await db
     .select({
       worshipDate: bulletins.worshipDate,
+      serviceLabel: bulletins.serviceLabel,
       sermonTitle: bulletins.sermonTitle,
       scriptureText: bulletins.scriptureText,
       preacher: bulletins.preacher,
@@ -288,7 +346,7 @@ export async function loadPublicBulletin(token: string): Promise<PublicBulletinP
   const parsed = parseBlocks(found.blocksJson);
   if (!parsed.ok) return null;
   const fields = {
-    title: found.sermonTitle.trim() || "주일 기별",
+    title: found.sermonTitle.trim() || found.serviceLabel.trim() || "주일 기별",
     description: [found.worshipDate, found.preacher.trim(), found.scriptureText.trim()]
       .filter((part) => part.length > 0)
       .join(" · ")

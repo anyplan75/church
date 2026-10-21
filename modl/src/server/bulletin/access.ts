@@ -12,6 +12,7 @@ export type BulletinListRow = {
   isPublic: boolean;
   worshipDate: string;
   sermonTitle: string;
+  serviceLabel: string;
 };
 
 export function bulletinsForActor(

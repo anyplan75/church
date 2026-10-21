@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { createBlock, moveBlock, safeScoreUrl, type BlockType, type BulletinBlock } from "@/bulletin/blocks";
-import type { IntakeFields } from "@/bulletin/intake";
+import type { BulletinServiceDraft } from "@/bulletin/intake";
+import { saveBulletinWeekAction } from "@/server/bulletin/actions";
 import { BulletinIntake } from "@/components/bulletin-intake";
 import { TermText } from "@/components/term-text";
 import { useCommunityTerm } from "@/components/use-community-term";
@@ -44,8 +45,15 @@ export function BulletinEditor({
   const [title, setTitle] = useState(sermonTitle);
   const [scripture, setScripture] = useState(scriptureText);
   const [speaker, setSpeaker] = useState(preacher);
+  const [week, setWeek] = useState<BulletinServiceDraft[] | null>(null);
 
-  function applyIntake(fields: IntakeFields) {
+  function applyIntake(services: BulletinServiceDraft[]) {
+    if (!bulletinId && services.length > 0) {
+      setWeek(services);
+      return;
+    }
+    const fields = services[0];
+    if (!fields) return;
     if (fields.worshipDate) setDate(fields.worshipDate);
     setTitle(fields.sermonTitle);
     setScripture(fields.scriptureText);
@@ -64,6 +72,33 @@ export function BulletinEditor({
   return (
     <div className="grid gap-4">
       <BulletinIntake onApply={applyIntake} />
+      {week ? (
+        <form action={saveBulletinWeekAction} className="grid gap-4" data-testid="bulletin-week">
+          <input type="hidden" name="weekJson" value={JSON.stringify(week)} />
+          <h2 className="font-semibold leading-snug">이번 주 예배</h2>
+          <p className="leading-relaxed text-[#5c5148]">한 번 읽은 예배 {week.length}개입니다. 글에 없는 순서는 넣지 않았습니다.</p>
+          <ol className="grid gap-3">
+            {week.map((service) => {
+              const order = service.blocks.find((block) => block.type === "order");
+              const labels = order?.type === "order" ? order.items.map((item) => item.label) : [];
+              return (
+                <li key={`${service.label}-${service.worshipDate}-${service.time}`} className="grid gap-1 rounded-3xl bg-[#fffaf3] px-4 py-4">
+                  <p className="font-semibold leading-snug">
+                    {service.label} {service.time}
+                  </p>
+                  <p className="leading-relaxed text-[#5c5148]">{service.worshipDate || "날짜를 읽지 못했습니다."}</p>
+                  {service.sermonTitle ? <p className="leading-relaxed">{service.sermonTitle}</p> : null}
+                  {labels.length > 0 ? <p className="leading-relaxed">{labels.join(" · ")}</p> : null}
+                </li>
+              );
+            })}
+          </ol>
+          <button type="submit" className="w-fit rounded-2xl bg-[#1d6b45] px-4 py-3 font-semibold leading-snug text-white">
+            이번 주 저장
+          </button>
+        </form>
+      ) : null}
+      {week ? null : (
       <form action={action} id="bulletin-form" className="grid gap-4">
       {bulletinId ? <input type="hidden" name="bulletinId" value={bulletinId} /> : null}
       <input type="hidden" name="blocksJson" value={JSON.stringify(items)} />
@@ -125,6 +160,7 @@ export function BulletinEditor({
         <IntentButton termKey="bulletin_publish" intent="publish" primary />
       </div>
       </form>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { fieldsFromBulletinText } from "@/bulletin/intake";
+import { BULLETIN_PART_MAX, fieldsFromBulletinText, servicesFromBulletinText } from "@/bulletin/intake";
 
 const text = `2026년 10월 11일
 주일찬양예배 오후 2:00
@@ -38,5 +38,45 @@ describe("주보 글 나누기", () => {
   it("예배 구분이 없으면 칸을 만들지 않습니다", () => {
     assert.equal(fieldsFromBulletinText("1부\n묵도\n축도", () => "x"), null);
     assert.equal(fieldsFromBulletinText("", () => "x"), null);
+    assert.equal(servicesFromBulletinText("1부\n묵도\n1부 정종옥 권사 2부 박준호 장로\n축도", () => "x").length, 0);
+  });
+
+  it("한 번 읽으면 그 주 예배를 함께 만들고 없는 순서는 넣지 않습니다", () => {
+    let n = 0;
+    const services = servicesFromBulletinText(
+      `2026년 10월 18일 주일
+1부 예배 오전 9:00
+묵도
+찬송 28장
+축도
+2부 예배 오전 11:00
+설교 다시 모인 자리
+축도
+2026년 10월 21일
+수요기도회 오후 7:00
+기도 김순 집사
+축도
+4부 예배 오후 3:00`,
+      () => `id-${n++}`,
+    );
+    assert.equal(BULLETIN_PART_MAX, 3);
+    assert.deepEqual(
+      services.map((service) => service.label),
+      ["주일 1부 예배", "주일 2부 예배", "수요기도회"],
+    );
+    assert.deepEqual(
+      services.map((service) => service.time),
+      ["09:00", "11:00", "19:00"],
+    );
+    assert.equal(services[0]?.worshipDate, "2026-10-18");
+    assert.equal(services[2]?.worshipDate, "2026-10-21");
+    const firstOrder = services[0]?.blocks.find((block) => block.type === "order");
+    const labels = firstOrder?.type === "order" ? firstOrder.items.map((item) => item.label) : [];
+    assert.deepEqual(labels, ["묵도", "찬송", "축도"]);
+    const secondOrder = services[1]?.blocks.find((block) => block.type === "order");
+    const secondLabels = secondOrder?.type === "order" ? secondOrder.items.map((item) => item.label) : [];
+    assert.deepEqual(secondLabels, ["설교", "축도"]);
+    assert.equal(services[1]?.sermonTitle, "다시 모인 자리");
+    assert.equal(services.some((service) => service.label.includes("4부")), false);
   });
 });
