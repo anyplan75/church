@@ -5,5 +5,14 @@ export const dynamic = "force-dynamic";
 
 export default async function MapPage() {
   const board = await loadMapBoard();
-  return <MapBoard churches={board.churches} pickups={board.pickups} self={board.self} hasChurches={board.hasChurches} />;
+  const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN?.trim() ?? "";
+  return (
+    <MapBoard
+      churches={board.churches}
+      pickups={board.pickups}
+      self={board.self}
+      hasChurches={board.hasChurches}
+      mapboxToken={mapboxToken}
+    />
+  );
 }

@@ -28,11 +28,13 @@ export function MapBoard({
   pickups,
   self,
   hasChurches,
+  mapboxToken,
 }: {
   churches: ChurchPin[];
   pickups: PickupPin[];
   self: MapSelf | null;
   hasChurches: boolean;
+  mapboxToken: string;
 }) {
   const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<PlaceHit[]>([]);
@@ -298,6 +300,7 @@ export function MapBoard({
           route={route}
           churches={churches}
           pickups={pickups}
+          mapboxToken={mapboxToken}
           onClick={clickMap}
         />
         <p className="leading-relaxed text-[#4b5563]">지도: 맵박스</p>
@@ -371,6 +374,7 @@ function MapCanvas({
   route,
   churches,
   pickups,
+  mapboxToken,
   onClick,
 }: {
   places: PlaceHit[];
@@ -382,6 +386,7 @@ function MapCanvas({
   route: RouteResult | null;
   churches: ChurchPin[];
   pickups: PickupPin[];
+  mapboxToken: string;
   onClick: (point: MapPoint) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -398,6 +403,7 @@ function MapCanvas({
     void import("mapbox-gl").then((mod) => {
       if (!alive || !host.current || mapRef.current) return;
       const mapboxgl = mod.default;
+      if (mapboxToken) mapboxgl.accessToken = mapboxToken;
       map = new mapboxgl.Map({
         container: host.current,
         style: {
@@ -434,7 +440,7 @@ function MapCanvas({
       map?.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [mapboxToken]);
 
   useEffect(() => {
     if (!ready) return;
