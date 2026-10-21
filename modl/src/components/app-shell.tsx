@@ -69,7 +69,14 @@ export function AppShell({
             </div>
           </nav>
         ) : null}
-        <main id="modl-main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 md:px-6 md:py-8">
+        <main
+          id="modl-main"
+          className={
+            pathname === "/map"
+              ? "relative min-h-0 w-full flex-1"
+              : "mx-auto w-full max-w-3xl flex-1 px-4 py-6 md:px-6 md:py-8"
+          }
+        >
           {children}
         </main>
       </div>

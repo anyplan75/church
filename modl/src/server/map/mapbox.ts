@@ -5,7 +5,7 @@
  */
 
 import { MAPBOX_ALLOWED_ORIGIN } from "@/map/origin";
-import { parseMapboxGeocode, type MapPoint } from "@/map/rules";
+import { parseMapboxGeocode, parseRoute, type MapPoint, type RouteResult } from "@/map/rules";
 import { MapServiceError } from "@/server/map/service";
 
 function mapboxToken(): string {
@@ -39,4 +39,37 @@ export async function geocodeAddress(query: string): Promise<MapPoint | null> {
   } catch {
     throw new MapServiceError("지도 응답을 읽지 못했습니다.");
   }
+}
+
+export type MapboxTravel = "car" | "walk";
+
+/** 자동차 또는 도보 길을 맵박스 응답으로만 가져옵니다. 없으면 선을 만들지 않습니다. */
+export async function routeOnMapbox(start: MapPoint, end: MapPoint, mode: MapboxTravel): Promise<RouteResult> {
+  const profile = mode === "walk" ? "walking" : "driving";
+  const url = new URL(
+    `https://api.mapbox.com/directions/v5/mapbox/${profile}/${start.lon},${start.lat};${end.lon},${end.lat}`,
+  );
+  url.searchParams.set("geometries", "geojson");
+  url.searchParams.set("overview", "full");
+  url.searchParams.set("language", "ko");
+  url.searchParams.set("access_token", mapboxToken());
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: { Accept: "application/json", Referer: MAPBOX_ALLOWED_ORIGIN },
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000),
+    });
+  } catch {
+    throw new MapServiceError("길을 부르지 못했습니다.");
+  }
+  if (!response.ok) throw new MapServiceError("길을 부르지 못했습니다.");
+  let route: RouteResult | null;
+  try {
+    route = parseRoute(await response.json());
+  } catch {
+    throw new MapServiceError("길 응답을 읽지 못했습니다.");
+  }
+  if (!route) throw new MapServiceError("길을 찾지 못했습니다.");
+  return route;
 }
