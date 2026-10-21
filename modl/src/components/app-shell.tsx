@@ -8,7 +8,7 @@ import { NavIcon } from "@/components/nav-icons";
 import { TermText } from "@/components/term-text";
 import { useMenuShortcuts } from "@/components/use-menu-shortcuts";
 
-/** 좁은 화면은 아래 탭, 넓은 화면은 왼쪽 메뉴입니다. */
+/** 폰은 위쪽 분류를 열면 세로 목록이고, 패드와 넓은 화면은 왼쪽 세로 목록입니다. */
 export function AppShell({
   children,
   accountName,
@@ -76,7 +76,7 @@ export function AppShell({
           className={
             pathname === "/map"
               ? "relative min-h-0 w-full flex-1"
-              : "mx-auto w-full max-w-3xl flex-1 px-4 py-6 md:px-6 md:py-8"
+              : "w-full flex-1 px-4 py-5 md:py-6 md:pl-5 md:pr-6 lg:mx-auto lg:max-w-4xl lg:px-6 lg:py-8"
           }
         >
           {children}

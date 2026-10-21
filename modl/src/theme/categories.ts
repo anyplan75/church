@@ -8,6 +8,7 @@ export const CATEGORY_MENUS = [
       { href: "/qt", label: "QT" },
       { href: "/prayer", label: "기도" },
       { href: "/calendar", label: "달력" },
+      { href: "/quiz", label: "퀴즈" },
     ],
   },
   {
@@ -15,13 +16,12 @@ export const CATEGORY_MENUS = [
     items: [
       { href: "/finance", label: "재정" },
       { href: "/minutes", label: "회의록" },
+      { href: "/archive", label: "행사자료" },
     ],
   },
   {
     label: "연결",
     items: [
-      { href: "/archive", label: "행사자료" },
-      { href: "/quiz", label: "퀴즈" },
       { href: "/website", label: "웹사이트" },
       { href: "/map", label: "지도" },
     ],
