@@ -406,7 +406,7 @@ export function MapBoard({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 className="w-full rounded-xl px-3 py-3 leading-snug outline-none"
-                placeholder="식당이나 숙소"
+                placeholder="장소나 주소"
               />
             </label>
             <button type="submit" disabled={pending === "search"} className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
