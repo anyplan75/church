@@ -80,20 +80,6 @@ export default function SettingsPage() {
           <input className="input" name="defaultPlace" defaultValue={settings.defaultPlace || "본당"} maxLength={40} />
         </label>
         <label className="field">
-          <span>담당 목사 (기도제목 받는 분)</span>
-          <select className="select" name="pastorUid" defaultValue={settings.pastorUid || ""}>
-            <option value="">아직 지정하지 않음</option>
-            {accounts
-              .filter((row) => can(row.roles, "screen.prayers"))
-              .map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.email}
-                </option>
-              ))}
-          </select>
-        </label>
-        <p className="text-sm text-muted">성도 앱에서 보낸 기도제목은 이 담당 목사님 기도함(`/prayers`)으로 갑니다.</p>
-        <label className="field">
           <span>배경색</span>
           <input className="input h-11" name="backgroundColor" type="color" defaultValue={settings.backgroundColor || "#1b3a32"} />
         </label>

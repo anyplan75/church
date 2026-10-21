@@ -1,15 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { canOpenPath, type Role } from "./roles.ts";
-import {
-  isMobileMemberPath,
-  isMobileOperatorPath,
-  MEMBER_APP_ID,
-  MOBILE_MEMBER_HOME,
-  MOBILE_REMOTE_HOME,
-  OPERATOR_APP_ID,
-  operatorHome,
-} from "./mobile-app.ts";
+import { isMobileOperatorPath, MOBILE_REMOTE_HOME, OPERATOR_APP_ID, operatorHome } from "./mobile-app.ts";
 
 describe("모바일 슬라이드 리모컨 경로", () => {
   it("로그인한 교회 사용자는 역할 없이 /remote 를 연다", () => {
@@ -26,13 +18,8 @@ describe("모바일 슬라이드 리모컨 경로", () => {
     assert.equal(isMobileOperatorPath("/"), false);
   });
 
-  it("성도 앱 경로와 번들 id를 구분한다", () => {
-    assert.equal(canOpenPath([] as Role[], MOBILE_MEMBER_HOME), true);
-    assert.equal(isMobileMemberPath("/member"), true);
-    assert.equal(isMobileMemberPath("/member/"), true);
-    assert.equal(isMobileMemberPath("/settings"), false);
+  it("조작 번들 id를 확인한다", () => {
     assert.equal(OPERATOR_APP_ID, "org.eunhye.worship.operator");
-    assert.equal(MEMBER_APP_ID, "org.eunhye.worship.member");
   });
 
   it("operatorHome 은 데스크톱 fallback 을 그대로 두고, 모바일이면 /remote 다", () => {

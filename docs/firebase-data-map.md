@@ -145,7 +145,7 @@
 | `fullscreenStep`, `mainFontSize`, `overlayFontSize` | 숫자 |
 | `backgrounds` | 문자열 배열 |
 | `outputHost` | 문자열(송출 PC 주소) |
-| `pastorUid` / `pastorName` | 성도 기도함 담당(선택) |
+| `pastorUid` / `pastorName` | (레거시) 성도 기도함 담당 — UI 제거됨 |
 | `moduleBulletinAt` | 모들에서 마지막으로 반영한 공유 주보 시각(ms, 선택) |
 
 #### `data/people[]`
@@ -181,7 +181,7 @@
 | `announcements[]` | `{ id, text }` |
 | `liveIndex` | 숫자 |
 | `liveSlide` | 숫자(선택) |
-| `outputLines` | 문자열 배열(선택). 조작 리모컨 활성 자막 줄(최대 2줄). 성도 앱 **자막** 탭이 우선 사용 |
+| `outputLines` | 문자열 배열(선택). 조작 리모컨 활성 자막 줄(최대 2줄). 모들 공유·송출에 사용 |
 | `startedAt` | 문자열 또는 `null` |
 | `checks` | `{ [키]: boolean }` |
 | `source` | `manual` \| `bulletin` |
@@ -248,7 +248,7 @@
 
 읽기: 작성자 본인, 또는 `pastorUid == auth.uid`, 또는 같은 교회 `admin`/`prepare`/`run`, 또는 슈퍼관리자.  
 쓰기: 신규는 `authorUid == auth.uid` + `status == new`(+ `pastorUid` 선택); 상태 변경은 담당 목사 또는 `admin`/`prepare`/`run`(본문·작성자·pastorUid 유지).  
-담당 목사 기도함(`/prayers`)은 `pastorUid`(또는 설정 `pastorUid`)가 본인인 항목만 보여 줍니다. 성도 앱(`/member`)에는 받은기도 탭이 없고 보내기만 합니다.
+성도 앱·기도함 UI는 제거됨. `prayerRequests` 경로·규칙은 레거시로 남을 수 있음(신규 UI 없음).
 
 ---
 
@@ -270,7 +270,7 @@
 
 **이전 붙여넣기 문서**에는 최상위 `jifc`, `cheil`에 `".read": true` / `".write": true`(아무나 읽고 쓰기)가 있었다. 시험 모드로 열린 상태였고, **이번 갱신에서 `".read": false` / `".write": false`로 닫았다.**
 
-**repo `firebase/database.rules.json`의 `church` 구간**은 쓰기·계정·기도·커뮤니티는 로그인·역할 조건을 유지한다. 성도 비로그인 둘러보기를 위해 `churchIndex`와 `churches/{id}/meta`·`data`만 **공개 읽기**로 열었다(멤버·파일·기도요청·community는 로그인 유지). 붙여넣기 파일은 repo와 동일하다.
+**repo `firebase/database.rules.json`의 `church` 구간**은 Operator·모들 기준으로 **인증된 읽기**만 허용한다. `churchIndex`·`meta`·`data` 공개 읽기(성도 비로그인 둘러보기)는 제거했다. `community`·`prayerRequests` 규칙은 남겨 두되 UI·경로는 삭제됨. 붙여넣기 파일은 repo와 동일하다.
 
 `live-interpret` 안의 일부 `.read: true`(관리 uid 공개 읽기, 교회 `name`/`active` 공개)는 통역 앱용이며 이 repo의 church 앱은 건드리지 않는다. 공유 규칙에서 그 구간을 유지한다.
 
