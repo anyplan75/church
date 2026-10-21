@@ -11,6 +11,7 @@ import { assertApprovedMember, assertCan, formalMembership } from "@/server/auth
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { communities, meetingMinutes } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 
 export class MinutesFlowError extends Error {
   constructor(message: string) {
@@ -96,6 +97,7 @@ export async function createMinutes(input: {
   for (const url of attachmentUrls) {
     if (!isHttpUrl(url)) throw new MinutesFlowError("첨부 주소는 http 로 시작해 주세요.");
   }
+  await assertTextsAllowed(input.attendeesText, input.content, attachmentUrls);
   const db = getDb();
   await db.insert(meetingMinutes).values({
     communityId,

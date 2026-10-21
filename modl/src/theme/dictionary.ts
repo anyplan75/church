@@ -47,9 +47,14 @@ export const TERM_DICTIONARY = {
       jeju_alt: "모이는 날",
     },
     archive: {
-      standard: "행사 기록·사진첩",
+      standard: "행사자료",
       jeju_primary: "혼디 걸은 길",
       jeju_alt: "추억 고팡",
+    },
+    quiz: {
+      standard: "퀴즈",
+      jeju_primary: "퀴즈",
+      jeju_alt: "퀴즈",
     },
     newcomer: {
       standard: "새가족 안내",
@@ -281,6 +286,11 @@ export const TERM_DICTIONARY = {
     mark_read: { standard: "읽음으로 두기", jeju: "읽음으로 두기" },
     letter_read: { standard: "읽음", jeju: "읽었수다" },
     field_archive_title: { standard: "행사 제목", jeju: "행사 제목" },
+    field_event_date: { standard: "행사 날짜", jeju: "행사 날짜" },
+    field_worship_ended: { standard: "예배가 끝난 시각", jeju: "예배가 끝난 시각" },
+    field_solve_minutes: { standard: "그 후 풀 수 있는 시간(분)", jeju: "그 후 풀 수 있는 시간(분)" },
+    field_prize_name: { standard: "이번 달 상품 이름", jeju: "이번 달 상품 이름" },
+    save_prize: { standard: "상품 이름 저장", jeju: "상품 이름 저장" },
     field_photo_urls: { standard: "사진 주소", jeju: "사진 주소" },
     field_youtube: { standard: "유튜브 주소", jeju: "유튜브 주소" },
     quiz_line_help: {

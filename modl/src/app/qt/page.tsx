@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BlockedScreen } from "@/components/blocked-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { OcrKeyButton } from "@/components/ocr-key-button";
 import { SubmitButton, TermArea, TermField, TermFileField } from "@/components/term-field";
@@ -16,15 +17,13 @@ export default async function QtPage({
 }) {
   const query = await searchParams;
   const page = await loadQtHome();
+  if (!page.ok) return <BlockedScreen />;
 
   return (
     <section className="grid min-w-0 gap-4">
       <TermHeading termKey="qt" level={1} />
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
-      ) : (
         <>
           <p className="leading-relaxed text-[#5c5148]">{page.communityName}</p>
           {page.canManage ? (
@@ -67,7 +66,6 @@ export default async function QtPage({
             </ul>
           )}
         </>
-      )}
     </section>
   );
 }

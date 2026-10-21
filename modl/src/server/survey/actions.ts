@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createSurvey, readableSurveyError, submitSurvey, SurveyFlowError } from "@/server/survey/service";
+import { createSurvey, loadSurveyDesk, readableSurveyError, submitSurvey, SurveyFlowError } from "@/server/survey/service";
 
 function fail(path: string, error: unknown): never {
   redirect(`${path}?error=${encodeURIComponent(readableSurveyError(error))}`);
@@ -27,14 +27,13 @@ export async function createSurveyAction(formData: FormData) {
       allowAnonymous: formData.get("allowAnonymous") === "yes",
       deadline: text(formData, "deadline"),
     });
-  if (!parsed.success) fail("/survey", new SurveyFlowError(parsed.error.issues[0]?.message ?? "설문을 확인해 주세요."));
-  let surveyId = "";
+  if (!parsed.success) fail("/account", new SurveyFlowError(parsed.error.issues[0]?.message ?? "설문을 확인해 주세요."));
   try {
-    surveyId = await createSurvey(parsed.data);
+    await createSurvey(parsed.data);
   } catch (error) {
-    fail("/survey", error);
+    fail("/account", error);
   }
-  redirect(`/survey/${surveyId}?ok=survey`);
+  redirect("/account?ok=survey");
 }
 
 export async function submitSurveyAction(formData: FormData) {
@@ -47,7 +46,7 @@ export async function submitSurveyAction(formData: FormData) {
     answers.push(raw.trim());
   }
   const parsed = z.string().uuid("설문을 찾지 못했습니다.").safeParse(surveyId);
-  if (!parsed.success) fail("/survey", new SurveyFlowError("설문을 찾지 못했습니다."));
+  if (!parsed.success) fail("/account", new SurveyFlowError("설문을 찾지 못했습니다."));
   let result: "saved" | "closed" | null = null;
   try {
     result = await submitSurvey({ surveyId: parsed.data, answers });
@@ -56,4 +55,8 @@ export async function submitSurveyAction(formData: FormData) {
   }
   if (result === "closed") redirect(`${back}?note=survey_closed`);
   redirect(`${back}?ok=answer`);
+}
+
+export async function refreshSurveyDeskAction() {
+  return loadSurveyDesk();
 }

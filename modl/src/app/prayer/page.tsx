@@ -1,11 +1,12 @@
 import { ActionToast } from "@/components/action-toast";
 import { AnonymousField, VisibilityField } from "@/components/choice-fields";
+import { BlockedScreen } from "@/components/blocked-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermButton } from "@/components/term-button";
 import { SubmitButton, TermArea } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
 import { TermText } from "@/components/term-text";
-import { createPrayerAction, prayTogetherAction, sendPrayerLetterAction } from "@/server/prayer/actions";
+import { createPrayerAction, prayTogetherAction } from "@/server/prayer/actions";
 import { loadPrayerHome } from "@/server/prayer/service";
 import type { TermKey } from "@/theme/dictionary";
 
@@ -25,6 +26,7 @@ export default async function PrayerPage({
 }) {
   const query = await searchParams;
   const page = await loadPrayerHome();
+  if (!page.ok) return <BlockedScreen />;
 
   return (
     <section className="grid min-w-0 gap-4">
@@ -32,64 +34,47 @@ export default async function PrayerPage({
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
       {query.ok === "prayed" ? <ActionToast termKey="pray_together_btn" testId="pray-toast" /> : null}
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
+      <p className="leading-relaxed text-[#5c5148]">{page.communityName}</p>
+      <form action={createPrayerAction} id="prayer-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
+        <TermArea termKey="field_prayer" name="content" required rows={4} />
+        <VisibilityField />
+        <AnonymousField />
+        <SubmitButton termKey="save" testId="save-prayer" />
+      </form>
+      {page.items.length === 0 ? (
+        <p className="leading-relaxed">
+          <TermText termKey="prayer_empty" />
+        </p>
       ) : (
-        <>
-          <p className="leading-relaxed text-[#5c5148]">{page.communityName}</p>
-          <form action={createPrayerAction} id="prayer-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
-            <TermArea termKey="field_prayer" name="content" required rows={4} />
-            <VisibilityField />
-            <AnonymousField />
-            <SubmitButton termKey="save" testId="save-prayer" />
-          </form>
-          {page.items.length === 0 ? (
-            <p className="leading-relaxed">
-              <TermText termKey="prayer_empty" />
-            </p>
-          ) : (
-            <ul className="grid gap-3">
-              {page.items.map((item) => {
-                const prayFormId = `pray-${item.id}`;
-                const letterFormId = `letter-${item.id}`;
-                return (
-                  <li key={item.id} className="grid min-w-0 gap-2 rounded-2xl bg-[#fffaf3] px-4 py-3">
-                    {item.authorName ? (
-                      <p data-testid="prayer-author" className="break-words font-semibold">
-                        {item.authorName}
-                      </p>
-                    ) : (
-                      <p data-testid="anonymous-prayer" className="font-semibold">
-                        <TermText termKey="anonymous_author" />
-                      </p>
-                    )}
-                    <p data-testid="prayer-content" className="whitespace-pre-wrap break-words leading-relaxed">
-                      {item.content}
-                    </p>
-                    <TermText termKey={VISIBILITY_TERM[item.visibility] as TermKey} />
-                    <p data-testid="pray-count" className="leading-snug">
-                      {item.prayTogetherCount}
-                    </p>
-                    <form id={prayFormId} action={prayTogetherAction}>
-                      <input type="hidden" name="prayerId" value={item.id} />
-                    </form>
-                    <TermButton
-                      termKey="pray_together_btn"
-                      testId="pray-together-btn"
-                      toastOnPress={false}
-                      submitFormId={prayFormId}
-                    />
-                    <form id={letterFormId} action={sendPrayerLetterAction} className="grid gap-2">
-                      <input type="hidden" name="prayerId" value={item.id} />
-                      <TermArea termKey="field_letter" name="message" required rows={3} />
-                      <SubmitButton termKey="save_letter" testId="save-letter" />
-                    </form>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </>
+        <ul className="grid gap-3">
+          {page.items.map((item) => {
+            const prayFormId = `pray-${item.id}`;
+            return (
+              <li key={item.id} className="grid min-w-0 gap-2 rounded-2xl bg-[#fffaf3] px-4 py-3">
+                {item.authorName ? (
+                  <p data-testid="prayer-author" className="break-words font-semibold">
+                    {item.authorName}
+                  </p>
+                ) : (
+                  <p data-testid="anonymous-prayer" className="font-semibold">
+                    <TermText termKey="anonymous_author" />
+                  </p>
+                )}
+                <p data-testid="prayer-content" className="whitespace-pre-wrap break-words leading-relaxed">
+                  {item.content}
+                </p>
+                <TermText termKey={VISIBILITY_TERM[item.visibility] as TermKey} />
+                <p data-testid="pray-count" className="leading-snug">
+                  {item.prayTogetherCount}
+                </p>
+                <form id={prayFormId} action={prayTogetherAction}>
+                  <input type="hidden" name="prayerId" value={item.id} />
+                </form>
+                <TermButton termKey="pray_together_btn" testId="pray-together-btn" toastOnPress={false} submitFormId={prayFormId} />
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );

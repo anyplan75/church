@@ -12,6 +12,7 @@ import { assertApprovedMember, assertCan, assertSameCommunity, can, formalMember
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { communities, dailyQts, members, qtGraceReactions, qtReflections } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 import { readImageText } from "@/server/qt/ocr";
 import { saveUpload } from "@/server/uploads";
 
@@ -137,6 +138,7 @@ export async function createQt(input: {
   if (questions.length === 0) {
     throw new QtFlowError("질문을 한 줄 이상 적어 주세요.");
   }
+  await assertTextsAllowed(input.scriptureTitle, scriptureBody, questions);
 
   const db = getDb();
   const [created] = await db
@@ -237,6 +239,7 @@ export async function saveReflection(input: { qtId: string; answersText: string 
   const [qt] = await db.select().from(dailyQts).where(eq(dailyQts.id, input.qtId)).limit(1);
   if (!qt) throw new QtFlowError("말씀을 찾지 못했습니다.");
   assertSameCommunity(qt.communityId, communityId);
+  await assertTextsAllowed(answers);
 
   await db
     .insert(qtReflections)

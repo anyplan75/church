@@ -1,3 +1,4 @@
+import { BlockedScreen } from "@/components/blocked-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermHeading } from "@/components/term-heading";
 import { loadArchiveDetail } from "@/server/archive/service";
@@ -14,15 +15,13 @@ export default async function ArchiveDetailPage({
   const { id } = await params;
   const query = await searchParams;
   const page = await loadArchiveDetail(id);
+  if (!page.ok) return <BlockedScreen />;
 
   return (
     <section className="grid min-w-0 gap-4">
       <TermHeading termKey="archive" level={1} />
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
-      ) : (
         <>
           <h2 className="break-words text-[clamp(1.3rem,1.1rem+0.6vw,1.8rem)] font-semibold leading-snug" data-testid="archive-title">
             {page.archive.title}
@@ -42,7 +41,6 @@ export default async function ArchiveDetailPage({
             />
           ))}
         </>
-      )}
     </section>
   );
 }

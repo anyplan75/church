@@ -99,6 +99,29 @@ export function googleSheetsConfigFromEnv(env: {
   return { clientId, clientSecret, refreshToken, spreadsheetId };
 }
 
+/** 칸에 적힌 금액인지 봅니다. 비어 있으면 금액이 아닙니다. */
+export function cellHasAmount(value: string): boolean {
+  const cleaned = value.replace(/,/g, "").replace(/원/g, "").replace(/\s/g, "").trim();
+  if (!cleaned) return false;
+  return /^-?\d+(\.\d+)?$/.test(cleaned);
+}
+
+/**
+ * 시트에 있는 금액 줄만 고릅니다.
+ * 첫 줄에 금액이 없으면 제목 줄로 둡니다. 빈 칸은 0으로 채우지 않습니다.
+ */
+export function amountsFromSheet(values: unknown): { headers: string[]; rows: string[][] } | null {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const grid = values.map((row) => (Array.isArray(row) ? row.map((cell) => (cell == null ? "" : String(cell))) : []));
+  const first = grid[0] ?? [];
+  const firstHasAmount = first.some((cell) => cellHasAmount(cell));
+  const headers = firstHasAmount ? [] : first;
+  const body = firstHasAmount ? grid : grid.slice(1);
+  const rows = body.filter((row) => row.some((cell) => cellHasAmount(cell)));
+  if (rows.length === 0) return null;
+  return { headers, rows };
+}
+
 export function sheetsAppendRequest(input: {
   spreadsheetId: string;
   sheetName: string;

@@ -5,6 +5,7 @@ import {
   budgetBar,
   canManageFinance,
   canManageFinanceRole,
+  amountsFromSheet,
   googleSheetsConfigFromEnv,
   receiptsInRange,
   sheetsAppendRequest,
@@ -74,6 +75,21 @@ describe("기간 안 영수증", () => {
       "https://example.com/inside.jpg",
       "https://example.com/end.jpg",
     ]);
+  });
+});
+
+describe("시트 금액", () => {
+  it("있는 금액만 고르고 빈 칸은 0으로 채우지 않습니다", () => {
+    const parsed = amountsFromSheet([
+      ["항목", "금액", "메모"],
+      ["헌금", "", ""],
+      ["후원", "1,200원", ""],
+    ]);
+    assert.deepEqual(parsed, {
+      headers: ["항목", "금액", "메모"],
+      rows: [["후원", "1,200원", ""]],
+    });
+    assert.equal(amountsFromSheet([["항목", "금액"], ["헌금", ""]]), null);
   });
 });
 

@@ -3,8 +3,8 @@
  * 권한은 assertCan 만 쓰고, 다른 공동체 줄은 섞지 않습니다.
  */
 
-import { and, asc, eq } from "drizzle-orm";
-import { budgetBar, isHttpUrl, receiptsInRange, textLines } from "@/finance/rules";
+import { and, eq } from "drizzle-orm";
+import { isHttpUrl, receiptsInRange, textLines } from "@/finance/rules";
 import { FINANCE_HEADERS, financeRows } from "@/export/xlsx";
 import type { Actor } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
@@ -12,7 +12,8 @@ import { assertApprovedMember, assertCan, assertSameCommunity, can, formalMember
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { communities, financeCategories, transactions } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
-import { appendFinanceRows, sheetsReady } from "@/server/finance/sheets";
+import { assertTextsAllowed } from "@/server/moderation/guard";
+import { appendFinanceRows, readFinanceSheet, sheetsReady } from "@/server/finance/sheets";
 import { zipReceiptFiles } from "@/server/finance/zip";
 
 export class FinanceFlowError extends Error {
@@ -61,40 +62,11 @@ export async function loadFinanceHome() {
   const db = getDb();
   const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
   if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
-  const categories = await db
-    .select()
-    .from(financeCategories)
-    .where(eq(financeCategories.communityId, communityId))
-    .orderBy(asc(financeCategories.name));
-  const rows = await db.select().from(transactions).where(eq(transactions.communityId, communityId));
+  const sheet = await readFinanceSheet();
   return {
     ok: true as const,
     communityName: community.name,
-    sheetsReady: sheetsReady(),
-    categories: categories.map((category) => {
-      const spent = rows
-        .filter((row) => row.categoryId === category.id && row.type === category.type)
-        .reduce((sum, row) => sum + Number(row.amount), 0);
-      return {
-        id: category.id,
-        name: category.name,
-        departmentOrEvent: category.departmentOrEvent,
-        type: category.type,
-        bar: budgetBar(spent, Number(category.budgetAmount)),
-      };
-    }),
-    transactions: rows
-      .map((row) => ({
-        id: row.id,
-        transactionDate: row.transactionDate,
-        categoryId: row.categoryId,
-        categoryName: categories.find((category) => category.id === row.categoryId)?.name ?? "",
-        type: row.type,
-        amount: row.amount,
-        description: row.description,
-        receiptCount: stringList(row.receiptImageUrls).length,
-      }))
-      .sort((left, right) => right.transactionDate.localeCompare(left.transactionDate)),
+    sheet,
   };
 }
 
@@ -111,6 +83,7 @@ export async function createCategory(input: {
   await requireOfficer(actor, communityId);
   const budget = Number(input.budgetAmount);
   if (!Number.isInteger(budget) || budget < 0) throw new FinanceFlowError("예산은 0 이상의 정수로 적어 주세요.");
+  await assertTextsAllowed(input.departmentOrEvent, input.name);
   const db = getDb();
   await db.insert(financeCategories).values({
     communityId,
@@ -145,6 +118,7 @@ export async function createTransaction(input: {
       throw new FinanceFlowError("영수증 주소는 http 로 시작하거나 / 로 시작하는 경로여야 합니다.");
     }
   }
+  await assertTextsAllowed(input.description, receiptImageUrls);
   await db.insert(transactions).values({
     communityId,
     categoryId: category.id,

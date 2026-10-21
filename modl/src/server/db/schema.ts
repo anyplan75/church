@@ -634,7 +634,7 @@ export const meetingMinutes = pgTable(
   (table) => [index("meeting_minutes_community_id_idx").on(table.communityId)],
 );
 
-/** 행사 기록과 영상 주소입니다. */
+/** 행사 자료입니다. 날짜나 자료가 없으면 빈칸으로 둡니다. */
 export const eventArchives = pgTable(
   "event_archives",
   {
@@ -643,6 +643,7 @@ export const eventArchives = pgTable(
       .notNull()
       .references(() => communities.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
+    eventDate: date("event_date"),
     photoUrls: jsonList("photo_urls"),
     youtubeUrls: jsonList("youtube_urls"),
     createdAt: createdAt(),
@@ -651,7 +652,7 @@ export const eventArchives = pgTable(
   (table) => [index("event_archives_community_id_idx").on(table.communityId)],
 );
 
-/** 퀴즈입니다. */
+/** 퀴즈입니다. 예배가 끝난 시각부터 정한 분 동안만 풀 수 있습니다. */
 export const quizzes = pgTable(
   "quizzes",
   {
@@ -662,10 +663,28 @@ export const quizzes = pgTable(
     title: text("title").notNull(),
     questionsJson: jsonValue("questions_json"),
     scoresJson: jsonValue("scores_json"),
+    worshipEndedAt: timestamp("worship_ended_at", { withTimezone: true }),
+    solveMinutes: integer("solve_minutes"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [index("quizzes_community_id_idx").on(table.communityId)],
+);
+
+/** 그달 퀴즈 상품 이름입니다. 사역자가 적은 이름만 저장합니다. */
+export const quizMonthPrizes = pgTable(
+  "quiz_month_prizes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    communityId: uuid("community_id")
+      .notNull()
+      .references(() => communities.id, { onDelete: "cascade" }),
+    yearMonth: text("year_month").notNull(),
+    prizeName: text("prize_name").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [uniqueIndex("quiz_month_prizes_community_month_uidx").on(table.communityId, table.yearMonth)],
 );
 
 /** 공동체마다 하나인 열린 안뜨레 설정입니다. */
@@ -801,6 +820,24 @@ export const mapChurches = pgTable(
   ],
 );
 
+/**
+ * 모들 전체에서 글을 막을 때 쓰는 말입니다.
+ * 사역자가 설정 화면에서 넣고 고치고 지웁니다. 코드에 단어를 고정하지 않습니다.
+ */
+export const bannedWords = pgTable(
+  "banned_words",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    word: text("word").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("banned_words_word_uidx").on(table.word),
+    check("banned_words_word_not_blank", sql`length(btrim(${table.word})) > 0`),
+  ],
+);
+
 /** 안뜨레에 남긴 방문 문의입니다. */
 export const websiteInquiries = pgTable(
   "website_inquiries",
@@ -846,10 +883,12 @@ export const dbSchema = {
   meetingMinutes,
   eventArchives,
   quizzes,
+  quizMonthPrizes,
   websiteConfigs,
   websiteInquiries,
   groupMemberships,
   questions,
   questionReplies,
   mapChurches,
+  bannedWords,
 };

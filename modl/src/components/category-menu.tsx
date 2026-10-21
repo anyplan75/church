@@ -9,11 +9,24 @@ function active(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function CategoryMenu({ onNavigate, className = "" }: { onNavigate?: () => void; className?: string }) {
+export function CategoryMenu({
+  menuHrefs,
+  onNavigate,
+  className = "",
+}: {
+  menuHrefs: readonly string[];
+  onNavigate?: () => void;
+  className?: string;
+}) {
   const pathname = usePathname();
+  const allowed = new Set(menuHrefs);
+  const groups = CATEGORY_MENUS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => allowed.has(item.href)),
+  })).filter((group) => group.items.length > 0);
   return (
     <div className={`grid content-start gap-1 ${className}`}>
-      {CATEGORY_MENUS.map((group) => (
+      {groups.map((group) => (
         <section key={group.label} className="grid gap-0.5" aria-label={group.label}>
           <h2 className="px-3 pb-1 pt-4 text-[11px] font-medium leading-4 text-[#94a3b8]">{group.label}</h2>
           <ul className="grid list-none">

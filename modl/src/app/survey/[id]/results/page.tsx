@@ -1,3 +1,4 @@
+import { BlockedScreen } from "@/components/blocked-screen";
 import { TermHeading } from "@/components/term-heading";
 import { TermText } from "@/components/term-text";
 import { loadSurveyResults } from "@/server/survey/service";
@@ -7,13 +8,11 @@ export const dynamic = "force-dynamic";
 export default async function SurveyResultsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const page = await loadSurveyResults(id);
+  if (!page.ok) return <BlockedScreen />;
 
   return (
     <section className="grid min-w-0 gap-4">
       <TermHeading termKey="survey_results" level={1} />
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
-      ) : (
         <>
           <h2 className="break-words text-[clamp(1.25rem,1rem+0.8vw,1.8rem)] font-semibold leading-snug">{page.survey.title}</h2>
           <p className="leading-relaxed">
@@ -42,7 +41,6 @@ export default async function SurveyResultsPage({ params }: { params: Promise<{ 
             </ul>
           )}
         </>
-      )}
     </section>
   );
 }

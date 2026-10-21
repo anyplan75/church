@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BlockedScreen } from "@/components/blocked-screen";
 import { ErrorNote, NoteBanner, OkNote } from "@/components/form-note";
 import { SubmitButton } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
@@ -20,6 +21,7 @@ export default async function SurveyFormPage({
   const { id } = await params;
   const query = await searchParams;
   const page = await loadSurveyForm(id);
+  if (!page.ok) return <BlockedScreen />;
 
   return (
     <section className="grid min-w-0 gap-4">
@@ -27,9 +29,6 @@ export default async function SurveyFormPage({
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
       <NoteBanner code={query.note} />
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
-      ) : (
         <>
           <h2 className="break-words text-[clamp(1.25rem,1rem+0.8vw,1.8rem)] font-semibold leading-snug" data-testid="survey-heading">
             {page.survey.title}
@@ -57,7 +56,6 @@ export default async function SurveyFormPage({
             </p>
           )}
         </>
-      )}
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { BlockedScreen } from "@/components/blocked-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermHeading } from "@/components/term-heading";
 import { TermText } from "@/components/term-text";
@@ -15,6 +16,7 @@ export default async function ApprovalsPage({
 }) {
   const query = await searchParams;
   const page = await loadApprovalPage();
+  if (!page.ok) return <BlockedScreen />;
   const replies = await loadPendingReplies();
   const replyNote = query.ok === "reply_approved" ? "답글을 승인했습니다." : "";
   return (
@@ -28,9 +30,6 @@ export default async function ApprovalsPage({
           {replyNote}
         </p>
       ) : null}
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
-      ) : (
         <ul className="grid gap-3">
           {page.data.requests.map((request) => (
             <li key={request.id} className="grid gap-2 rounded-2xl bg-[#fffaf3] px-4 py-3 leading-snug">
@@ -61,7 +60,6 @@ export default async function ApprovalsPage({
             </li>
           ))}
         </ul>
-      )}
       <h2 className="text-[clamp(1.2rem,1rem+0.4vw,1.5rem)] font-semibold leading-snug">답글 승인</h2>
       {!replies.ok ? (
         <p className="leading-relaxed">{replies.message}</p>

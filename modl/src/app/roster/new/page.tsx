@@ -1,3 +1,4 @@
+import { BlockedScreen } from "@/components/blocked-screen";
 import { ErrorNote } from "@/components/form-note";
 import { RosterForm } from "@/components/roster-form";
 import { TermHeading } from "@/components/term-heading";
@@ -13,6 +14,7 @@ export default async function NewRosterPage({
 }) {
   const query = await searchParams;
   const page = await loadRosterPage();
+  if (!page.ok) return <BlockedScreen />;
 
   return (
     <section className="grid gap-4">
@@ -21,11 +23,7 @@ export default async function NewRosterPage({
         계정 없이 이름만 적으면 미가입 명부가 됩니다. 나중에 같은 전화번호로 가입이 승인되면 이 줄에 계정이 붙습니다.
       </p>
       <ErrorNote message={query.error} />
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
-      ) : (
-        <RosterForm action={createRosterAction} groups={page.data.groups} submitKey="add_roster" />
-      )}
+      <RosterForm action={createRosterAction} groups={page.data.groups} submitKey="add_roster" />
     </section>
   );
 }

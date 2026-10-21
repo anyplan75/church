@@ -12,6 +12,7 @@ import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { readBulletinImage } from "@/server/bulletin/read/image";
 import { readBulletinFile } from "@/server/bulletin/read/files";
 import { saveBulletinFile } from "@/server/bulletin/read/store";
+import { assertTextsAllowed, BannedWordError } from "@/server/moderation/guard";
 
 export type BulletinReadResult =
   | { ok: false; message: string }
@@ -48,6 +49,14 @@ export async function readBulletinSourceAction(formData: FormData): Promise<Bull
     else unread = true;
   }
   const text = [pasted.trim(), extracted.trim()].filter(Boolean).join("\n");
+  if (text) {
+    try {
+      await assertTextsAllowed(text);
+    } catch (error) {
+      if (error instanceof BannedWordError) return { ok: false, message: error.message };
+      throw error;
+    }
+  }
   if (!text) {
     if (fileHref) return { ok: true, filled: false, note: EMPTY_NOTE, fileHref };
     return { ok: false, message: "주보 내용을 붙여 넣거나 파일을 선택해 주세요." };

@@ -9,6 +9,7 @@ import { assertCan, assertSameCommunity, formalMembership } from "@/server/auth/
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { members, questionReplies, questions } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 import { readableError } from "@/server/community/service";
 import {
   canAnswerQuestion,
@@ -136,6 +137,7 @@ export async function askQuestion(input: {
     }
     assertSameCommunity(communityId, pastor.communityId);
   }
+  await assertTextsAllowed(body);
   const [created] = await getDb()
     .insert(questions)
     .values({
@@ -253,6 +255,7 @@ export async function answerQuestion(questionId: string, body: string) {
     .where(and(eq(questionReplies.questionId, row.id), eq(questionReplies.authorMemberId, viewer.memberId)))
     .limit(1);
   if (existing.length > 0) throw new QuestionFlowError("이미 답글을 남겼습니다.");
+  await assertTextsAllowed(text);
   await getDb().insert(questionReplies).values({
     communityId,
     questionId: row.id,

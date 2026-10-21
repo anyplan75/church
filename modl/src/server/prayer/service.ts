@@ -14,6 +14,7 @@ import { assertApprovedMember, assertCan, assertSameCommunity, formalMembership 
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { communities, members, prayerLetters, prayerReactions, prayerRequests } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 
 export class PrayerFlowError extends Error {
   constructor(message: string) {
@@ -149,6 +150,7 @@ export async function createPrayer(input: {
     visibility: input.visibility,
     groupId: input.visibility === "PUBLIC" || input.visibility === "PASTOR_ONLY" ? null : groupId,
   });
+  await assertTextsAllowed(input.content);
   const db = getDb();
   const [created] = await db
     .insert(prayerRequests)
@@ -236,6 +238,7 @@ export async function sendPrayerLetter(input: { prayerId: string; message: strin
   const communityId = await requireCommunity(actor);
   const membership = await requireMember(actor, communityId);
   const prayer = await visiblePrayerOrThrow(actor, communityId, input.prayerId);
+  await assertTextsAllowed(input.message);
   const db = getDb();
   await db.insert(prayerLetters).values({
     prayerRequestId: prayer.id,

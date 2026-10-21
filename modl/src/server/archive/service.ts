@@ -4,12 +4,15 @@
  * 퀴즈를 푸는 응답에는 정답 번호를 넣지 않습니다.
  */
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   linkLines,
+  monthKey,
   parseQuizLines,
+  pickQuizKing,
   publicQuizQuestions,
+  quizWindow,
   replaceMemberScore,
   scoreQuiz,
   youtubeEmbedUrl,
@@ -18,10 +21,11 @@ import {
 } from "@/archive/rules";
 import type { Actor } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
-import { assertApprovedMember, assertCan, assertSameCommunity, can, formalMembership } from "@/server/auth/rbac";
+import { assertApprovedMember, assertSameCommunity, formalMembership } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { communities, eventArchives, quizzes } from "@/server/db/schema";
+import { communities, eventArchives, members, quizMonthPrizes, quizzes } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 
 export class ArchiveFlowError extends Error {
   constructor(message: string) {
@@ -48,6 +52,13 @@ const scoreSchema = z.object({
   total: z.number().int().nonnegative(),
   submittedAt: z.string(),
 });
+
+function seoulDateTime(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}:00+09:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
 
 function httpUrl(value: string): boolean {
   try {
@@ -110,30 +121,59 @@ export async function loadArchiveHome() {
   const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
   if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
   const events = await db
-    .select({ id: eventArchives.id, title: eventArchives.title })
+    .select()
     .from(eventArchives)
     .where(eq(eventArchives.communityId, communityId))
-    .orderBy(desc(eventArchives.createdAt));
-  const quizRows = await db
-    .select({ id: quizzes.id, title: quizzes.title })
-    .from(quizzes)
-    .where(eq(quizzes.communityId, communityId))
-    .orderBy(desc(quizzes.createdAt));
+    .orderBy(sql`${eventArchives.eventDate} desc nulls last`, desc(eventArchives.createdAt));
   return {
     ok: true as const,
     communityName: community.name,
-    canManage: can(actor, { type: "manage_archive", communityId }),
-    events,
-    quizzes: quizRows,
+    canUpload: membership.role === "PASTOR",
+    events: events.map((event) => ({
+      id: event.id,
+      title: event.title,
+      eventDate: event.eventDate ?? "",
+      materials: materialLinks(event.photoUrls, event.youtubeUrls),
+    })),
   };
 }
 
-export async function createArchive(input: { title: string; photoText: string; youtubeText: string }): Promise<string> {
+function materialLinks(photos: unknown, videos: unknown): string[] {
+  const links: string[] = [];
+  if (Array.isArray(photos)) {
+    for (const item of photos) {
+      if (typeof item === "string" && httpUrl(item)) links.push(item);
+    }
+  }
+  if (Array.isArray(videos)) {
+    for (const item of videos) {
+      if (typeof item === "string" && youtubeEmbedUrl(item)) links.push(item.trim());
+    }
+  }
+  return links;
+}
+
+function assertPastor(actor: Actor, communityId: string) {
+  const membership = formalMembership(actor, communityId);
+  if (!membership || membership.role !== "PASTOR") {
+    throw new ArchiveFlowError("이 일은 사역자만 합니다.");
+  }
+}
+
+export async function createArchive(input: {
+  title: string;
+  eventDate: string;
+  photoText: string;
+  youtubeText: string;
+}): Promise<string> {
   await ensureDatabase();
   const actor = await loadActor();
   const communityId = await requireCommunity(actor);
   await requireMember(actor, communityId);
-  assertCan(actor, { type: "manage_archive", communityId });
+  assertPastor(actor, communityId);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.eventDate)) {
+    throw new ArchiveFlowError("행사 날짜를 확인해 주세요.");
+  }
   const photoUrls = linkLines(input.photoText);
   for (const photoUrl of photoUrls) {
     if (!httpUrl(photoUrl)) throw new ArchiveFlowError("사진 주소는 http 또는 https 로 시작해 주세요.");
@@ -142,12 +182,14 @@ export async function createArchive(input: { title: string; photoText: string; y
   for (const youtubeUrl of youtubeUrls) {
     if (!youtubeEmbedUrl(youtubeUrl)) throw new ArchiveFlowError("유튜브 주소만 영상으로 넣을 수 있습니다.");
   }
+  await assertTextsAllowed(input.title, input.photoText, input.youtubeText);
   const db = getDb();
   const [created] = await db
     .insert(eventArchives)
     .values({
       communityId,
       title: input.title.trim(),
+      eventDate: input.eventDate,
       photoUrls,
       youtubeUrls,
     })
@@ -192,12 +234,22 @@ export async function loadArchiveDetail(archiveId: string) {
   };
 }
 
-export async function createQuiz(input: { title: string; lines: string }): Promise<string> {
+export async function createQuiz(input: {
+  title: string;
+  lines: string;
+  worshipEndedAt: string;
+  solveMinutes: number;
+}): Promise<string> {
   await ensureDatabase();
   const actor = await loadActor();
   const communityId = await requireCommunity(actor);
   await requireMember(actor, communityId);
-  assertCan(actor, { type: "manage_archive", communityId });
+  assertPastor(actor, communityId);
+  const ended = seoulDateTime(input.worshipEndedAt);
+  if (!ended) throw new ArchiveFlowError("예배가 끝난 시각을 확인해 주세요.");
+  if (!Number.isInteger(input.solveMinutes) || input.solveMinutes < 1 || input.solveMinutes > 10080) {
+    throw new ArchiveFlowError("풀 수 있는 시간은 1분에서 10080분 사이로 적어 주세요.");
+  }
   let questions: QuizQuestion[];
   try {
     questions = parseQuizLines(input.lines);
@@ -205,6 +257,7 @@ export async function createQuiz(input: { title: string; lines: string }): Promi
     if (error instanceof Error) throw new ArchiveFlowError(error.message);
     throw error;
   }
+  await assertTextsAllowed(input.title, questions);
   const db = getDb();
   const [created] = await db
     .insert(quizzes)
@@ -213,6 +266,8 @@ export async function createQuiz(input: { title: string; lines: string }): Promi
       title: input.title.trim(),
       questionsJson: questions,
       scoresJson: [],
+      worshipEndedAt: ended,
+      solveMinutes: input.solveMinutes,
     })
     .returning({ id: quizzes.id });
   if (!created) throw new ArchiveFlowError("퀴즈를 저장하지 못했습니다.");
@@ -239,12 +294,21 @@ export async function loadQuiz(quizId: string) {
   assertSameCommunity(row.communityId, communityId);
   const questions = readQuestions(row.questionsJson);
   const mine = readScores(row.scoresJson).find((item) => item.memberId === membership.memberId) ?? null;
+  const open = quizWindow({
+    worshipEndedAt: row.worshipEndedAt,
+    solveMinutes: row.solveMinutes,
+    now: new Date(),
+  }) === "open";
+  const pastor = membership.role === "PASTOR";
+  const visible = open || pastor ? (pastor ? questions : publicQuizQuestions(questions)) : [];
   return {
     ok: true as const,
     quiz: {
       id: row.id,
       title: row.title,
-      questions: publicQuizQuestions(questions),
+      open,
+      pastor,
+      questions: visible,
       myScore: mine ? { score: mine.score, total: mine.total } : null,
     },
   };
@@ -260,6 +324,12 @@ export async function submitQuiz(input: { quizId: string; answers: number[] }): 
   if (!row) throw new ArchiveFlowError("퀴즈를 찾지 못했습니다.");
   assertSameCommunity(row.communityId, communityId);
   const questions = readQuestions(row.questionsJson);
+  const open = quizWindow({
+    worshipEndedAt: row.worshipEndedAt,
+    solveMinutes: row.solveMinutes,
+    now: new Date(),
+  });
+  if (open !== "open") throw new ArchiveFlowError("지금은 퀴즈를 풀 수 없습니다.");
   const result = scoreQuiz(questions, input.answers);
   const scores = replaceMemberScore(readScores(row.scoresJson), {
     memberId: membership.memberId,
@@ -272,4 +342,93 @@ export async function submitQuiz(input: { quizId: string; answers: number[] }): 
     .set({ scoresJson: scores, updatedAt: new Date() })
     .where(and(eq(quizzes.id, row.id), eq(quizzes.communityId, communityId)));
   return result;
+}
+
+export async function loadQuizHome() {
+  await ensureDatabase();
+  const actor = await loadActor();
+  if (actor.kind !== "user") {
+    return { ok: false as const, message: "퀴즈를 보려면 먼저 들어가 주세요." };
+  }
+  const communityId = await activeCommunityId(actor);
+  if (!communityId) {
+    return { ok: false as const, message: "먼저 공동체를 만들거나, 가입 승인을 받아 주세요." };
+  }
+  const membership = formalMembership(actor, communityId);
+  if (!membership) {
+    return { ok: false as const, message: "승인 대기 중이거나 이 공동체 구성원이 아니어서 퀴즈를 볼 수 없습니다." };
+  }
+  const db = getDb();
+  const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
+  if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
+  const now = new Date();
+  const month = monthKey(now);
+  const rows = await db.select().from(quizzes).where(eq(quizzes.communityId, communityId)).orderBy(desc(quizzes.createdAt));
+  const people = await db.select({ id: members.id, name: members.name }).from(members).where(eq(members.communityId, communityId));
+  const names = new Map(people.map((person) => [person.id, person.name]));
+  const entries = rows.flatMap((row) =>
+    readScores(row.scoresJson).flatMap((score) => {
+      const when = new Date(score.submittedAt);
+      if (Number.isNaN(when.getTime()) || monthKey(when) !== month) return [];
+      return [{ memberId: score.memberId, correct: score.score, firstSubmittedAt: score.submittedAt }];
+    }),
+  );
+  const picked = pickQuizKing(entries);
+  const winnerName = picked ? names.get(picked.memberId)?.trim() ?? "" : "";
+  const [prize] = await db
+    .select()
+    .from(quizMonthPrizes)
+    .where(and(eq(quizMonthPrizes.communityId, communityId), eq(quizMonthPrizes.yearMonth, month)))
+    .limit(1);
+  return {
+    ok: true as const,
+    communityName: community.name,
+    canCreate: membership.role === "PASTOR",
+    king:
+      picked && winnerName
+        ? { name: winnerName, correct: picked.correct, prizeName: prize?.prizeName?.trim() || null }
+        : null,
+    prizeName: prize?.prizeName?.trim() || null,
+    quizzes: rows.map((row) => {
+      const mine = readScores(row.scoresJson).find((item) => item.memberId === membership.memberId) ?? null;
+      return {
+        id: row.id,
+        title: row.title,
+        open:
+          quizWindow({
+            worshipEndedAt: row.worshipEndedAt,
+            solveMinutes: row.solveMinutes,
+            now,
+          }) === "open",
+        myScore: mine ? { score: mine.score, total: mine.total } : null,
+      };
+    }),
+  };
+}
+
+export async function saveQuizPrize(prizeName: string): Promise<void> {
+  await ensureDatabase();
+  const actor = await loadActor();
+  const communityId = await requireCommunity(actor);
+  await requireMember(actor, communityId);
+  assertPastor(actor, communityId);
+  const name = prizeName.trim();
+  if (!name) throw new ArchiveFlowError("상품 이름을 적어 주세요.");
+  if (name.length > 80) throw new ArchiveFlowError("상품 이름은 80자 안으로 적어 주세요.");
+  await assertTextsAllowed(name);
+  const month = monthKey(new Date());
+  const db = getDb();
+  const [existing] = await db
+    .select()
+    .from(quizMonthPrizes)
+    .where(and(eq(quizMonthPrizes.communityId, communityId), eq(quizMonthPrizes.yearMonth, month)))
+    .limit(1);
+  if (existing) {
+    await db
+      .update(quizMonthPrizes)
+      .set({ prizeName: name, updatedAt: new Date() })
+      .where(eq(quizMonthPrizes.id, existing.id));
+    return;
+  }
+  await db.insert(quizMonthPrizes).values({ communityId, yearMonth: month, prizeName: name });
 }

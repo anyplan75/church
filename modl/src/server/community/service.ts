@@ -8,7 +8,7 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Actor, MemberRole } from "@/server/auth/actor";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { assertCan, assertSameCommunity } from "@/server/auth/rbac";
-import { assertApprovedMember, PermissionError } from "@/server/auth/membership";
+import { assertApprovedMember, formalMembership, PermissionError } from "@/server/auth/membership";
 import { activeCommunityId, currentUserName, loadActor, openSession, rememberCommunity } from "@/server/auth/session";
 import {
   approvalRequests,
@@ -20,8 +20,10 @@ import {
   users,
 } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { sidebarHrefs } from "@/theme/menu-access";
 import type { CustomTermOverrides, LanguageMode } from "@/theme/types";
 import { denominationsMatch, explainJoinBlock, groupIdsToArchive, planApproval } from "@/server/community/rules";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 
 export class CommunityFlowError extends Error {
   constructor(message: string) {
@@ -64,6 +66,7 @@ async function communityForActor(actor: Actor) {
 
 export async function signupAccount(input: { name: string; email: string; password: string }) {
   await ensureDatabase();
+  await assertTextsAllowed(input.name);
   try {
     const [user] = await getDb()
       .insert(users)
@@ -110,6 +113,15 @@ export async function createCommunity(input: {
   const db = getDb();
   const [account] = await db.select().from(users).where(eq(users.id, actor.userId)).limit(1);
   if (!account) throw new CommunityFlowError("계정을 찾지 못했습니다.");
+  await assertTextsAllowed(
+    input.name,
+    input.churchName,
+    input.denomination,
+    input.slug,
+    input.phone,
+    input.customTermOverrides,
+    account.name,
+  );
 
   try {
     const created = await db.transaction(async (tx) => {
@@ -181,6 +193,7 @@ export async function applyToJoin(input: { code: string; denomination: string; p
     alreadyPending,
   });
   if (blocked || !invite || !community) throw new CommunityFlowError(blocked ?? "가입 신청을 받지 못했습니다.");
+  await assertTextsAllowed(input.name, input.phone, input.denomination);
 
   await db.transaction(async (tx) => {
     const updated = await tx
@@ -225,6 +238,7 @@ export async function reviewApproval(requestId: string, decision: "APPROVED" | "
     return;
   }
 
+  await assertTextsAllowed(request.applicantName, request.applicantContact);
   const roster = await db.select().from(members).where(eq(members.communityId, request.communityId));
   const plan = planApproval(
     roster.map((row) => ({ id: row.id, userId: row.userId, phone: row.phone })),
@@ -320,6 +334,7 @@ export async function saveRosterMember(input: {
     assertSameCommunity(communityId, group.communityId);
     if (group.isArchived) throw new CommunityFlowError("보관된 모들에는 새로 넣지 않습니다.");
   }
+  await assertTextsAllowed(input.name, input.phone, input.gender);
 
   if (!input.memberId) {
     const [created] = await db
@@ -415,6 +430,7 @@ export async function createGroup(input: { seasonYear: number; name: string; lea
     if (!leader) throw new CommunityFlowError("테우리로 지정할 사람을 찾지 못했습니다.");
     assertSameCommunity(communityId, leader.communityId);
   }
+  await assertTextsAllowed(input.name);
   const [group] = await db
     .insert(smallGroups)
     .values({
@@ -459,25 +475,40 @@ export type ShellState = {
   accountName: string | null;
   languageMode: LanguageMode | null;
   overridesJson: string;
+  menuHrefs: string[];
+  officer: boolean;
 };
+
+function shellBase(formal: boolean, officer: boolean): Pick<ShellState, "menuHrefs" | "officer"> {
+  return { menuHrefs: sidebarHrefs({ formal, officer }), officer: formal && officer };
+}
 
 export async function loadShellState(): Promise<ShellState> {
   try {
     await ensureDatabase();
     const actor = await loadActor();
-    if (actor.kind !== "user") return { accountName: null, languageMode: null, overridesJson: "{}" };
+    if (actor.kind !== "user") {
+      return { accountName: null, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+    }
     const accountName = await currentUserName(actor.userId);
     const communityId = await activeCommunityId(actor);
-    if (!communityId) return { accountName, languageMode: null, overridesJson: "{}" };
+    if (!communityId) {
+      return { accountName, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+    }
+    const membership = formalMembership(actor, communityId);
+    const officer = membership?.role === "PASTOR" || membership?.role === "EXECUTIVE";
     const [community] = await getDb().select().from(communities).where(eq(communities.id, communityId)).limit(1);
-    if (!community) return { accountName, languageMode: null, overridesJson: "{}" };
+    if (!community) {
+      return { accountName, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+    }
     return {
       accountName,
       languageMode: community.languageMode,
       overridesJson: JSON.stringify(community.customTermOverrides ?? {}),
+      ...shellBase(membership !== null, officer),
     };
   } catch {
-    return { accountName: null, languageMode: null, overridesJson: "{}" };
+    return { accountName: null, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
   }
 }
 
@@ -558,9 +589,12 @@ export async function loadGroupPage() {
 export async function loadAccountPage() {
   await ensureDatabase();
   const actor = await loadActor();
-  if (actor.kind !== "user") return { user: null as null, pendingCount: 0 };
+  if (actor.kind !== "user") return { user: null as null, pendingCount: 0, role: null as null };
+  const communityId = await activeCommunityId(actor);
+  const membership = communityId ? formalMembership(actor, communityId) : null;
   return {
     user: { name: (await currentUserName(actor.userId)) ?? "" },
     pendingCount: actor.pendingCommunityIds.length,
+    role: membership?.role ?? null,
   };
 }

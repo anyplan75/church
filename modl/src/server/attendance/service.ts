@@ -23,6 +23,7 @@ import { assertApprovedMember, assertCan, assertSameCommunity, can, formalMember
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { attendanceRecords, attendanceSessions, communities, members } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 
 export class AttendanceFlowError extends Error {
   constructor(message: string) {
@@ -139,6 +140,7 @@ export async function createSession(input: { departmentType: "YOUTH" | "SCHOOL";
   const actor = await loadActor();
   const communityId = await requireCommunity(actor);
   assertCan(actor, { type: "view_attendance_stats", communityId });
+  await assertTextsAllowed(input.title);
   const db = getDb();
   const [created] = await db
     .insert(attendanceSessions)

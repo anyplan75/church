@@ -12,7 +12,7 @@ function messageOf(error: unknown): string {
 }
 
 function fail(error: unknown): never {
-  redirect(`/settings?error=${encodeURIComponent(messageOf(error))}`);
+  redirect(`/account?error=${encodeURIComponent(messageOf(error))}`);
 }
 
 function text(formData: FormData, key: string): string {
@@ -47,7 +47,7 @@ export async function saveChurchAction(formData: FormData) {
   } catch (error) {
     fail(error);
   }
-  redirect(missed ? "/settings?ok=missed" : "/settings?ok=church");
+  redirect(missed ? "/account?ok=missed" : "/account?ok=church");
 }
 
 export async function removeChurchAction(formData: FormData) {
@@ -58,7 +58,7 @@ export async function removeChurchAction(formData: FormData) {
   } catch (error) {
     fail(error);
   }
-  redirect("/settings?ok=removed");
+  redirect("/account?ok=removed");
 }
 
 export async function importChurchSheetAction(formData: FormData) {
@@ -75,7 +75,7 @@ export async function importChurchSheetAction(formData: FormData) {
     fail(error);
   }
   const missed = result.missed > 0 ? `&missed=${result.missed}` : "";
-  redirect(`/settings?ok=sheet&count=${result.count}${missed}`);
+  redirect(`/account?ok=sheet&count=${result.count}${missed}`);
 }
 
 export async function saveMyAddressAction(address: string): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -85,6 +85,24 @@ export async function saveMyAddressAction(address: string): Promise<{ ok: true }
   } catch (error) {
     return { ok: false, message: messageOf(error) };
   }
+}
+
+export async function saveMyAddressFormAction(formData: FormData) {
+  try {
+    await saveMyAddress(text(formData, "address"));
+  } catch (error) {
+    fail(error);
+  }
+  redirect("/account?ok=address");
+}
+
+export async function setPickupConsentFormAction(formData: FormData) {
+  try {
+    await setPickupConsent(formData.get("agreed") === "on");
+  } catch (error) {
+    fail(error);
+  }
+  redirect("/account?ok=pickup");
 }
 
 export async function setPickupConsentAction(agreed: boolean): Promise<{ ok: true } | { ok: false; message: string }> {

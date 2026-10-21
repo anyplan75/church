@@ -97,6 +97,66 @@ export function replaceMemberScore(scores: readonly QuizScore[], next: QuizScore
   return [...scores.filter((item) => item.memberId !== next.memberId), next];
 }
 
+export type QuizWindow = "open" | "closed";
+
+/** 예배가 끝난 시각부터 정한 분까지가 푸는 시간입니다. 시각이 없으면 풀 수 없습니다. */
+export function quizWindow(input: {
+  worshipEndedAt: Date | null;
+  solveMinutes: number | null;
+  now: Date;
+}): QuizWindow {
+  if (!input.worshipEndedAt || input.solveMinutes === null || !Number.isInteger(input.solveMinutes) || input.solveMinutes <= 0) {
+    return "closed";
+  }
+  const start = input.worshipEndedAt.getTime();
+  if (Number.isNaN(start)) return "closed";
+  const end = start + input.solveMinutes * 60_000;
+  const now = input.now.getTime();
+  if (now >= start && now <= end) return "open";
+  return "closed";
+}
+
+/** 서울 달력의 해-달입니다. */
+export function monthKey(date: Date, timeZone = "Asia/Seoul"): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+  }).format(date);
+  return parts.slice(0, 7);
+}
+
+export type QuizKingEntry = {
+  memberId: string;
+  correct: number;
+  firstSubmittedAt: string;
+};
+
+/** 맞힌 수가 가장 많은 사람입니다. 같으면 먼저 제출한 사람입니다. 기록이 없으면 없습니다. */
+export function pickQuizKing(entries: readonly QuizKingEntry[]): QuizKingEntry | null {
+  const byMember = new Map<string, QuizKingEntry>();
+  for (const entry of entries) {
+    if (!Number.isInteger(entry.correct) || entry.correct < 0) continue;
+    const current = byMember.get(entry.memberId);
+    if (!current) {
+      byMember.set(entry.memberId, { ...entry });
+      continue;
+    }
+    current.correct += entry.correct;
+    if (entry.firstSubmittedAt < current.firstSubmittedAt) current.firstSubmittedAt = entry.firstSubmittedAt;
+  }
+  let winner: QuizKingEntry | null = null;
+  for (const entry of byMember.values()) {
+    if (!winner) {
+      winner = entry;
+      continue;
+    }
+    if (entry.correct > winner.correct) winner = entry;
+    else if (entry.correct === winner.correct && entry.firstSubmittedAt < winner.firstSubmittedAt) winner = entry;
+  }
+  return winner;
+}
+
 /** 주소 칸에 한 줄씩 적은 값을 목록으로 만듭니다. */
 export function linkLines(raw: string): string[] {
   return raw

@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { BlockedScreen } from "@/components/blocked-screen";
 import { TermHeading } from "@/components/term-heading";
+import { loadShellState } from "@/server/community/service";
 import { isMenuKey } from "@/theme/menus";
 
 export default async function MenuPlaceholderPage({
@@ -8,7 +10,18 @@ export default async function MenuPlaceholderPage({
   params: Promise<{ menu: string }>;
 }) {
   const { menu } = await params;
+  if (menu === "prayer_letter") notFound();
   if (!isMenuKey(menu)) notFound();
+  const shell = await loadShellState();
+  if (menu === "approval") {
+    if (!shell.officer) return <BlockedScreen />;
+    redirect("/approvals");
+  }
+  if (menu === "newcomer") {
+    if (!shell.officer) return <BlockedScreen />;
+  } else if (!shell.menuHrefs.includes(`/${menu}`)) {
+    return <BlockedScreen />;
+  }
 
   return (
     <section className="grid gap-4">

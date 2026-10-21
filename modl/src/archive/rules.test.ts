@@ -3,7 +3,10 @@ import { describe, it } from "node:test";
 import {
   linkLines,
   parseQuizLines,
+  monthKey,
+  pickQuizKing,
   publicQuizQuestions,
+  quizWindow,
   replaceMemberScore,
   scoreQuiz,
   youtubeEmbedUrl,
@@ -56,6 +59,31 @@ describe("퀴즈 점수", () => {
     const second = { memberId: "member-1", score: 2, total: 2, submittedAt: "2026-10-20T01:00:00.000Z" };
     const other = { memberId: "member-2", score: 0, total: 2, submittedAt: "2026-10-20T00:30:00.000Z" };
     assert.deepEqual(replaceMemberScore([first, other], second), [other, second]);
+  });
+
+  it("예배가 끝난 뒤 정한 분 안에만 열립니다", () => {
+    const start = new Date("2026-10-21T01:00:00.000Z");
+    assert.equal(quizWindow({ worshipEndedAt: start, solveMinutes: 30, now: new Date("2026-10-21T01:10:00.000Z") }), "open");
+    assert.equal(quizWindow({ worshipEndedAt: start, solveMinutes: 30, now: new Date("2026-10-21T00:59:00.000Z") }), "closed");
+    assert.equal(quizWindow({ worshipEndedAt: start, solveMinutes: 30, now: new Date("2026-10-21T01:31:00.000Z") }), "closed");
+    assert.equal(quizWindow({ worshipEndedAt: null, solveMinutes: 30, now: start }), "closed");
+  });
+
+  it("맞힌 수가 같고 먼저 낸 사람이 퀴즈왕입니다", () => {
+    const winner = pickQuizKing([
+      { memberId: "late", correct: 2, firstSubmittedAt: "2026-10-21T02:00:00.000Z" },
+      { memberId: "early", correct: 1, firstSubmittedAt: "2026-10-21T01:00:00.000Z" },
+      { memberId: "early", correct: 1, firstSubmittedAt: "2026-10-21T03:00:00.000Z" },
+    ]);
+    assert.equal(winner?.memberId, "early");
+    assert.equal(winner?.correct, 2);
+    assert.equal(winner?.firstSubmittedAt, "2026-10-21T01:00:00.000Z");
+    assert.equal(pickQuizKing([]), null);
+  });
+
+  it("달은 서울 달력으로 고릅니다", () => {
+    assert.equal(monthKey(new Date("2026-10-31T15:30:00.000Z")), "2026-11");
+    assert.equal(monthKey(new Date("2026-10-31T14:30:00.000Z")), "2026-10");
   });
 
   it("주소는 빈 줄을 버립니다", () => {

@@ -1,3 +1,4 @@
+import { BlockedScreen } from "@/components/blocked-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermArea, TermField } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
@@ -14,15 +15,13 @@ export default async function MinutesPage({
 }) {
   const query = await searchParams;
   const page = await loadMinutesHome();
+  if (!page.ok) return <BlockedScreen />;
 
   return (
     <section className="grid min-w-0 gap-4">
       <TermHeading termKey="minutes" level={1} />
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
-      ) : (
         <>
           <p className="leading-relaxed text-[#5c5148]">{page.communityName}</p>
           <form action={createMinutesAction} id="minutes-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
@@ -48,7 +47,6 @@ export default async function MinutesPage({
             </ul>
           )}
         </>
-      )}
     </section>
   );
 }

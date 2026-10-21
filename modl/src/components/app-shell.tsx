@@ -12,15 +12,17 @@ import { useMenuShortcuts } from "@/components/use-menu-shortcuts";
 export function AppShell({
   children,
   accountName,
+  menuHrefs,
 }: {
   children: React.ReactNode;
   accountName: string | null;
+  menuHrefs: string[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const go = useCallback((href: string) => router.push(href), [router]);
-  useMenuShortcuts(go);
+  useMenuShortcuts(go, menuHrefs);
   const home = pathname === "/";
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
@@ -39,7 +41,7 @@ export function AppShell({
           </Link>
         </div>
         <nav aria-label="분류" className="flex min-h-0 flex-1 flex-col px-2 pb-2">
-          <CategoryMenu className="min-h-0 flex-1 overflow-y-auto" />
+          <CategoryMenu menuHrefs={menuHrefs} className="min-h-0 flex-1 overflow-y-auto" />
           <div className="mt-2 border-t border-[#e2e8f0] pt-2">
             <AccountLink accountName={accountName} />
             <FontCredit />
@@ -62,7 +64,7 @@ export function AppShell({
         </header>
         {menuOpen ? (
           <nav aria-label="분류" className="max-h-[70vh] overflow-y-auto border-b border-[#e2e8f0] bg-white px-2 py-2 md:hidden">
-            <CategoryMenu onNavigate={closeMenu} />
+            <CategoryMenu menuHrefs={menuHrefs} onNavigate={closeMenu} />
             <div className="mt-2 border-t border-[#e2e8f0] pt-2">
               <AccountLink accountName={accountName} />
               <FontCredit />

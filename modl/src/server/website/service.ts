@@ -12,6 +12,7 @@ import { assertApprovedMember, assertCan, can, formalMembership } from "@/server
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { bulletins, calendarEvents, communities, surveys, websiteConfigs, websiteInquiries } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 import {
   atSitePath,
   blocksForPublic,
@@ -235,6 +236,7 @@ export async function saveWebsite(input: { blocks: WebsiteBlock[]; theme: Websit
   const db = getDb();
   const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
   if (!community) throw new WebsiteFlowError("공동체를 찾지 못했습니다.");
+  await assertTextsAllowed(input.blocks, input.theme, input.seo);
   const [existing] = await db.select().from(websiteConfigs).where(eq(websiteConfigs.communityId, communityId)).limit(1);
   const values = {
     slug: community.slug,
@@ -308,6 +310,7 @@ export async function submitInquiry(input: {
   if (!config) throw new WebsiteFlowError("홈페이지를 찾지 못했습니다.");
   const actor = await loadActor();
   assertCan(actor, { type: "submit_website_inquiry", communityId: community.id });
+  await assertTextsAllowed(parsed.visitorName, parsed.visitorContact, parsed.message);
   await db.insert(websiteInquiries).values({
     communityId: community.id,
     visitorName: parsed.visitorName,

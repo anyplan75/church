@@ -13,6 +13,7 @@ import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { bulletinsForActor, canPublishBulletin } from "@/server/bulletin/access";
 import { bulletins, communities } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 import type { LanguageMode } from "@/theme/types";
 
 export class BulletinFlowError extends Error {
@@ -172,6 +173,7 @@ export async function saveBulletin(input: {
   assertCan(actor, { type: "publish_bulletin", communityId });
   const parsed = parseBlocks(input.blocks);
   if (!parsed.ok) throw new BulletinFlowError(parsed.message);
+  await assertTextsAllowed(input.sermonTitle, input.scriptureText, input.preacher, parsed.blocks);
 
   const db = getDb();
   if (!input.bulletinId) {

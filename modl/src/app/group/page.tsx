@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BlockedScreen } from "@/components/blocked-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
@@ -15,6 +16,7 @@ export default async function GroupPage({
 }) {
   const query = await searchParams;
   const page = await loadGroupPage();
+  if (!page.ok) return <BlockedScreen />;
   const requested = Number(query.year);
   const year = Number.isInteger(requested) && requested >= 2000 && requested <= 2100 ? requested : new Date().getFullYear();
 
@@ -26,11 +28,7 @@ export default async function GroupPage({
       </p>
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
-      ) : (
-        <GroupBody year={year} page={page} />
-      )}
+      <GroupBody year={year} page={page} />
     </section>
   );
 }

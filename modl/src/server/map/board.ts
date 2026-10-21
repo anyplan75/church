@@ -14,6 +14,7 @@ import { communities, mapChurches, members } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { geocodeAddress } from "@/server/map/mapbox";
 import { MapServiceError } from "@/server/map/service";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 
 export type MapSelf = {
   address: string;
@@ -181,6 +182,7 @@ export async function loadChurchSettings(): Promise<ChurchSettings> {
 }
 
 async function writeChurch(communityId: string, church: ChurchInput, churchId: string | null): Promise<boolean> {
+  await assertTextsAllowed(church.name, church.pastorName, church.address, church.phone, church.serviceTime, church.memo);
   const db = getDb();
   const byId = churchId
     ? (
@@ -249,11 +251,28 @@ export async function importChurchRows(rows: readonly (readonly string[])[]): Pr
   return { count: parsed.churches.length, missed };
 }
 
+export async function loadMyPickup(): Promise<{ address: string; consented: boolean } | null> {
+  const seen = await viewer();
+  if (!seen) return null;
+  const rows = await getDb()
+    .select({
+      address: members.address,
+      pickupConsentAt: members.pickupConsentAt,
+    })
+    .from(members)
+    .where(and(eq(members.id, seen.membership.memberId), eq(members.communityId, seen.communityId)))
+    .limit(1);
+  const mine = rows[0];
+  if (!mine) return null;
+  return { address: mine.address ?? "", consented: mine.pickupConsentAt !== null };
+}
+
 export async function saveMyAddress(address: string): Promise<void> {
   const seen = await viewer();
   if (!seen) throw new MapServiceError("주소를 저장하려면 먼저 들어가 주세요.");
   const text = address.trim();
   if (text.length > 200) throw new MapServiceError("주소는 200자 안으로 적어 주세요.");
+  await assertTextsAllowed(text);
   if (!text) {
     await getDb()
       .update(members)

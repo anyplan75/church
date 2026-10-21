@@ -42,3 +42,7 @@ env:
     secret: GOOGLE_SHEETS_SERVICE_ACCOUNT
     availability:
       - RUNTIME
+  - variable: GOOGLE_SHEETS_SPREADSHEET_ID
+    secret: GOOGLE_SHEETS_SPREADSHEET_ID
+    availability:
+      - RUNTIME

@@ -1,3 +1,4 @@
+import { BlockedScreen } from "@/components/blocked-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
@@ -13,14 +14,12 @@ export default async function InvitePage({
 }) {
   const query = await searchParams;
   const page = await loadInvitePage();
+  if (!page.ok) return <BlockedScreen />;
   return (
     <section className="grid gap-4">
       <TermHeading termKey="invite" level={1} />
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
-      {!page.ok ? (
-        <p className="leading-relaxed">{page.message}</p>
-      ) : (
         <>
           <p className="leading-relaxed text-[#5c5148]">{page.community.name}</p>
           <form action={issueInviteAction} id="invite-form" className="grid gap-3">
@@ -39,7 +38,6 @@ export default async function InvitePage({
             ))}
           </ul>
         </>
-      )}
     </section>
   );
 }

@@ -30,6 +30,7 @@ import {
 } from "@/server/calendar/google";
 import { calendarEvents, communities, members } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { assertTextsAllowed } from "@/server/moderation/guard";
 
 export class CalendarFlowError extends Error {
   constructor(message: string) {
@@ -220,6 +221,7 @@ export async function saveCalendarEvent(input: {
   if (input.endAt.getTime() < input.startAt.getTime()) {
     throw new CalendarFlowError("끝나는 시각은 시작보다 빠를 수 없습니다.");
   }
+  await assertTextsAllowed(input.title);
   const db = getDb();
   let eventId = input.eventId;
   if (!eventId) {
