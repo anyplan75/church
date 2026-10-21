@@ -21,8 +21,8 @@ export const ROLES = [
   },
   {
     id: "directory",
-    label: "사람·찬양",
-    detail: "사람과 찬양 명단을 다룹니다.",
+    label: "찬양·라이브러리",
+    detail: "찬양·라이브러리를 다룹니다.",
   },
   {
     id: "admin",
@@ -192,8 +192,8 @@ export function homeFor(roles: readonly Role[]): string {
   if (can(roles, "screen.week")) return "/week";
   if (can(roles, "screen.prepare")) return "/";
   if (can(roles, "screen.services")) return "/services";
-  if (can(roles, "screen.people")) return "/people";
-  if (can(roles, "screen.songs")) return "/songs";
+  if (can(roles, "screen.songs")) return "/library";
+  if (can(roles, "screen.people")) return "/services";
   if (can(roles, "screen.settings")) return "/settings";
   if (can(roles, "screen.attendance")) return "/attendance";
   if (can(roles, "screen.inventory")) return "/inventory";

@@ -865,6 +865,12 @@ async function loadChurch(id: string) {
   }
   // 로그인 교회를 게스트 선택에도 맞춰 두면, 나가기 후에도 같은 교회를 이어서 봅니다.
   persistGuestChurchId(id);
+  // 모들(교회 연결)이 있으면 공유 자막·주보를 이 교회 로컬 자료에 반영합니다.
+  if (!writing) {
+    void import("./modules-db")
+      .then(({ pullModuleSharedIntoLocal }) => pullModuleSharedIntoLocal(id))
+      .catch(() => undefined);
+  }
 }
 
 function toAccount(id: string, member: RemoteAccount | null): LocalAccount | null {

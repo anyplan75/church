@@ -181,6 +181,31 @@
           ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && newData.child('churchId').val() == root.child('church/accounts').child(auth.uid).child('churchId').val()))"
         }
       },
+      "moduleMembership": {
+        "$churchId": {
+          ".read": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || root.child('church/accounts').child(auth.uid).exists())",
+          ".write": "auth != null && $churchId.matches(/^c[a-z0-9]{6,16}$/) && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId))",
+          ".validate": "!newData.exists() || (newData.hasChildren(['moduleId', 'joinedAt']) && newData.child('moduleId').isString() && newData.child('moduleId').val().matches(/^m[a-z0-9]{6,16}$/) && newData.child('joinedAt').isNumber())"
+        }
+      },
+      "modules": {
+        "$moduleId": {
+          ".read": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || root.child('church/accounts').child(auth.uid).exists())",
+          "meta": {
+            ".write": "auth != null && $moduleId.matches(/^m[a-z0-9]{6,16}$/) && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && ((!data.exists() && newData.child('hostChurchId').val() == root.child('church/accounts').child(auth.uid).child('churchId').val()) || (!newData.exists() && root.child('church/moduleMembership').child(root.child('church/accounts').child(auth.uid).child('churchId').val()).child('moduleId').val() == $moduleId) || (data.exists() && newData.child('hostChurchId').val() == data.child('hostChurchId').val() && newData.child('createdAt').val() == data.child('createdAt').val() && root.child('church/accounts').child(auth.uid).child('churchId').val() == data.child('hostChurchId').val()))))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['id', 'name', 'createdAt', 'hostChurchId']) && newData.child('id').val() == $moduleId && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 40 && newData.child('createdAt').isNumber() && newData.child('hostChurchId').isString() && newData.child('hostChurchId').val().matches(/^c[a-z0-9]{6,16}$/))"
+          },
+          "members": {
+            "$churchId": {
+              ".write": "auth != null && $churchId.matches(/^c[a-z0-9]{6,16}$/) && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId))",
+              ".validate": "!newData.exists() || (newData.hasChildren(['churchId', 'name', 'joinedAt']) && newData.child('churchId').val() == $churchId && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 40 && newData.child('joinedAt').isNumber())"
+            }
+          },
+          "shared": {
+            ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).exists() && root.child('church/moduleMembership').child(root.child('church/accounts').child(auth.uid).child('churchId').val()).child('moduleId').val() == $moduleId && (root.child('church/accounts').child(auth.uid).child('roles/prepare').val() == true || root.child('church/accounts').child(auth.uid).child('roles/run').val() == true || root.child('church/accounts').child(auth.uid).child('roles/output').val() == true || root.child('church/accounts').child(auth.uid).child('roles/directory').val() == true || root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true)))"
+          }
+        }
+      },
       "churches": {
         ".read": "auth != null && (auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val())",
         "$churchId": {

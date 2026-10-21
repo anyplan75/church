@@ -102,3 +102,7 @@ export function dbSet(relative: string, value: unknown, idToken: string): Promis
 export function dbPatch(relative: string, value: unknown, idToken: string): Promise<void> {
   return request(relative, idToken, "PATCH", value).then(() => undefined);
 }
+
+export function dbRemove(relative: string, idToken: string): Promise<void> {
+  return request(relative, idToken, "DELETE").then(() => undefined);
+}

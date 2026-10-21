@@ -168,6 +168,8 @@ export type Settings = {
   /** 성도 기도제목을 받는 담당 목사 Firebase uid */
   pastorUid?: string;
   pastorName?: string;
+  /** 모들(교회 연결)에서 마지막으로 반영한 공유 주보 시각(ms) */
+  moduleBulletinAt?: number;
 };
 
 export type AttendanceMark = {

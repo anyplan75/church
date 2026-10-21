@@ -48,8 +48,9 @@ describe("단순 운영", () => {
     assert.deepEqual(services.map((service) => service.id), ["sun", "wed"]);
   });
 
-  it("폴더와 그룹과 마침 표시가 있어야 예배를 시작한다", () => {
+  it("폴더와 마침 표시가 있어야 예배를 시작한다(사람 그룹은 필수 아님)", () => {
     assert.equal(setupComplete(settings), true);
+    assert.equal(setupComplete({ ...settings, groups: [] }), true);
     assert.equal(settingsReady(settings), true);
     assert.equal(settingsReady({ ...settings, mainReady: false }), false);
     assert.equal(setupComplete({ ...settings, folders: { bible: "", hymn: "찬송가", praise: "찬양" } }), false);
