@@ -1,13 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import {
-  isMobileMemberApp,
-  isMobileOperatorApp,
-  isNativeShell,
-  MEMBER_APP_ID,
-  nativeAppId,
-  OPERATOR_APP_ID,
-} from "./mobile-app";
+import { isMobileOperatorApp, isNativeShell, nativeAppId, OPERATOR_APP_ID } from "./mobile-app";
 
 type StubWindow = {
   __EUNHYE_APP_ID__?: string;
@@ -41,25 +34,16 @@ describe("mobile-app shell detection", () => {
     delete globalThis.document;
   });
 
-  it("appId 메타만으로 성도 셸을 알아챕니다(Capacitor 브리지 없음)", () => {
-    stubShell({ appId: MEMBER_APP_ID });
-    assert.equal(nativeAppId(), MEMBER_APP_ID);
-    assert.equal(isNativeShell(), true);
-    assert.equal(isMobileMemberApp(), true);
-    assert.equal(isMobileOperatorApp(), false);
-  });
-
   it("조작 appId면 조작 셸로 봅니다", () => {
     stubShell({ appId: OPERATOR_APP_ID });
+    assert.equal(nativeAppId(), OPERATOR_APP_ID);
     assert.equal(isNativeShell(), true);
-    assert.equal(isMobileMemberApp(), false);
     assert.equal(isMobileOperatorApp(), true);
   });
 
   it("appId 없는 구형 Capacitor는 조작으로 봅니다", () => {
     stubShell({ capacitorNative: true });
     assert.equal(isNativeShell(), true);
-    assert.equal(isMobileMemberApp(), false);
     assert.equal(isMobileOperatorApp(), true);
   });
 
@@ -70,7 +54,6 @@ describe("mobile-app shell detection", () => {
     globalThis.window = {};
     assert.equal(nativeAppId(), "");
     assert.equal(isNativeShell(), false);
-    assert.equal(isMobileMemberApp(), false);
     assert.equal(isMobileOperatorApp(), false);
   });
 });

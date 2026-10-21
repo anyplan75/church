@@ -17,16 +17,10 @@ npm run mobile:sync
 npx cap open ios
 ```
 
-## 성도(교인) 앱
+## 성도(교인) 앱 — 제거됨
 
-성도용 화면은 **`/member`** 입니다. 예배(부서)별 주보·가사·광고·예배 중 자막·기도제목(담당 목사 전달)·**커뮤니티**를 다룹니다. Remote·조작 데스크톱 메뉴와 분리되어 있습니다. 담당 목사는 **`/prayers`** 에서 받은 기도를 확인합니다. 안내: [`docs/member-app.md`](./docs/member-app.md).
-
-- 웹: `/member` (예: Surge 배포 후 `/member/`)
-- iOS 골격: 번들 `org.eunhye.worship.member`, 표시 이름 **은혜로운 예배 성도** (`capacitor.member.config.ts`, `ios-member/`)
-
-```bash
-npm run member:mobile:sync
-```
+성도용 `/member`·커뮤니티·기도함·`ios-member` Capacitor 셸은 **사용하지 않아 완전 삭제**했습니다.  
+제품은 **Operator(조작 Remote)·데스크톱·모들(교회 연결)** 만 유지합니다.
 
 ## 데스크톱 앱 설치
 

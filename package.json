@@ -27,10 +27,7 @@
     "mobile:sync": "npm run mobile:build-web && npx cap sync ios && node scripts/strip-capacitor-server-url.mjs && node scripts/inject-eunhye-app-id.mjs ios/App/App/public org.eunhye.worship.operator && node scripts/verify-capacitor-public.mjs operator",
     "mobile:ios": "npm run mobile:sync && npx cap open ios",
     "mobile:ios:sim": "npm run mobile:sync && npx cap run ios --target \"iPhone 17\"",
-    "mobile:ios:testflight": "bash scripts/ios-testflight-upload.sh",
-    "member:mobile:build-web": "node scripts/check-desktop-env.mjs && node scripts/run-static-export.mjs && node scripts/ensure-capacitor-out.mjs",
-    "member:mobile:sync": "node scripts/member-mobile-sync.mjs",
-    "member:mobile:ios:testflight": "bash scripts/ios-member-testflight-upload.sh"
+    "mobile:ios:testflight": "bash scripts/ios-testflight-upload.sh"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",

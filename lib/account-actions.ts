@@ -11,7 +11,7 @@ import {
   updateChurchMember,
   updateDb,
 } from "./app-db";
-import { isMobileMemberApp, isMobileOperatorApp, MOBILE_MEMBER_HOME, MOBILE_REMOTE_HOME } from "./mobile-app";
+import { isMobileOperatorApp, MOBILE_REMOTE_HOME } from "./mobile-app";
 import { go } from "./page-path";
 import { stopOperatorLink } from "./output-link";
 import { closeVisit } from "./simple";
@@ -43,7 +43,6 @@ export async function login(formData: FormData) {
   const user = await loginWithPassword(email!, password.trim());
   if (!user) go("/login?error=1");
   // Capacitor 셸은 역할·플랫폼 홈과 무관하게 전용 홈으로 갑니다.
-  if (isMobileMemberApp()) go(MOBILE_MEMBER_HOME);
   if (isMobileOperatorApp()) go(MOBILE_REMOTE_HOME);
   if (user!.kind === "platform" && !user!.churchId) go("/platform");
   go(homeFor(user!.roles));
@@ -58,10 +57,7 @@ export async function logout() {
     });
   }
   await endLocalSession();
-  // 성도 앱은 로그인 화면으로 보내지 않고, 고른 교회 둘러보기로 돌아갑니다.
-  if (isMobileMemberApp()) go(MOBILE_MEMBER_HOME);
-  else if (typeof window !== "undefined" && /\/member(\/|$)/.test(window.location.pathname)) go(MOBILE_MEMBER_HOME);
-  else go("/login");
+  go("/login");
 }
 
 export async function createAccount(formData: FormData) {

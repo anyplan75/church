@@ -7,7 +7,7 @@
       }
     },
     "churchIndex": {
-      ".read": true,
+      ".read": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || root.child('church/accounts').child(auth.uid).exists())",
       "$churchId": {
         ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && data.exists() && newData.child('id').val() == data.child('id').val() && newData.child('operatorEmail').val() == data.child('operatorEmail').val() && newData.child('createdAt').val() == data.child('createdAt').val()))",
         ".validate": "$churchId.matches(/^c[a-z0-9]{6,16}$/) && newData.hasChildren(['id', 'name', 'operatorEmail', 'createdAt']) && newData.child('id').val() == $churchId && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 40 && newData.child('createdAt').isNumber() && (!newData.hasChild('address') || (newData.child('address').isString() && newData.child('address').val().length <= 200)) && (!newData.hasChild('lat') || (newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90)) && (!newData.hasChild('lng') || (newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180))"
@@ -49,12 +49,10 @@
       "$churchId": {
         ".read": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId)",
         "meta": {
-          ".read": true,
           ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true && root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && data.exists() && newData.child('createdAt').val() == data.child('createdAt').val()))",
           ".validate": "newData.hasChild('name') && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 40 && newData.hasChild('createdAt') && newData.child('createdAt').isNumber() && (!newData.hasChild('address') || (newData.child('address').isString() && newData.child('address').val().length <= 200)) && (!newData.hasChild('lat') || (newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90)) && (!newData.hasChild('lng') || (newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180))"
         },
         "data": {
-          ".read": true,
           ".write": "auth != null && ((auth.token.email == 'anyplan@me.com' || auth.uid == root.child('church/platform/adminUid').val()) || (root.child('church/accounts').child(auth.uid).child('churchId').val() == $churchId && (root.child('church/accounts').child(auth.uid).child('roles/prepare').val() == true || root.child('church/accounts').child(auth.uid).child('roles/run').val() == true || root.child('church/accounts').child(auth.uid).child('roles/output').val() == true || root.child('church/accounts').child(auth.uid).child('roles/directory').val() == true || root.child('church/accounts').child(auth.uid).child('roles/admin').val() == true)))"
         },
         "files": {

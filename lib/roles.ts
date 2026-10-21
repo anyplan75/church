@@ -48,7 +48,6 @@ export type Capability =
   | "screen.people"
   | "screen.songs"
   | "screen.settings"
-  | "screen.community"
   | "mutate.prepare"
   | "mutate.run"
   | "mutate.output"
@@ -58,12 +57,10 @@ export type Capability =
   | "screen.inventory"
   | "mutate.attendance.leader"
   | "mutate.inventory"
-  | "screen.activity"
-  | "screen.member"
-  | "screen.prayers";
+  | "screen.activity";
 
 const GRANTS: Record<Role, readonly Capability[]> = {
-  view: ["screen.week", "screen.services", "screen.bulletin", "screen.attendance", "screen.inventory", "screen.community", "screen.member"],
+  view: ["screen.week", "screen.services", "screen.bulletin", "screen.attendance", "screen.inventory"],
   prepare: [
     "screen.week",
     "screen.services",
@@ -76,9 +73,6 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "mutate.attendance.leader",
     "screen.inventory",
     "mutate.inventory",
-    "screen.community",
-    "screen.member",
-    "screen.prayers",
   ],
   run: [
     "screen.week",
@@ -87,9 +81,6 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "mutate.run",
     "screen.attendance",
     "mutate.attendance.leader",
-    "screen.community",
-    "screen.member",
-    "screen.prayers",
   ],
   output: [
     "screen.week",
@@ -98,8 +89,6 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "screen.slides",
     "mutate.output",
     "screen.attendance",
-    "screen.community",
-    "screen.member",
   ],
   directory: [
     "screen.people",
@@ -109,8 +98,6 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "mutate.attendance.leader",
     "screen.inventory",
     "mutate.inventory",
-    "screen.community",
-    "screen.member",
   ],
   admin: [
     "screen.settings",
@@ -120,9 +107,6 @@ const GRANTS: Record<Role, readonly Capability[]> = {
     "screen.inventory",
     "mutate.inventory",
     "screen.activity",
-    "screen.community",
-    "screen.member",
-    "screen.prayers",
   ],
 };
 
@@ -130,7 +114,6 @@ const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] 
   { test: (pathname) => pathname === "/", caps: ["screen.bulletin"] },
   { test: (pathname) => pathname === "/week", caps: ["screen.week"] },
   { test: (pathname) => pathname === "/library", caps: ["screen.songs"] },
-  { test: (pathname) => pathname === "/community" || pathname.startsWith("/community/"), caps: ["screen.community"] },
   { test: (pathname) => pathname === "/prepare", caps: ["screen.prepare"] },
   { test: (pathname) => pathname === "/services", caps: ["screen.services"] },
   { test: (pathname) => pathname === "/presenter", caps: ["screen.live"] },
@@ -141,8 +124,6 @@ const PATH_RULES: { test: (pathname: string) => boolean; caps: Capability[] }[] 
   { test: (pathname) => pathname === "/activity", caps: ["screen.activity"] },
   { test: (pathname) => pathname === "/attendance", caps: ["screen.attendance"] },
   { test: (pathname) => pathname === "/inventory", caps: ["screen.inventory"] },
-  { test: (pathname) => pathname === "/member" || pathname.startsWith("/member/"), caps: ["screen.member"] },
-  { test: (pathname) => pathname === "/prayers", caps: ["screen.prayers"] },
   { test: (pathname) => /^\/services\/[^/]+\/bulletin$/.test(pathname), caps: ["screen.bulletin"] },
   { test: (pathname) => /^\/services\/[^/]+\/live$/.test(pathname), caps: ["screen.live"] },
   { test: (pathname) => /^\/services\/[^/]+\/output$/.test(pathname), caps: ["screen.output"] },
@@ -167,19 +148,11 @@ export function can(roles: readonly Role[], capability: Capability): boolean {
 }
 
 export function canOpenPath(roles: readonly Role[], pathname: string): boolean {
-  // Surge 정적 배포의 /community/ 처럼 끝 슬래시를 없앱니다.
+  // Surge 정적 배포의 끝 슬래시를 없앱니다.
   let path = pathname.split("?")[0] || "/";
   if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-  // /remote · /member 는 로그인한 교회 사용자면 역할과 무관하게 엽니다(리모컨·성도 앱).
-  if (
-    path === "/login" ||
-    path === "/setup" ||
-    path === "/denied" ||
-    path === "/receive" ||
-    path === "/remote" ||
-    path === "/member" ||
-    path.startsWith("/member/")
-  ) {
+  // /remote 는 로그인한 교회 사용자면 역할과 무관하게 엽니다(조작 리모컨).
+  if (path === "/login" || path === "/setup" || path === "/denied" || path === "/receive" || path === "/remote") {
     return true;
   }
   const rule = PATH_RULES.find((item) => item.test(path));

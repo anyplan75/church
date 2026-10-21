@@ -12,7 +12,6 @@ import {
   type FirebaseSession,
 } from "./firebase-auth";
 import { churchLocationFromInput } from "./geo";
-import { clearGuestChurchId, persistGuestChurchId, readGuestChurchId } from "./guest-church";
 import { hostKey } from "./output-host";
 import { go } from "./page-path";
 import {
@@ -150,7 +149,6 @@ let bootStartedAt = 0;
 let bootDeadlineTimer: number | null = null;
 
 function openBootReady(message: string) {
-  // 성도는 비로그인 둘러보기가 가능하므로, 부트 실패 시에도 로그인으로 강제 이동하지 않습니다.
   clearSession();
   ready = true;
   error = message;
@@ -162,7 +160,6 @@ function openBootReady(message: string) {
     window.clearTimeout(bootDeadlineTimer);
     bootDeadlineTimer = null;
   }
-  void restoreGuestBrowse().finally(() => emit());
 }
 
 function armBootDeadline(generation: number) {
@@ -172,9 +169,9 @@ function armBootDeadline(generation: number) {
   bootDeadlineTimer = window.setTimeout(() => {
     bootDeadlineTimer = null;
     if (generation !== loadGeneration || ready) return;
-    // 진행 중인 await 결과를 무시하고 화면을 엽니다(성도는 비로그인 유지).
+    // 진행 중인 await 결과를 무시하고 로그인 화면을 엽니다.
     loadGeneration += 1;
-    openBootReady("연결이 지연되었습니다. 주변 교회를 찾아 예배 정보를 볼 수 있습니다.");
+    openBootReady("연결이 지연되었습니다. 다시 로그인해 주세요.");
   }, remaining);
 }
 
@@ -208,8 +205,6 @@ async function load() {
       }
     }
     if (generation !== loadGeneration) return;
-    if (!session) await restoreGuestBrowse();
-    if (generation !== loadGeneration) return;
     bootFailures = 0;
     ready = true;
     bootStartedAt = 0;
@@ -226,9 +221,9 @@ async function load() {
       return;
     }
     bootFailures += 1;
-    // 두 번 실패하면 세션을 비우고 둘러보기 화면을 엽니다(무한 「불러오는 중」 방지).
+    // 두 번 실패하면 세션을 비우고 로그인 화면을 엽니다(무한 「불러오는 중」 방지).
     if (bootFailures >= 2) {
-      openBootReady("연결에 실패했습니다. 주변 교회를 찾아 예배 정보를 볼 수 있습니다.");
+      openBootReady("연결에 실패했습니다. 다시 로그인해 주세요.");
       return;
     }
     ready = false;
@@ -563,36 +558,12 @@ export async function removeLocalAccount(id: string) {
 
 export async function endLocalSession() {
   clearSession();
-  await restoreGuestBrowse().catch(() => undefined);
+  db = null;
+  churchProfile = null;
+  accounts = [];
+  files = new Map();
   ready = true;
   emit();
-}
-
-/** 성도 비로그인: 근처 교회에서 고른 교회를 바로 엽니다(예배정보·자막 포함). */
-export async function openBrowseChurch(churchId: string): Promise<boolean> {
-  const id = String(churchId || "").trim();
-  if (!isChurchId(id)) return false;
-  await loadGuestChurch(id);
-  emit();
-  return Boolean(db);
-}
-
-/** 성도 비로그인: 고른 교회를 지우고 다시 주변 검색 화면으로. */
-export function clearBrowseChurch() {
-  clearGuestChurchId();
-  if (!session) {
-    db = null;
-    churchProfile = null;
-    accounts = [];
-    files = new Map();
-  }
-  emit();
-}
-
-/** 지금 보고 있는 교회 id(로그인 세션 또는 비로그인으로 고른 교회). */
-export function browseChurchId(): string | null {
-  if (session?.churchId && isChurchId(session.churchId)) return session.churchId;
-  return readGuestChurchId();
 }
 
 export function storedBackgroundUrl(name: string | null | undefined): string | null {
@@ -756,68 +727,6 @@ async function churchRowsFromMeta(authToken: string): Promise<ChurchRow[]> {
   return rows.sort((a, b) => a.name.localeCompare(b.name, "ko"));
 }
 
-async function restoreGuestBrowse() {
-  churches = await loadChurchIndex("").catch((reason: unknown) => {
-    if (reason instanceof DatabasePermissionError) {
-      error = "교회 목록을 열 수 없습니다. Firebase 규칙을 확인해 주세요.";
-      return [] as ChurchRow[];
-    }
-    throw reason;
-  });
-  const guestId = readGuestChurchId();
-  if (guestId) {
-    try {
-      await loadGuestChurch(guestId);
-    } catch {
-      clearGuestChurchId();
-      db = null;
-      churchProfile = null;
-    }
-  }
-}
-
-/** 비로그인 공개 읽기: meta·data 만(멤버·기도함·파일은 로그인 필요). */
-async function loadGuestChurch(id: string) {
-  if (!isChurchId(id)) return;
-  const token = "";
-  const [data, meta] = await Promise.all([
-    dbGet<Db>(`churches/${id}/data`, token),
-    dbGet<{ name?: unknown; operatorEmail?: unknown; createdAt?: unknown; address?: unknown; lat?: unknown; lng?: unknown }>(
-      `churches/${id}/meta`,
-      token,
-    ).catch((reason: unknown) => {
-      if (reason instanceof DatabasePermissionError) throw reason;
-      return null;
-    }),
-  ]);
-  db = data ? normalizeDb(data) : null;
-  if (db) syncReminders(db);
-  accounts = [];
-  files = new Map();
-  const indexed = churches.find((row) => row.id === id);
-  if (meta && typeof meta === "object") {
-    churchProfile = {
-      id,
-      name: String(meta.name || indexed?.name || db?.settings.churchName || "교회").slice(0, 40),
-      operatorEmail: String(meta.operatorEmail || indexed?.operatorEmail || "").trim().toLowerCase(),
-      createdAt: Number(meta.createdAt || indexed?.createdAt || 0),
-      ...parseChurchLocation(meta),
-    };
-  } else if (indexed) {
-    churchProfile = { ...indexed };
-  } else if (db) {
-    churchProfile = {
-      id,
-      name: db.settings.churchName || "교회",
-      operatorEmail: "",
-      createdAt: 0,
-    };
-  } else {
-    churchProfile = null;
-  }
-  if (db) persistGuestChurchId(id);
-}
-
 async function loadChurch(id: string) {
   const actor = actorOf(session);
   if (!session || !actor || !canSeeChurch(actor, id)) return;
@@ -863,8 +772,6 @@ async function loadChurch(id: string) {
     const mine = accounts.find((account) => account.id === session?.accountId);
     if (mine) session = { ...session, roles: mine.roles, email: mine.email };
   }
-  // 로그인 교회를 게스트 선택에도 맞춰 두면, 나가기 후에도 같은 교회를 이어서 봅니다.
-  persistGuestChurchId(id);
   // 모들(교회 연결)이 있으면 공유 자막·주보를 이 교회 로컬 자료에 반영합니다.
   if (!writing) {
     void import("./modules-db")
@@ -936,15 +843,10 @@ export async function patchOutputDirect(host: string, mode: string, value: unkno
 async function refreshRemote() {
   if (writing) return;
   try {
-    if (session) {
-      const authToken = await currentToken();
-      if (session.kind === "platform") churches = await loadChurchIndex(authToken);
-      if (session.churchId && canSeeChurch(actorOf(session)!, session.churchId)) await loadChurch(session.churchId);
-    } else {
-      const guestId = readGuestChurchId();
-      churches = await loadChurchIndex("").catch(() => churches);
-      if (guestId) await loadGuestChurch(guestId);
-    }
+    if (!session) return;
+    const authToken = await currentToken();
+    if (session.kind === "platform") churches = await loadChurchIndex(authToken);
+    if (session.churchId && canSeeChurch(actorOf(session)!, session.churchId)) await loadChurch(session.churchId);
     emit();
   } catch {
     /* 다음 주기에 다시 받습니다. */

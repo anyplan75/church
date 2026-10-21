@@ -5,7 +5,6 @@ import path from "node:path";
 // url이 Next 개발 서버를 가리키면 iOS에서 RSC 원문·빈 화면이 난다.
 const candidates = [
   path.join(process.cwd(), "ios", "App", "App", "capacitor.config.json"),
-  path.join(process.cwd(), "ios-member", "App", "App", "capacitor.config.json"),
   path.join(process.cwd(), "capacitor.config.json"),
 ];
 
