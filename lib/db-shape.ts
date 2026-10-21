@@ -52,6 +52,10 @@ function normalizeSettings(settings: Partial<Settings> | undefined, fallback: Se
     outputHost: cleanHost(settings?.outputHost) || undefined,
     pastorUid: String(settings?.pastorUid ?? "").trim().slice(0, 128) || undefined,
     pastorName: String(settings?.pastorName ?? "").trim().slice(0, 40) || undefined,
+    moduleBulletinAt: (() => {
+      const at = Number(settings?.moduleBulletinAt);
+      return Number.isFinite(at) && at > 0 ? at : undefined;
+    })(),
   };
 }
 

@@ -32,13 +32,12 @@ function usePresenterDeskOpen(pathname: string) {
   return open;
 }
 
-/** 조작·데스크톱 주 메뉴. 성도·커뮤니티·기도함은 성도 앱(`/member`)에만 둡니다. */
+/** 조작·데스크톱 주 메뉴. 성도·사람·커뮤니티·기도함은 성도 앱(`/member`)에만 둡니다. */
 const LINKS: { href: string; label: string; capability: Capability }[] = [
   { href: "/", label: "주보", capability: "screen.bulletin" },
   { href: "/week", label: "이번 주", capability: "screen.week" },
   { href: "/services", label: "예배", capability: "screen.services" },
   { href: "/presenter", label: "프레젠터", capability: "screen.live" },
-  { href: "/people", label: "사람", capability: "screen.people" },
   { href: "/library", label: "라이브러리", capability: "screen.songs" },
   { href: "/settings", label: "설정", capability: "screen.settings" },
 ];

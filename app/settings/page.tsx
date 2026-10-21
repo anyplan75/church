@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { AccountPanel } from "@/components/account-panel";
+import { ChurchLinksPanel } from "@/components/church-links-panel";
 import { ChurchProfileEditor } from "@/components/church-profile-editor";
 import { SubmitButton } from "@/components/submit-button";
 import { useChurch, useClientQuery } from "@/components/church-state";
-import { deleteGroup, finishSetup, saveGroup, updateSettings } from "@/lib/actions";
+import { finishSetup, updateSettings } from "@/lib/actions";
 import { listAccounts, storedBackgroundUrl } from "@/lib/app-db";
 import { ChromeOutputLinks } from "@/components/chrome-output-links";
 import { OutputTargetField } from "@/components/output-target";
@@ -46,7 +47,7 @@ export default function SettingsPage() {
   return (
     <div className="page max-w-3xl">
       <h1 className="font-serif text-4xl">설정</h1>
-      <p className="mt-2 text-muted">예배마다 같은 기본값은 여기에 두고, 예배마다 다른 담당은 사람 그룹으로 고릅니다. 이 설정이 끝나기 전에는 예배를 시작할 수 없습니다.</p>
+      <p className="mt-2 text-muted">예배 준비·송출 기본값과 교회 연결을 다룹니다. 이 설정이 끝나기 전에는 예배를 시작할 수 없습니다.</p>
       {settingsReady(settings) ? <p className="mt-4 text-sm text-pine">메인 설정을 마쳤습니다.</p> : null}
       {query.saved ? <p className="mt-4 text-sm text-pine">설정을 저장했습니다.</p> : null}
       {query.profileSaved ? <p className="mt-4 text-sm text-pine">교회 정보를 저장했습니다.</p> : null}
@@ -56,7 +57,6 @@ export default function SettingsPage() {
       {query.error === "host" ? <p className="mt-4 text-sm text-wine">이 송출 컴퓨터의 IP만 넣어 주세요. 예: 192.168.0.10</p> : null}
       {query.error === "url" || hostProblem === "url" ? <p className="mt-4 text-sm text-wine">192.168 주소를 넣어 주세요.</p> : null}
       {query.error === "image" ? <p className="mt-4 text-sm text-wine">배경 그림은 5MB 이하의 JPG, PNG, WEBP로 올려 주세요.</p> : null}
-      {query.error === "group" ? <p className="mt-4 text-sm text-wine">그룹 이름과 사람을 한 명 이상 골라 주세요.</p> : null}
       {query.error === "setup" ? (
         <p className="mt-4 text-sm text-wine">아직 메인 설정을 마칠 수 없습니다. {missing.join(" ")}</p>
       ) : null}
@@ -66,6 +66,8 @@ export default function SettingsPage() {
           <ChurchProfileEditor key={`${profileDraft.id}-${profileDraft.address || ""}-${profileDraft.lat || ""}`} church={profileDraft} returnTo="/settings" />
         </section>
       ) : null}
+
+      <ChurchLinksPanel />
 
       <form action={updateSettings} autoComplete="off" className="card mt-6 space-y-4 p-5">
         <h2 className="font-serif text-2xl">예배 기본값</h2>
@@ -90,7 +92,7 @@ export default function SettingsPage() {
               ))}
           </select>
         </label>
-        <p className="text-sm text-muted">성도가 보낸 기도제목은 이 담당 목사님 기도함으로 갑니다. 계정에 준비·진행·관리 역할이 있어야 목록에 보입니다.</p>
+        <p className="text-sm text-muted">성도 앱에서 보낸 기도제목은 이 담당 목사님 기도함(`/prayers`)으로 갑니다.</p>
         <label className="field">
           <span>배경색</span>
           <input className="input h-11" name="backgroundColor" type="color" defaultValue={settings.backgroundColor || "#1b3a32"} />
@@ -145,40 +147,6 @@ export default function SettingsPage() {
         <SubmitButton>기본값 저장</SubmitButton>
       </form>
 
-      <section className="card mt-6 space-y-4 p-5">
-        <h2 className="font-serif text-2xl">사람 그룹</h2>
-        <p className="text-sm text-muted">예배 설정에서 이 그룹을 고르면 그 예배의 담당이 됩니다.</p>
-        {(settings.groups ?? []).map((group) => (
-          <form key={group.id} action={saveGroup} className="space-y-3 rounded-xl border border-line p-3">
-            <input type="hidden" name="id" value={group.id} />
-            <label className="field">
-              <span>그룹 이름</span>
-              <input className="input" name="name" defaultValue={group.name} maxLength={40} required />
-            </label>
-            <PersonPicks people={db.people} selected={group.personIds} />
-            <div className="flex gap-2">
-              <SubmitButton className="btn btn-quiet">그룹 저장</SubmitButton>
-            </div>
-          </form>
-        ))}
-        {(settings.groups ?? []).map((group) => (
-          <form key={`${group.id}-delete`} action={deleteGroup}>
-            <input type="hidden" name="id" value={group.id} />
-            <button type="submit" className="btn btn-quiet btn-small text-wine">
-              {group.name} 삭제
-            </button>
-          </form>
-        ))}
-        <form action={saveGroup} className="space-y-3">
-          <label className="field">
-            <span>새 그룹</span>
-            <input className="input" name="name" maxLength={40} placeholder="주일 1부 인도" />
-          </label>
-          <PersonPicks people={db.people} selected={[]} />
-          <SubmitButton className="btn btn-quiet">그룹 추가</SubmitButton>
-        </form>
-      </section>
-
       <form action={finishSetup} className="card mt-6 space-y-3 p-5">
         <h2 className="font-serif text-2xl">메인 설정 마치기</h2>
         {missing.length > 0 ? <p className="text-sm text-wine">{missing.join(" ")}</p> : <p className="text-sm text-muted">필요한 항목을 모두 채웠습니다.</p>}
@@ -200,23 +168,9 @@ export default function SettingsPage() {
         </ul>
       </section>
 
-      <AccountPanel accounts={accounts} people={db.people} currentId={user.id} error={query.accountError} saved={query.accountSaved} errorAccount={query.account} />
+      <AccountPanel accounts={accounts} currentId={user.id} error={query.accountError} saved={query.accountSaved} errorAccount={query.account} />
 
       <p className="mt-8 text-center text-xs text-muted">은혜로운 예배</p>
-    </div>
-  );
-}
-
-function PersonPicks({ people, selected }: { people: { id: string; name: string }[]; selected: string[] }) {
-  if (people.length === 0) return <p className="text-sm text-muted">먼저 사람을 등록해 주세요.</p>;
-  return (
-    <div className="flex flex-wrap gap-3 text-sm">
-      {people.map((person) => (
-        <label key={person.id} className="flex items-center gap-2">
-          <input type="checkbox" name="personId" value={person.id} defaultChecked={selected.includes(person.id)} />
-          {person.name}
-        </label>
-      ))}
     </div>
   );
 }
@@ -227,9 +181,6 @@ function setupGaps(settings: Parameters<typeof setupComplete>[0]): string[] {
   if (!(settings.defaultPlace ?? "").trim()) gaps.push("기본 장소가 필요합니다.");
   if (!settings.folders?.bible.trim() || !settings.folders?.hymn.trim() || !settings.folders?.praise.trim()) {
     gaps.push("라이브러리에서 성경, 찬송가, 찬양 폴더를 지정해 주세요.");
-  }
-  if (!(settings.groups ?? []).some((group) => group.name.trim() && group.personIds.length > 0)) {
-    gaps.push("사람이 있는 그룹이 하나 필요합니다.");
   }
   return gaps;
 }

@@ -110,6 +110,7 @@ export async function saveLiveCue(
   try {
     const auth = liveControlAuth();
     if (!auth.ok) return auth;
+    let published: Service | null = null;
     updateDb((db) => {
       const service = db.services.find((item) => item.id === id);
       if (!service) throw new Error("예배를 찾을 수 없습니다.");
@@ -117,8 +118,15 @@ export async function saveLiveCue(
       service.liveSlide = clampLiveIndex(liveSlide, 40);
       // 조작 리모컨의 활성 줄을 Firebase에도 남겨 성도 앱 자막이 따라가게 합니다.
       service.outputLines = normalizeOutputLines(lines);
+      published = { ...service, outputLines: service.outputLines };
     });
     refreshService(id);
+    if (published) {
+      const cue = published;
+      void import("./modules-db")
+        .then(({ publishSharedCaptions }) => publishSharedCaptions(cue, normalizeOutputLines(lines)))
+        .catch(() => undefined);
+    }
     return { ok: true };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "저장하지 못했습니다." };
@@ -558,6 +566,9 @@ export async function importBulletin(formData: FormData) {
     lyrics = result.skippedLyrics;
   });
   await flushChurchWrite();
+  void import("./modules-db")
+    .then(({ publishSharedBulletin }) => publishSharedBulletin(text))
+    .catch(() => undefined);
   refreshService();
   if (imported === 0 && skipped === 0) go("/?error=none");
   go(`/?imported=${imported}&skipped=${skipped}&lyrics=${lyrics}`);

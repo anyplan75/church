@@ -109,6 +109,22 @@
 
 코드: `lib/community.ts`, `lib/community-db.ts`, `components/community/community-app.tsx`.
 
+### 2.6c `church/modules/…` · `church/moduleMembership/…` (모들 = 교회 연결)
+
+조작 앱에서 여러 교회를 묶어 **자막·주보 입력**을 공유합니다. 연결하지 않으면 각 교회 `data/`만 씁니다.
+
+| 경로 | 내용 |
+| --- | --- |
+| `moduleMembership/{churchId}` | `{ moduleId, joinedAt }` |
+| `modules/{moduleId}/meta` | `{ id, name, createdAt, hostChurchId }` |
+| `modules/{moduleId}/members/{churchId}` | `{ churchId, name, joinedAt }` |
+| `modules/{moduleId}/shared/captions` | 실시간 자막 두 줄·출처 교회·시각 |
+| `modules/{moduleId}/shared/bulletin` | 주보 원문·출처 교회·시각 |
+
+읽기: 로그인 교회 계정 또는 플랫폼. 멤버십/members/meta 쓰기: 해당 교회 `admin` 또는 플랫폼. `shared` 쓰기: 모들 소속 + prepare/run/output/directory/admin.
+
+코드: `lib/modules.ts`, `lib/modules-db.ts`, `components/church-links-panel.tsx`.
+
 ### 2.7 `church/churches/{churchId}/data/…`
 
 교회 업무 데이터. 키별로 PUT한다. 읽기는 교회 단위로 한 번에 받는다.
@@ -129,6 +145,8 @@
 | `fullscreenStep`, `mainFontSize`, `overlayFontSize` | 숫자 |
 | `backgrounds` | 문자열 배열 |
 | `outputHost` | 문자열(송출 PC 주소) |
+| `pastorUid` / `pastorName` | 성도 기도함 담당(선택) |
+| `moduleBulletinAt` | 모들에서 마지막으로 반영한 공유 주보 시각(ms, 선택) |
 
 #### `data/people[]`
 

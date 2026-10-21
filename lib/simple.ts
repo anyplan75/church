@@ -126,14 +126,13 @@ export function backgroundsOf(settings: Pick<Settings, "backgrounds"> | undefine
 
 export function setupComplete(settings: Settings): boolean {
   const folders = settings.folders;
-  const groups = settings.groups ?? [];
+  // 조작 앱은 예배 준비·송출만 다룹니다. 사람 그룹은 더 이상 필수가 아닙니다.
   return Boolean(
     settings.churchName.trim() &&
       (settings.defaultPlace ?? "").trim() &&
       folders?.bible.trim() &&
       folders.hymn.trim() &&
       folders.praise.trim() &&
-      groups.some((group) => group.name.trim() && group.personIds.length > 0) &&
       backgroundsOf(settings).length === 5 &&
       captionFont(settings.fullscreenFont) &&
       fullscreenStep(settings.fullscreenStep) >= 0,
