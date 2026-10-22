@@ -31,6 +31,28 @@ const churchSchema = z.object({
   memo: z.string().trim().max(500),
 });
 
+export async function saveMapChurchAction(input: {
+  churchId: string;
+  name: string;
+  pastorName: string;
+  address: string;
+  phone: string;
+  serviceTime: string;
+  memo: string;
+  tags: string[];
+}): Promise<{ ok: true; missed: boolean; church: Awaited<ReturnType<typeof saveChurch>>["church"] } | { ok: false; message: string }> {
+  const parsed = churchSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "교회를 확인해 주세요." };
+  const churchId = input.churchId.trim();
+  if (!churchId) return { ok: false, message: "교회를 찾지 못했습니다." };
+  try {
+    const saved = await saveChurch({ ...parsed.data, churchId, tags: input.tags });
+    return { ok: true, missed: saved.missed, church: saved.church };
+  } catch (error) {
+    return { ok: false, message: messageOf(error) };
+  }
+}
+
 export async function saveChurchAction(formData: FormData) {
   const parsed = churchSchema.safeParse({
     name: text(formData, "name"),

@@ -12,6 +12,7 @@ export default async function MapPage() {
       pickups={board.pickups}
       self={board.self}
       hasChurches={board.hasChurches}
+      canEditChurches={board.canEditChurches}
       mapboxToken={mapboxToken}
     />
   );

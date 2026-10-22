@@ -5,17 +5,29 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { followWindowMeters, distanceToLineMeters, HERE_RADIUS_METERS, JEJU_VIEW, lineLengthMeters, nearestSegmentIndex, OFF_ROUTE_METERS, radiusView } from "@/map/follow";
 import type { BusGuide } from "@/map/jeju-bus";
 import type { ChurchPin } from "@/map/church-sheet";
-import { churchMatchesTags } from "@/map/church-tags";
+import { churchMatchesTags, normalizeChurchTags, type ChurchTag } from "@/map/church-tags";
 import { ChurchTagFilters } from "@/components/church-tag-filters";
 import { PLACE_KIND_LABEL, type MapPoint, type PlaceHit, type RouteResult, type RouteSegment } from "@/map/rules";
 import { busGuideAction, busRouteLineAction, searchPlacesAction, travelAction } from "@/server/map/actions";
-import { saveMyAddressAction, setPickupConsentAction } from "@/server/map/church-actions";
+import { saveMapChurchAction, saveMyAddressAction, setPickupConsentAction } from "@/server/map/church-actions";
 
-type Pending = "search" | "route" | "bus" | "gps" | "address" | "consent" | null;
+type Pending = "search" | "route" | "bus" | "gps" | "address" | "consent" | "church" | null;
 type TravelMode = "car" | "walk" | "bus";
 type PickupPin = { id: string; name: string; point: MapPoint };
 type MapSelf = { address: string; consented: boolean };
 type Selected = { type: "church" | "place" | "pickup"; id: string };
+type ChurchDraft = {
+  id: string;
+  name: string;
+  pastorName: string;
+  address: string;
+  phone: string;
+  serviceTime: string;
+  memo: string;
+  tags: ChurchTag[];
+};
+
+const CHURCH_FIELD = "w-full rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 leading-snug";
 
 function routeSummary(route: RouteResult): string {
   const parts: string[] = [];
@@ -40,12 +52,14 @@ export function MapBoard({
   pickups,
   self,
   hasChurches,
+  canEditChurches,
   mapboxToken,
 }: {
   churches: ChurchPin[];
   pickups: PickupPin[];
   self: MapSelf | null;
   hasChurches: boolean;
+  canEditChurches: boolean;
   mapboxToken: string;
 }) {
   const [query, setQuery] = useState("");
@@ -73,9 +87,14 @@ export function MapBoard({
   const [address, setAddress] = useState(self?.address ?? "");
   const [consented, setConsented] = useState(self?.consented ?? false);
   const [selectedTags, setSelectedTags] = useState<ReadonlySet<string>>(new Set());
+  const [churchRows, setChurchRows] = useState(churches);
+  const [draft, setDraft] = useState<ChurchDraft | null>(null);
+  useEffect(() => {
+    setChurchRows(churches);
+  }, [churches]);
   const visibleChurches = useMemo(
-    () => churches.filter((item) => churchMatchesTags(item.tags, selectedTags)),
-    [churches, selectedTags],
+    () => churchRows.filter((item) => churchMatchesTags(item.tags, selectedTags)),
+    [churchRows, selectedTags],
   );
 
   const church = selected?.type === "church" ? visibleChurches.find((item) => item.id === selected.id) ?? null : null;
@@ -93,7 +112,49 @@ export function MapBoard({
   const drawnLine = travel === "bus" ? busLine : (route?.line ?? []);
   const canFollow = followSegments.some((segment) => segment.line.length >= 2);
 
+  function openChurchEdit(item: ChurchPin) {
+    setDraft({
+      id: item.id,
+      name: item.name,
+      pastorName: item.pastorName,
+      address: item.address,
+      phone: item.phone,
+      serviceTime: item.serviceTime,
+      memo: item.memo,
+      tags: normalizeChurchTags(item.tags),
+    });
+    setError("");
+  }
+
+  async function onSaveChurch(event: FormEvent) {
+    event.preventDefault();
+    if (!draft) return;
+    setPending("church");
+    setError("");
+    const result = await saveMapChurchAction({ ...draft, churchId: draft.id });
+    setPending(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    const saved = result.church;
+    setChurchRows((current) => {
+      const rest = current.filter((item) => item.id !== saved.id);
+      if (!saved.point) return rest;
+      return [...rest, { ...saved, point: saved.point }];
+    });
+    setDraft(null);
+    if (!saved.point) {
+      setSelected(null);
+      setNote("교회는 저장했지만, 주소를 지도에서 찾지 못해 핀은 없습니다.");
+      return;
+    }
+    setSelected({ type: "church", id: saved.id });
+    setNote("교회를 저장했습니다.");
+  }
+
   function choose(next: Selected) {
+    setDraft(null);
     setSelected(next);
     setGuiding(false);
     setRoute(null);
@@ -395,6 +456,7 @@ export function MapBoard({
         mapboxToken={mapboxToken}
         onSelect={choose}
         onClear={() => {
+          setDraft(null);
           setSelected(null);
           setGuiding(false);
           setRoute(null);
@@ -468,6 +530,7 @@ export function MapBoard({
                   type="button"
                   className="rounded-xl px-3 py-2 text-[#4b5563]"
                   onClick={() => {
+                    setDraft(null);
                     setSelected(null);
                     setGuiding(false);
                     setRoute(null);
@@ -482,15 +545,28 @@ export function MapBoard({
               </div>
               <section className="grid gap-2 border-b border-[#e5e7eb] px-3 py-3">
                 {church ? (
-                  <dl className="grid gap-1 leading-relaxed">
-                    <Detail label="교회이름" value={church.name} />
-                    <Detail label="담임목사" value={church.pastorName} />
-                    <Detail label="주소" value={church.address} />
-                    <Detail label="지역" value={church.region ?? ""} />
-                    <Detail label="전화번호" value={church.phone} />
-                    <Detail label="주일 예배시간" value={church.serviceTime} />
-                    <Detail label="메모" value={church.memo} />
-                  </dl>
+                  <>
+                    <dl className="grid gap-1 leading-relaxed">
+                      <Detail label="교회이름" value={church.name} />
+                      <Detail label="담임목사" value={church.pastorName} />
+                      <Detail label="주소" value={church.address} />
+                      <Detail label="지역" value={church.region ?? ""} />
+                      <Detail label="전화번호" value={church.phone} />
+                      <Detail label="주일 예배시간" value={church.serviceTime} />
+                      <Detail label="메모" value={church.memo} />
+                      {church.tags.length > 0 ? <Detail label="태그" value={church.tags.join(" · ")} /> : null}
+                    </dl>
+                    {canEditChurches ? (
+                      <button
+                        type="button"
+                        data-testid="map-church-edit"
+                        className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold"
+                        onClick={() => openChurchEdit(church)}
+                      >
+                        수정
+                      </button>
+                    ) : null}
+                  </>
                 ) : null}
                 {place ? (
                   <dl className="grid gap-1 leading-relaxed">
@@ -575,7 +651,7 @@ export function MapBoard({
           ) : null}
           {visibleChurches.length === 0 ? (
             <p className="px-4 py-2 text-sm leading-relaxed">
-              {churches.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
+              {churchRows.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
             </p>
           ) : null}
           {error ? (
@@ -592,6 +668,101 @@ export function MapBoard({
           ) : null}
         </div>
       </div>
+      {draft ? (
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-3 md:items-center">
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="map-church-edit-title"
+            data-testid="map-church-edit-dialog"
+            onSubmit={onSaveChurch}
+            className="grid max-h-[min(42rem,calc(100%-1rem))] w-full max-w-lg gap-3 overflow-y-auto rounded-2xl bg-white p-4 shadow-md"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h2 id="map-church-edit-title" className="text-lg font-semibold leading-snug">
+                교회 정보 수정
+              </h2>
+              <button type="button" className="rounded-xl px-3 py-2 text-[#4b5563]" onClick={() => setDraft(null)}>
+                닫기
+              </button>
+            </div>
+            <label className="grid gap-1">
+              <span className="font-semibold">교회이름</span>
+              <input
+                name="name"
+                required
+                value={draft.name}
+                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                className={CHURCH_FIELD}
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="font-semibold">담임목사</span>
+              <input
+                name="pastorName"
+                value={draft.pastorName}
+                onChange={(event) => setDraft({ ...draft, pastorName: event.target.value })}
+                className={CHURCH_FIELD}
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="font-semibold">주소</span>
+              <input
+                name="address"
+                value={draft.address}
+                onChange={(event) => setDraft({ ...draft, address: event.target.value })}
+                className={CHURCH_FIELD}
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="font-semibold">전화번호</span>
+              <input
+                name="phone"
+                value={draft.phone}
+                onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
+                className={CHURCH_FIELD}
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="font-semibold">주일 예배시간</span>
+              <input
+                name="serviceTime"
+                value={draft.serviceTime}
+                onChange={(event) => setDraft({ ...draft, serviceTime: event.target.value })}
+                className={CHURCH_FIELD}
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="font-semibold">메모</span>
+              <input
+                name="memo"
+                value={draft.memo}
+                onChange={(event) => setDraft({ ...draft, memo: event.target.value })}
+                className={CHURCH_FIELD}
+              />
+            </label>
+            <ChurchTagFilters
+              testId="map-church-edit-tags"
+              selected={new Set(draft.tags)}
+              onToggle={(tag) =>
+                setDraft((current) =>
+                  current
+                    ? { ...current, tags: current.tags.includes(tag) ? current.tags.filter((item) => item !== tag) : [...current.tags, tag] }
+                    : current,
+                )
+              }
+            />
+            {error ? (
+              <p role="alert" className="rounded-xl bg-[#fde8e2] px-3 py-2 leading-relaxed">
+                {error}
+              </p>
+            ) : null}
+            <button type="submit" disabled={pending === "church"} className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
+              저장
+            </button>
+          </form>
+        </div>
+      ) : null}
       {self ? (
         <div className="absolute right-3 top-3 z-10">
           <button type="button" className="rounded-xl bg-white px-4 py-3 font-semibold shadow-md" onClick={() => setAddressOpen((open) => !open)}>

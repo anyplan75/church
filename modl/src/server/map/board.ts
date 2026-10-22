@@ -5,6 +5,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
+import { showsCommunitySettings } from "@/account/access";
 import { canSeePickupPin } from "@/map/access";
 import { type ChurchInput, type ChurchPin, type ChurchRecord, parseChurchRows } from "@/map/church-sheet";
 import { normalizeChurchTags, type ChurchTag } from "@/map/church-tags";
@@ -28,6 +29,21 @@ export type MapBoardData = {
   pickups: Array<{ id: string; name: string; point: MapPoint }>;
   self: MapSelf | null;
   hasChurches: boolean;
+  /** 계정 교회 목록을 고칠 수 있는 사역자만 참입니다. */
+  canEditChurches: boolean;
+};
+
+export type SavedChurch = {
+  id: string;
+  name: string;
+  pastorName: string;
+  address: string;
+  phone: string;
+  serviceTime: string;
+  memo: string;
+  region: "제주시" | "서귀포시" | null;
+  tags: ChurchTag[];
+  point: MapPoint | null;
 };
 
 export type ChurchSettings = {
@@ -104,7 +120,7 @@ async function operatorCommunityId(): Promise<string | null> {
 export async function loadMapBoard(): Promise<MapBoardData> {
   const seen = await viewer();
   const communityId = seen?.communityId ?? (await operatorCommunityId());
-  if (!communityId) return { churches: [], pickups: [], self: null, hasChurches: false };
+  if (!communityId) return { churches: [], pickups: [], self: null, hasChurches: false, canEditChurches: false };
   const db = getDb();
   const churchRows = await db.select().from(mapChurches).where(eq(mapChurches.communityId, communityId));
   const memberRows = seen
@@ -162,6 +178,7 @@ export async function loadMapBoard(): Promise<MapBoardData> {
     pickups,
     self: mine ? { address: mine.address ?? "", consented: mine.pickupConsentAt !== null } : null,
     hasChurches: churchRows.length > 0,
+    canEditChurches: Boolean(seen && showsCommunitySettings(seen.membership.role)),
   };
 }
 
@@ -189,7 +206,27 @@ export async function loadChurchSettings(): Promise<ChurchSettings> {
   };
 }
 
-async function writeChurch(communityId: string, church: ChurchInput, churchId: string | null, tags?: ChurchTag[]): Promise<boolean> {
+function savedChurch(row: typeof mapChurches.$inferSelect): SavedChurch {
+  return {
+    id: row.id,
+    name: row.name,
+    pastorName: row.pastorName,
+    address: row.address,
+    phone: row.phone,
+    serviceTime: row.serviceTime,
+    memo: row.memo,
+    region: cityFromStored(row.sido, row.district, row.regionId),
+    tags: normalizeChurchTags(row.tags),
+    point: finitePoint(row.lat, row.lon),
+  };
+}
+
+async function writeChurch(
+  communityId: string,
+  church: ChurchInput,
+  churchId: string | null,
+  tags?: ChurchTag[],
+): Promise<{ missed: boolean; id: string }> {
   await assertTextsAllowed(church.name, church.pastorName, church.address, church.phone, church.serviceTime, church.memo);
   const db = getDb();
   const byId = churchId
@@ -233,18 +270,25 @@ async function writeChurch(communityId: string, church: ChurchInput, churchId: s
   };
   if (existing) {
     await db.update(mapChurches).set(values).where(eq(mapChurches.id, existing.id));
-  } else {
-    await db.insert(mapChurches).values({ communityId, ...values });
+    return { missed: located.missed, id: existing.id };
   }
-  return located.missed;
+  const inserted = await db.insert(mapChurches).values({ communityId, ...values }).returning({ id: mapChurches.id });
+  const id = inserted[0]?.id;
+  if (!id) throw new MapServiceError("교회를 저장하지 못했습니다.");
+  return { missed: located.missed, id };
 }
 
-export async function saveChurch(input: ChurchInput & { churchId?: string | null; tags?: readonly string[] }): Promise<{ missed: boolean }> {
+export async function saveChurch(
+  input: ChurchInput & { churchId?: string | null; tags?: readonly string[] },
+): Promise<{ missed: boolean; church: SavedChurch }> {
   const seen = await pastor();
   const church = cleanChurch(input);
   const tags = normalizeChurchTags(input.tags ?? []);
-  const missed = await writeChurch(seen.communityId, church, input.churchId?.trim() || null, tags);
-  return { missed };
+  const written = await writeChurch(seen.communityId, church, input.churchId?.trim() || null, tags);
+  const rows = await getDb().select().from(mapChurches).where(eq(mapChurches.id, written.id)).limit(1);
+  const row = rows[0];
+  if (!row) throw new MapServiceError("교회를 찾지 못했습니다.");
+  return { missed: written.missed, church: savedChurch(row) };
 }
 
 export async function removeChurch(churchId: string): Promise<void> {
@@ -260,7 +304,7 @@ export async function importChurchRows(rows: readonly (readonly string[])[]): Pr
   if (!parsed.ok) throw new MapServiceError(parsed.message);
   let missed = 0;
   for (const church of parsed.churches) {
-    if (await writeChurch(seen.communityId, church, null)) missed += 1;
+    if ((await writeChurch(seen.communityId, church, null)).missed) missed += 1;
   }
   return { count: parsed.churches.length, missed };
 }

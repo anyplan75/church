@@ -15,12 +15,14 @@ export function MapScreen({
   pickups,
   self,
   hasChurches,
+  canEditChurches,
   mapboxToken,
 }: {
   churches: ChurchPin[];
   pickups: Array<{ id: string; name: string; point: MapPoint }>;
   self: { address: string; consented: boolean } | null;
   hasChurches: boolean;
+  canEditChurches: boolean;
   mapboxToken: string;
 }) {
   return (
@@ -29,6 +31,7 @@ export function MapScreen({
       pickups={pickups}
       self={self}
       hasChurches={hasChurches}
+      canEditChurches={canEditChurches}
       mapboxToken={mapboxToken}
     />
   );
