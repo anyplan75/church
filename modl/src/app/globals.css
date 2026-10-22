@@ -55,15 +55,9 @@ select {
 }
 
 .map-stage {
-  position: relative;
-  height: calc(100dvh - 3.5rem);
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-}
-
-@media (min-width: 768px) {
-  .map-stage {
-    height: 100dvh;
-  }
 }
 
 .modl-map {

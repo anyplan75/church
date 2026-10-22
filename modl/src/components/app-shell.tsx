@@ -25,7 +25,7 @@ export function AppShell({
   const home = pathname === "/";
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#f8fafc] text-[#1e293b] md:flex-row">
+    <div className={`flex min-h-dvh flex-col bg-[#f8fafc] text-[#1e293b] md:flex-row ${pathname === "/map" ? "h-dvh overflow-hidden" : ""}`}>
       <a
         href="#modl-main"
         className="sr-only rounded-xl bg-white px-3 py-2 focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-20"
@@ -46,7 +46,7 @@ export function AppShell({
           </div>
         </nav>
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={`flex min-w-0 flex-1 flex-col ${pathname === "/map" ? "min-h-0" : ""}`}>
         <header className="border-b border-[#e2e8f0] bg-white md:hidden">
           <div className="flex h-14 items-center justify-between gap-2 px-3">
             <Link href="/" className="min-w-0" aria-current={home ? "page" : undefined}>
@@ -60,7 +60,7 @@ export function AppShell({
           id="modl-main"
           className={
             pathname === "/map"
-              ? "relative min-h-0 w-full flex-1"
+              ? "relative min-h-0 w-full flex-1 overflow-hidden"
               : "w-full flex-1 px-4 py-5 md:py-6 md:pl-5 md:pr-6 lg:mx-auto lg:max-w-4xl lg:px-6 lg:py-8"
           }
         >

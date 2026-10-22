@@ -404,10 +404,25 @@ export function MapBoard({
           stopNavigation();
         }}
       />
-      <div className="absolute right-2 top-2 z-20 w-[22rem] max-w-[calc(100%-1rem)]">
-        <div className="overflow-hidden rounded-2xl bg-white shadow-md">
-          <div className="max-h-52 overflow-y-auto border-b border-[#e5e7eb] px-3 py-2">
+      <div data-testid="map-dock" className="absolute inset-x-2 bottom-2 z-20 flex max-h-[calc(100%-5.5rem)] flex-col">
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-md">
+          <form onSubmit={onSearch} className="flex shrink-0 gap-2 border-b border-[#e5e7eb] p-2">
+            <label className="min-w-0 flex-1">
+              <span className="sr-only">장소 검색</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="w-full rounded-xl border border-[#e5e7eb] px-3 py-3 leading-snug outline-none"
+                placeholder="장소나 주소"
+              />
+            </label>
+            <button type="submit" disabled={pending === "search"} className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
+              검색
+            </button>
+          </form>
+          <div className="shrink-0 px-3 py-3">
             <ChurchTagFilters
+              layout="board"
               selected={selectedTags}
               onToggle={(tag) => {
                 setSelectedTags((current) => {
@@ -418,23 +433,17 @@ export function MapBoard({
                 });
               }}
             />
+            <p className="mt-3 text-sm leading-relaxed" data-testid="church-edit-request">
+              교회정보수정요청{" "}
+              <a className="underline" href="mailto:anyplan@me.com">
+                anyplan@me.com
+              </a>
+            </p>
           </div>
-          <form onSubmit={onSearch} className="flex gap-2 p-2">
-            <label className="min-w-0 flex-1">
-              <span className="sr-only">장소 검색</span>
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="w-full rounded-xl px-3 py-3 leading-snug outline-none"
-                placeholder="장소나 주소"
-              />
-            </label>
-            <button type="submit" disabled={pending === "search"} className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
-              검색
-            </button>
-          </form>
+          {places.length > 0 || target || visibleChurches.length === 0 || error || note ? (
+            <div className="min-h-0 overflow-y-auto border-t border-[#e5e7eb]">
           {places.length > 0 && !selected ? (
-            <ul className="max-h-52 list-none overflow-y-auto border-t border-[#e5e7eb]">
+            <ul className="list-none">
               {places.map((item) => (
                 <li key={item.id} className="border-b border-[#f3f4f6] last:border-b-0">
                   <button type="button" className="grid w-full gap-1 px-3 py-2 text-left hover:bg-[#f8fafc]" onClick={() => choose({ type: "place", id: item.id })}>
@@ -448,7 +457,7 @@ export function MapBoard({
             </ul>
           ) : null}
           {target && (church || place || pickup) ? (
-            <article className="max-h-[min(32rem,70dvh)] overflow-y-auto border-t border-[#e5e7eb]">
+            <article className="border-t border-[#e5e7eb]">
               <div className="flex items-start justify-between gap-2 border-b border-[#e5e7eb] px-3 py-3">
                 <h2 className="text-lg font-semibold leading-snug">{targetName}</h2>
                 <button
@@ -560,32 +569,34 @@ export function MapBoard({
               ) : null}
             </article>
           ) : null}
+          {visibleChurches.length === 0 ? (
+            <p className="px-4 py-2 text-sm leading-relaxed">
+              {churches.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
+            </p>
+          ) : null}
+          {error ? (
+            <p role="alert" className="bg-[#fde8e2] px-4 py-3 leading-relaxed">
+              {error}
+            </p>
+          ) : null}
+          {note ? (
+            <p role="status" className="bg-[#ecfdf3] px-4 py-3 leading-relaxed">
+              {note}
+            </p>
+          ) : null}
+            </div>
+          ) : null}
         </div>
-        {visibleChurches.length === 0 ? (
-          <p className="mt-2 rounded-2xl bg-white/95 px-4 py-2 text-sm leading-relaxed shadow-md">
-            {churches.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
-          </p>
-        ) : null}
-        {error ? (
-          <p role="alert" className="mt-2 rounded-2xl bg-[#fde8e2] px-4 py-3 leading-relaxed shadow-md">
-            {error}
-          </p>
-        ) : null}
-        {note ? (
-          <p role="status" className="mt-2 rounded-2xl bg-[#ecfdf3] px-4 py-3 leading-relaxed shadow-md">
-            {note}
-          </p>
-        ) : null}
       </div>
       {self ? (
-        <div className="absolute bottom-2 left-2 z-10">
+        <div className="absolute right-3 top-3 z-10">
           <button type="button" className="rounded-xl bg-white px-4 py-3 font-semibold shadow-md" onClick={() => setAddressOpen((open) => !open)}>
             데리러 가기
           </button>
         </div>
       ) : null}
       {addressOpen && self ? (
-        <form onSubmit={onSaveAddress} className="absolute bottom-16 left-2 z-10 grid w-[min(22rem,calc(100%-1rem))] gap-3 rounded-2xl bg-white p-4 shadow-md">
+        <form onSubmit={onSaveAddress} className="absolute right-3 top-16 z-10 grid w-[min(22rem,calc(100%-1.5rem))] gap-3 rounded-2xl bg-white p-4 shadow-md">
           <h2 className="font-semibold leading-snug">데리러 가기 주소 제공</h2>
           <p className="leading-relaxed">이 주소를 데리러 가는 사역자에게 지도로 보여 줍니다.</p>
           <label className="grid gap-1">
@@ -704,7 +715,10 @@ function MapCanvas({
         },
         center: [(JEJU_VIEW.west + JEJU_VIEW.east) / 2, (JEJU_VIEW.south + JEJU_VIEW.north) / 2],
         zoom: 9,
+        attributionControl: false,
+        logoPosition: "top-right",
       });
+      map.addControl(new mapboxgl.AttributionControl({ compact: true }), "top-right");
       map.on("click", (event) => {
         const target = event.originalEvent.target;
         if (target instanceof Element && target.closest(".mapboxgl-marker")) return;
