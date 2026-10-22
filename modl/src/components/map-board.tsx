@@ -888,11 +888,15 @@ export function MapBoard({
             </article>
           </div>
         ) : phoneFiltersOpen ? (
-          <div className="grid max-h-[min(28rem,62dvh)] grid-rows-[minmax(0,1fr)_auto]">
-            <div className="overflow-y-auto px-3 py-3">
+          <div className="flex max-h-[min(28rem,62dvh)] min-h-0 flex-col overflow-hidden">
+            {/* 아래 태그가 잘리지 않게 목록만 스크롤합니다. 완료는 이 목록 밖에 두어 스크롤 중에도 보입니다. */}
+            <div
+              data-testid="map-phone-filter-scroll"
+              className="min-h-0 max-h-full flex-[1_1_auto] touch-pan-y overflow-y-scroll overscroll-y-contain px-3 pb-4 pt-3"
+            >
               <ChurchTagFilters layout="board" testId="map-phone-filters" selected={phoneDraftTags} onToggle={togglePhoneDraft} />
             </div>
-            <div className="grid gap-2 border-t border-[#e5e7eb] px-3 py-2">
+            <div className="grid shrink-0 gap-2 border-t border-[#e5e7eb] bg-white px-3 py-2">
               <p className="text-sm leading-relaxed" data-testid="map-phone-edit-request">
                 교회정보수정요청{" "}
                 <a className="underline" href="mailto:anyplan@me.com">
