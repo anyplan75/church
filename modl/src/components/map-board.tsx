@@ -482,24 +482,133 @@ export function MapBoard({
   }
 
   return (
-    <section className="map-stage flex flex-col">
-      <div className="relative min-h-0 flex-1">
-      <h1 className="page-title absolute left-3 top-3 z-20 rounded-xl bg-white px-3 py-2 text-[clamp(1.22rem,1rem+0.5vw,1.6rem)] leading-tight shadow-md">지도</h1>
-      <p
-        data-testid="pin-legend"
-        data-church-color={churchPinColor}
-        data-gathering-color={gatheringPinColor}
-        className="absolute right-3 top-3 z-20 grid gap-1 rounded-xl bg-white px-3 py-2 text-sm leading-snug shadow-md"
-      >
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-full" style={{ background: churchPinColor }} />
-          교회
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-full" style={{ background: gatheringPinColor }} />
-          모들
-        </span>
-      </p>
+    <section className="map-stage flex">
+      <aside data-testid="map-dock" className="hidden h-full w-80 shrink-0 flex-col overflow-hidden border-r border-[#e5e7eb] bg-white md:flex">
+        <p
+          data-testid="pin-legend"
+          data-church-color={churchPinColor}
+          data-gathering-color={gatheringPinColor}
+          className="flex shrink-0 items-center gap-4 border-b border-[#e5e7eb] px-3 py-2 text-sm leading-snug"
+        >
+          <span className="inline-flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: churchPinColor }} />
+            교회
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: gatheringPinColor }} />
+            모들
+          </span>
+        </p>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <form onSubmit={onSearch} className="flex shrink-0 gap-2 border-b border-[#e5e7eb] p-2">
+            <label className="min-w-0 flex-1">
+              <span className="sr-only">장소 검색</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="w-full rounded-xl border border-[#e5e7eb] px-3 py-3 leading-snug outline-none"
+                placeholder="장소나 주소"
+              />
+            </label>
+            <button type="submit" disabled={pending === "search"} className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
+              검색
+            </button>
+          </form>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+          {church ? null : (
+          <div className="border-b border-[#e5e7eb] px-3 py-3">
+            <ChurchTagFilters
+              layout="stack"
+              selected={selectedTags}
+              onToggle={(tag) => {
+                setSelectedTags((current) => {
+                  const next = new Set(current);
+                  if (next.has(tag)) next.delete(tag);
+                  else next.add(tag);
+                  return next;
+                });
+              }}
+            />
+            <p className="mt-3 text-sm leading-relaxed" data-testid="church-edit-request">
+              교회정보수정요청{" "}
+              <a className="underline" href="mailto:anyplan@me.com">
+                anyplan@me.com
+              </a>
+            </p>
+          </div>
+          )}
+          <DesktopMapDetails
+            church={church}
+            gathering={gathering}
+            place={place}
+            pickup={pickup}
+            places={places}
+            selected={selected}
+            target={target}
+            targetName={targetName}
+            visibleChurches={visibleChurches}
+            churchRows={churchRows}
+            hasChurches={hasChurches}
+            canEditChurches={canEditChurches}
+            guiding={guiding}
+            travel={travel}
+            start={start}
+            route={route}
+            bus={bus}
+            busRouteId={busRouteId}
+            pending={pending}
+            rerouting={rerouting}
+            canFollow={canFollow}
+            following={following}
+            error={error}
+            note={note}
+            onChoose={choose}
+            onClose={() => {
+              setDraft(null);
+              setPhoneFiltersOpen(false);
+              setSelected(null);
+              setGuiding(false);
+              setRoute(null);
+              setBus(null);
+              setBusLine([]);
+              setBusRouteId(null);
+              stopNavigation();
+            }}
+            onEdit={openChurchEdit}
+            onPickTravel={pickTravel}
+            onLocate={() => locate(false)}
+            onFollow={() => (following ? stopNavigation() : beginNavigation())}
+            onOpenGuide={openGuide}
+            onPickBus={(id) => void pickBus(id)}
+          />
+          </div>
+          {self ? (
+            <div className="shrink-0 border-t border-[#e5e7eb] p-3">
+              <button type="button" className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold" onClick={() => setAddressOpen((open) => !open)}>
+                데리러 가기
+              </button>
+              {addressOpen ? (
+                <form onSubmit={onSaveAddress} className="mt-3 grid gap-3">
+                  <h2 className="font-semibold leading-snug">데리러 가기 주소 제공</h2>
+                  <p className="leading-relaxed">이 주소를 데리러 가는 사역자에게 지도로 보여 줍니다.</p>
+                  <label className="grid gap-1">
+                    <span className="font-semibold">내 주소</span>
+                    <input value={address} onChange={(event) => setAddress(event.target.value)} className="w-full rounded-xl border border-[#e5e7eb] px-3 py-2 leading-snug" />
+                  </label>
+                  <button type="submit" disabled={pending === "address"} className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
+                    주소 저장
+                  </button>
+                  <label className="flex items-start gap-2 leading-relaxed">
+                    <input type="checkbox" checked={consented} disabled={pending === "consent"} onChange={(event) => void onConsent(event.target.checked)} />
+                    <span>데리러 가기 주소 제공</span>
+                  </label>
+                </form>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </aside>
+      <div className="relative min-h-0 min-w-0 flex-1">
       <MapCanvas
         places={places}
         churches={visibleChurches}
@@ -527,209 +636,6 @@ export function MapBoard({
           stopNavigation();
         }}
       />
-      <div data-testid="map-dock" className="absolute inset-x-2 bottom-2 z-20 hidden max-h-[calc(100%-5.5rem)] flex-col md:flex">
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-md">
-          {church ? null : (
-          <>
-          <form onSubmit={onSearch} className="flex shrink-0 gap-2 border-b border-[#e5e7eb] p-2">
-            <label className="min-w-0 flex-1">
-              <span className="sr-only">장소 검색</span>
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="w-full rounded-xl border border-[#e5e7eb] px-3 py-3 leading-snug outline-none"
-                placeholder="장소나 주소"
-              />
-            </label>
-            <button type="submit" disabled={pending === "search"} className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
-              검색
-            </button>
-          </form>
-          <div className="shrink-0 px-3 py-3">
-            <ChurchTagFilters
-              layout="board"
-              selected={selectedTags}
-              onToggle={(tag) => {
-                setSelectedTags((current) => {
-                  const next = new Set(current);
-                  if (next.has(tag)) next.delete(tag);
-                  else next.add(tag);
-                  return next;
-                });
-              }}
-            />
-            <p className="mt-3 text-sm leading-relaxed" data-testid="church-edit-request">
-              교회정보수정요청{" "}
-              <a className="underline" href="mailto:anyplan@me.com">
-                anyplan@me.com
-              </a>
-            </p>
-          </div>
-          </>
-          )}
-          {church || places.length > 0 || (!church && target) || visibleChurches.length === 0 || error || note ? (
-            <div className={`min-h-0 overflow-y-auto ${church ? "" : "border-t border-[#e5e7eb]"}`}>
-          {places.length > 0 && !selected ? (
-            <ul className="list-none">
-              {places.map((item) => (
-                <li key={item.id} className="border-b border-[#f3f4f6] last:border-b-0">
-                  <button type="button" className="grid w-full gap-1 px-3 py-2 text-left hover:bg-[#f8fafc]" onClick={() => choose({ type: "place", id: item.id })}>
-                    <span className="font-semibold">
-                      {PLACE_KIND_LABEL[item.kind]} · {item.name}
-                    </span>
-                    <span className="break-words text-sm text-[#4b5563]">{item.address}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {target && (church || place || pickup) ? (
-            <article data-testid={church ? "church-info" : undefined} className={church ? "" : "border-t border-[#e5e7eb]"}>
-              <div className="flex items-start justify-between gap-2 border-b border-[#e5e7eb] px-3 py-3">
-                <h2 className="text-lg font-semibold leading-snug">{targetName}</h2>
-                <button
-                  type="button"
-                  className="rounded-xl px-3 py-2 text-[#4b5563]"
-                  onClick={() => {
-                    setDraft(null);
-                    setPhoneFiltersOpen(false);
-                    setSelected(null);
-                    setGuiding(false);
-                    setRoute(null);
-                    setBus(null);
-                    setBusLine([]);
-                    setBusRouteId(null);
-                    stopNavigation();
-                  }}
-                >
-                  닫기
-                </button>
-              </div>
-              <section className="grid gap-2 border-b border-[#e5e7eb] px-3 py-3">
-                {church ? (
-                  <>
-                    <dl className="grid gap-1 leading-relaxed">
-                      <Detail label="교회이름" value={church.name} />
-                      <Detail label="담임목사" value={church.pastorName} />
-                      <Detail label="주소" value={church.address} />
-                      <Detail label="지역" value={church.region ?? ""} />
-                      <Detail label="전화번호" value={church.phone} />
-                      <Detail label="주일 예배시간" value={church.serviceTime} />
-                      <Detail label="메모" value={church.memo} />
-                      {church.tags.length > 0 ? <Detail label="태그" value={church.tags.join(" · ")} /> : null}
-                    </dl>
-                    {canEditChurches ? (
-                      <button
-                        type="button"
-                        data-testid="map-church-edit"
-                        className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold"
-                        onClick={() => openChurchEdit(church)}
-                      >
-                        수정
-                      </button>
-                    ) : null}
-                  </>
-                ) : null}
-                {place ? (
-                  <dl className="grid gap-1 leading-relaxed">
-                    <Detail label="이름" value={place.name} />
-                    <Detail label="주소" value={place.address} />
-                  </dl>
-                ) : null}
-                {pickup ? <p className="leading-relaxed">데리러 가기 핀</p> : null}
-              </section>
-              {guiding ? (
-                <section className="grid gap-3 border-b border-[#e5e7eb] px-3 py-3">
-                  <div className="flex flex-wrap gap-2" role="tablist" aria-label="길안내">
-                    <ModeButton current={travel} mode="car" label="자동차" onPick={pickTravel} />
-                    <ModeButton current={travel} mode="walk" label="도보" onPick={pickTravel} />
-                    <ModeButton current={travel} mode="bus" label="버스" onPick={pickTravel} />
-                  </div>
-                  {travel !== "bus" && !start ? (
-                    <button type="button" className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold" onClick={() => locate(false)} disabled={pending === "gps"}>
-                      내 위치
-                    </button>
-                  ) : null}
-                  {travel !== "bus" && route ? <p className="leading-relaxed">{routeSummary(route) || "길을 찾았습니다."}</p> : null}
-                  {travel !== "bus" && pending === "route" ? <p className="leading-relaxed">길을 찾고 있습니다.</p> : null}
-                  {rerouting ? <p className="leading-relaxed">재탐색</p> : null}
-                  <button
-                    type="button"
-                    className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white disabled:bg-[#e5e7eb] disabled:text-[#6b7280]"
-                    disabled={!canFollow}
-                    aria-pressed={following}
-                    onClick={() => (following ? stopNavigation() : beginNavigation())}
-                  >
-                    {following ? "따라가는 중" : "따라가기"}
-                  </button>
-                </section>
-              ) : (
-                <div className="border-b border-[#e5e7eb] px-3 py-3">
-                  <button type="button" className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white" onClick={openGuide}>
-                    길안내
-                  </button>
-                </div>
-              )}
-              {guiding && travel === "bus" ? (
-                <section className="grid gap-3 px-3 py-3">
-                  {pending === "bus" ? <p className="leading-relaxed">제주 버스 정보를 찾고 있습니다.</p> : null}
-                  {bus?.kind === "outside" ? <p className="leading-relaxed">제주 버스 정보입니다.</p> : null}
-                  {bus?.kind === "empty" ? <p className="leading-relaxed">이 장소 근처 정류장 응답이 없습니다.</p> : null}
-                  {bus?.kind === "stops" ? (
-                    <ul className="grid list-none gap-3">
-                      {bus.stops.map((stop) => (
-                        <li key={stop.id} className="grid gap-2 border-t border-[#e5e7eb] pt-3 first:border-t-0 first:pt-0">
-                          <p className="font-semibold">{stop.name}</p>
-                          {stop.routes.length > 0 ? (
-                            <ul className="grid list-none gap-2">
-                              {stop.routes.map((item) => (
-                                <li key={item.id} className="flex flex-wrap items-center gap-2">
-                                  <button
-                                    type="button"
-                                    aria-pressed={busRouteId === item.id}
-                                    className={`rounded-full px-3 py-1 text-sm font-semibold ${item.background ? "" : "border border-[#e5e7eb] bg-white"}`}
-                                    style={item.background ? { background: item.background, color: item.text ?? "#ffffff" } : undefined}
-                                    onClick={() => void pickBus(item.id)}
-                                  >
-                                    {item.number}
-                                  </button>
-                                  {item.detail ? <span className="text-sm leading-relaxed text-[#4b5563]">{item.detail}</span> : null}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                          {stop.arrivals.map((arrival) => (
-                            <p key={`${stop.id}-${arrival.routeId}-${arrival.minutes ?? ""}`} className="leading-relaxed">
-                              도착 {arrivalLine(arrival)}
-                            </p>
-                          ))}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </section>
-              ) : null}
-            </article>
-          ) : null}
-          {visibleChurches.length === 0 ? (
-            <p className="px-4 py-2 text-sm leading-relaxed">
-              {churchRows.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
-            </p>
-          ) : null}
-          {error ? (
-            <p role="alert" className="bg-[#fde8e2] px-4 py-3 leading-relaxed">
-              {error}
-            </p>
-          ) : null}
-          {note ? (
-            <p role="status" className="bg-[#ecfdf3] px-4 py-3 leading-relaxed">
-              {note}
-            </p>
-          ) : null}
-            </div>
-          ) : null}
-        </div>
-      </div>
       {draft ? (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-3 md:items-center">
           <form
@@ -826,14 +732,14 @@ export function MapBoard({
         </div>
       ) : null}
       {self ? (
-        <div className="absolute right-3 top-3 z-10">
+        <div className="absolute right-3 top-3 z-10 md:hidden">
           <button type="button" className="rounded-xl bg-white px-4 py-3 font-semibold shadow-md" onClick={() => setAddressOpen((open) => !open)}>
             데리러 가기
           </button>
         </div>
       ) : null}
       {addressOpen && self ? (
-        <form onSubmit={onSaveAddress} className="absolute right-3 top-16 z-10 grid w-[min(22rem,calc(100%-1.5rem))] gap-3 rounded-2xl bg-white p-4 shadow-md">
+        <form onSubmit={onSaveAddress} className="absolute right-3 top-16 z-10 grid w-[min(22rem,calc(100%-1.5rem))] gap-3 rounded-2xl bg-white p-4 shadow-md md:hidden">
           <h2 className="font-semibold leading-snug">데리러 가기 주소 제공</h2>
           <p className="leading-relaxed">이 주소를 데리러 가는 사역자에게 지도로 보여 줍니다.</p>
           <label className="grid gap-1">
@@ -977,6 +883,16 @@ export function MapBoard({
                 ))}
               </ul>
             ) : null}
+            <p className="flex items-center gap-4 border-t border-[#e5e7eb] bg-white px-3 py-1.5 text-xs leading-snug">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: churchPinColor }} />
+                교회
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: gatheringPinColor }} />
+                모들
+              </span>
+            </p>
             <form onSubmit={onSearch} data-testid="map-phone-search" className="flex items-center gap-2 border-t border-[#e5e7eb] bg-white p-2">
               <label className="min-w-0 flex-1">
                 <span className="sr-only">장소 검색</span>
@@ -1006,6 +922,230 @@ export function MapBoard({
       </div>
       </div>
     </section>
+  );
+}
+
+function DesktopMapDetails({
+  church,
+  gathering,
+  place,
+  pickup,
+  places,
+  selected,
+  target,
+  targetName,
+  visibleChurches,
+  churchRows,
+  hasChurches,
+  canEditChurches,
+  guiding,
+  travel,
+  start,
+  route,
+  bus,
+  busRouteId,
+  pending,
+  rerouting,
+  canFollow,
+  following,
+  error,
+  note,
+  onChoose,
+  onClose,
+  onEdit,
+  onPickTravel,
+  onLocate,
+  onFollow,
+  onOpenGuide,
+  onPickBus,
+}: {
+  church: ChurchPin | null;
+  gathering: GatheringPin | null;
+  place: PlaceHit | null;
+  pickup: PickupPin | null;
+  places: PlaceHit[];
+  selected: Selected | null;
+  target: MapPoint | null;
+  targetName: string;
+  visibleChurches: ChurchPin[];
+  churchRows: ChurchPin[];
+  hasChurches: boolean;
+  canEditChurches: boolean;
+  guiding: boolean;
+  travel: TravelMode;
+  start: MapPoint | null;
+  route: RouteResult | null;
+  bus: BusGuide | null;
+  busRouteId: string | null;
+  pending: Pending;
+  rerouting: boolean;
+  canFollow: boolean;
+  following: boolean;
+  error: string;
+  note: string;
+  onChoose: (selected: Selected) => void;
+  onClose: () => void;
+  onEdit: (item: ChurchPin) => void;
+  onPickTravel: (mode: TravelMode) => void;
+  onLocate: () => void;
+  onFollow: () => void;
+  onOpenGuide: () => void;
+  onPickBus: (id: string) => void;
+}) {
+  const show = Boolean(church || gathering || places.length > 0 || target || visibleChurches.length === 0 || error || note);
+  if (!show) return null;
+  return (
+    <div>
+      {places.length > 0 && !selected ? (
+        <ul className="list-none">
+          {places.map((item) => (
+            <li key={item.id} className="border-b border-[#f3f4f6] last:border-b-0">
+              <button type="button" className="grid w-full gap-1 px-3 py-2 text-left hover:bg-[#f8fafc]" onClick={() => onChoose({ type: "place", id: item.id })}>
+                <span className="font-semibold">
+                  {PLACE_KIND_LABEL[item.kind]} · {item.name}
+                </span>
+                <span className="break-words text-sm text-[#4b5563]">{item.address}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {target && (church || gathering || place || pickup) ? (
+        <article data-testid={church ? "church-info" : undefined} className={church ? "" : "border-t border-[#e5e7eb]"}>
+          <div className="flex items-start justify-between gap-2 border-b border-[#e5e7eb] px-3 py-3">
+            <h2 className="text-lg font-semibold leading-snug">{targetName}</h2>
+            <button type="button" className="rounded-xl px-3 py-2 text-[#4b5563]" onClick={onClose}>
+              닫기
+            </button>
+          </div>
+          <section className="grid gap-2 border-b border-[#e5e7eb] px-3 py-3">
+            {church ? (
+              <>
+                <dl className="grid gap-1 leading-relaxed">
+                  <Detail label="교회이름" value={church.name} />
+                  <Detail label="담임목사" value={church.pastorName} />
+                  <Detail label="주소" value={church.address} />
+                  <Detail label="지역" value={church.region ?? ""} />
+                  <Detail label="전화번호" value={church.phone} />
+                  <Detail label="주일 예배시간" value={church.serviceTime} />
+                  <Detail label="메모" value={church.memo} />
+                  {church.tags.length > 0 ? <Detail label="태그" value={church.tags.join(" · ")} /> : null}
+                </dl>
+                {canEditChurches ? (
+                  <button
+                    type="button"
+                    data-testid="map-church-edit"
+                    className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold"
+                    onClick={() => onEdit(church)}
+                  >
+                    수정
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+            {gathering ? (
+              <dl className="grid gap-1 leading-relaxed">
+                <Detail label="모들" value={gathering.name} />
+                <Detail label="주소" value={gathering.address} />
+              </dl>
+            ) : null}
+            {place ? (
+              <dl className="grid gap-1 leading-relaxed">
+                <Detail label="이름" value={place.name} />
+                <Detail label="주소" value={place.address} />
+              </dl>
+            ) : null}
+            {pickup ? <p className="leading-relaxed">데리러 가기 핀</p> : null}
+          </section>
+          {guiding ? (
+            <section className="grid gap-3 border-b border-[#e5e7eb] px-3 py-3">
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="길안내">
+                <ModeButton current={travel} mode="car" label="자동차" onPick={onPickTravel} />
+                <ModeButton current={travel} mode="walk" label="도보" onPick={onPickTravel} />
+                <ModeButton current={travel} mode="bus" label="버스" onPick={onPickTravel} />
+              </div>
+              {travel !== "bus" && !start ? (
+                <button type="button" className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold" onClick={onLocate} disabled={pending === "gps"}>
+                  내 위치
+                </button>
+              ) : null}
+              {travel !== "bus" && route ? <p className="leading-relaxed">{routeSummary(route) || "길을 찾았습니다."}</p> : null}
+              {travel !== "bus" && pending === "route" ? <p className="leading-relaxed">길을 찾고 있습니다.</p> : null}
+              {rerouting ? <p className="leading-relaxed">재탐색</p> : null}
+              <button
+                type="button"
+                className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white disabled:bg-[#e5e7eb] disabled:text-[#6b7280]"
+                disabled={!canFollow}
+                aria-pressed={following}
+                onClick={onFollow}
+              >
+                {following ? "따라가는 중" : "따라가기"}
+              </button>
+            </section>
+          ) : (
+            <div className="border-b border-[#e5e7eb] px-3 py-3">
+              <button type="button" className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white" onClick={onOpenGuide}>
+                길안내
+              </button>
+            </div>
+          )}
+          {guiding && travel === "bus" ? (
+            <section className="grid gap-3 px-3 py-3">
+              {pending === "bus" ? <p className="leading-relaxed">제주 버스 정보를 찾고 있습니다.</p> : null}
+              {bus?.kind === "outside" ? <p className="leading-relaxed">제주 버스 정보입니다.</p> : null}
+              {bus?.kind === "empty" ? <p className="leading-relaxed">이 장소 근처 정류장 응답이 없습니다.</p> : null}
+              {bus?.kind === "stops" ? (
+                <ul className="grid list-none gap-3">
+                  {bus.stops.map((stop) => (
+                    <li key={stop.id} className="grid gap-2 border-t border-[#e5e7eb] pt-3 first:border-t-0 first:pt-0">
+                      <p className="font-semibold">{stop.name}</p>
+                      {stop.routes.length > 0 ? (
+                        <ul className="grid list-none gap-2">
+                          {stop.routes.map((item) => (
+                            <li key={item.id} className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                aria-pressed={busRouteId === item.id}
+                                className={`rounded-full px-3 py-1 text-sm font-semibold ${item.background ? "" : "border border-[#e5e7eb] bg-white"}`}
+                                style={item.background ? { background: item.background, color: item.text ?? "#ffffff" } : undefined}
+                                onClick={() => onPickBus(item.id)}
+                              >
+                                {item.number}
+                              </button>
+                              {item.detail ? <span className="text-sm leading-relaxed text-[#4b5563]">{item.detail}</span> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {stop.arrivals.map((arrival) => (
+                        <p key={`${stop.id}-${arrival.routeId}-${arrival.minutes ?? ""}`} className="leading-relaxed">
+                          도착 {arrivalLine(arrival)}
+                        </p>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
+        </article>
+      ) : null}
+      {visibleChurches.length === 0 ? (
+        <p className="px-4 py-2 text-sm leading-relaxed">
+          {churchRows.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="bg-[#fde8e2] px-4 py-3 leading-relaxed">
+          {error}
+        </p>
+      ) : null}
+      {note ? (
+        <p role="status" className="bg-[#ecfdf3] px-4 py-3 leading-relaxed">
+          {note}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -1273,8 +1413,7 @@ function MapCanvas({
       if (!mapRef.current || followingRef.current) return;
       const bounds = new mod.default.LngLatBounds();
       for (const point of line) bounds.extend([point.lon, point.lat]);
-      const width = mapRef.current.getContainer().clientWidth;
-      mapRef.current.fitBounds(bounds, { padding: { top: 60, bottom: 60, left: 60, right: width > 800 ? 360 : 24 } });
+      mapRef.current.fitBounds(bounds, { padding: 48 });
     });
   }, [ready, line]);
 
@@ -1287,8 +1426,7 @@ function MapCanvas({
     void import("mapbox-gl").then((mod) => {
       if (!mapRef.current || !followingRef.current) return;
       const mapboxgl = mod.default;
-      const width = mapRef.current.getContainer().clientWidth;
-      const padding = { top: 72, bottom: 72, left: 48, right: width > 800 ? 380 : 24 };
+      const padding = { top: 48, bottom: 48, left: 48, right: 48 };
       const index = nearestSegmentIndex(point, followSegments);
       const segment = index >= 0 ? followSegments[index]?.line : undefined;
       const slow = reading !== null && reading <= 3;
