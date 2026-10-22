@@ -406,6 +406,8 @@ export function MapBoard({
       />
       <div data-testid="map-dock" className="absolute inset-x-2 bottom-2 z-20 flex max-h-[calc(100%-5.5rem)] flex-col">
         <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-md">
+          {church ? null : (
+          <>
           <form onSubmit={onSearch} className="flex shrink-0 gap-2 border-b border-[#e5e7eb] p-2">
             <label className="min-w-0 flex-1">
               <span className="sr-only">장소 검색</span>
@@ -440,8 +442,10 @@ export function MapBoard({
               </a>
             </p>
           </div>
-          {places.length > 0 || target || visibleChurches.length === 0 || error || note ? (
-            <div className="min-h-0 overflow-y-auto border-t border-[#e5e7eb]">
+          </>
+          )}
+          {church || places.length > 0 || (!church && target) || visibleChurches.length === 0 || error || note ? (
+            <div className={`min-h-0 overflow-y-auto ${church ? "" : "border-t border-[#e5e7eb]"}`}>
           {places.length > 0 && !selected ? (
             <ul className="list-none">
               {places.map((item) => (
@@ -457,7 +461,7 @@ export function MapBoard({
             </ul>
           ) : null}
           {target && (church || place || pickup) ? (
-            <article className="border-t border-[#e5e7eb]">
+            <article data-testid={church ? "church-info" : undefined} className={church ? "" : "border-t border-[#e5e7eb]"}>
               <div className="flex items-start justify-between gap-2 border-b border-[#e5e7eb] px-3 py-3">
                 <h2 className="text-lg font-semibold leading-snug">{targetName}</h2>
                 <button
