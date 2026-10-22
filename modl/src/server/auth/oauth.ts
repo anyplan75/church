@@ -7,7 +7,8 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { eq, and } from "drizzle-orm";
 import { hashPassword } from "@/server/auth/password";
-import { openSession } from "@/server/auth/session";
+import { hashToken, openSession } from "@/server/auth/session";
+import { parseAccountGender, parseAccountPhone } from "@/account/profile";
 import {
   KAKAO_NOT_CONFIGURED,
   KAKAO_REDIRECT_URI,
@@ -21,11 +22,12 @@ import {
   type OauthProfile,
   type OauthProvider,
 } from "@/server/auth/oauth-config";
-import { oauthIdentities, users } from "@/server/db/schema";
+import { oauthIdentities, oauthPending, users } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { assertTextsAllowed } from "@/server/moderation/guard";
 
 const STATE_COOKIE = "modl_oauth_state";
+const PENDING_COOKIE = "modl_oauth_pending";
 const KAKAO_TOKEN = "https://kauth.kakao.com/oauth/token";
 const KAKAO_PROFILE = "https://kapi.kakao.com/v2/user/me";
 const NAVER_TOKEN = "https://nid.naver.com/oauth2.0/token";
@@ -175,16 +177,24 @@ export async function signInWithProfile(profile: OauthProfile): Promise<void> {
     await openSession(linked.userId);
     return;
   }
+  if (!profile.phone || !profile.gender) {
+    throw new Error("성별과 전화번호가 있어야 가입할 수 있습니다.");
+  }
 
   const fallback = profile.provider === "kakao" ? "카카오" : "네이버";
   const name = await safeName(profile.name, fallback);
   const passwordHash = hashPassword(randomBytes(32).toString("hex"));
   const emails = profile.email ? [profile.email, syntheticEmail(profile)] : [syntheticEmail(profile)];
+  const phone = profile.phone;
+  const gender = profile.gender;
 
   for (const email of emails) {
     try {
       const userId = await db.transaction(async (tx) => {
-        const [created] = await tx.insert(users).values({ name, email, passwordHash }).returning({ id: users.id });
+        const [created] = await tx
+          .insert(users)
+          .values({ name, email, passwordHash, phone, gender })
+          .returning({ id: users.id });
         if (!created) throw new Error("계정을 만들지 못했습니다.");
         await tx.insert(oauthIdentities).values({
           userId: created.id,
@@ -226,9 +236,101 @@ export async function finishOauthLogin(input: {
   try {
     const profile = input.provider === "kakao" ? await fetchKakaoProfile(input.code) : await fetchNaverProfile(input.code, input.state);
     if (!profile) return accountError(failed);
+    const linked = await linkedUserId(profile);
+    if (linked) {
+      await openSession(linked);
+      return "/";
+    }
+    if (!profile.phone || !profile.gender) {
+      await holdIncompleteSignup(profile);
+      return "/account?need=profile";
+    }
     await signInWithProfile(profile);
     return "/";
   } catch {
     return accountError(failed);
   }
+}
+
+async function linkedUserId(profile: OauthProfile): Promise<string | null> {
+  await ensureDatabase();
+  const [linked] = await getDb()
+    .select({ userId: oauthIdentities.userId })
+    .from(oauthIdentities)
+    .where(and(eq(oauthIdentities.provider, profile.provider), eq(oauthIdentities.providerUserId, profile.providerUserId)))
+    .limit(1);
+  return linked?.userId ?? null;
+}
+
+export type PendingSignup = {
+  needPhone: boolean;
+  needGender: boolean;
+};
+
+/** 성별이나 전화번호가 없으면 계정을 만들지 않고, 빠진 칸만 나중에 받습니다. */
+export async function holdIncompleteSignup(profile: OauthProfile): Promise<void> {
+  await ensureDatabase();
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+  const db = getDb();
+  await db.delete(oauthPending).where(and(eq(oauthPending.provider, profile.provider), eq(oauthPending.providerUserId, profile.providerUserId)));
+  await db.insert(oauthPending).values({
+    tokenHash: hashToken(token),
+    provider: profile.provider,
+    providerUserId: profile.providerUserId,
+    name: profile.name,
+    email: profile.email,
+    phone: profile.phone,
+    gender: profile.gender,
+    expiresAt,
+  });
+  const jar = await cookies();
+  jar.set(PENDING_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 30,
+    secure: process.env.NODE_ENV === "production",
+  });
+}
+
+export async function loadPendingSignup(): Promise<PendingSignup | null> {
+  await ensureDatabase();
+  const jar = await cookies();
+  const token = jar.get(PENDING_COOKIE)?.value;
+  if (!token) return null;
+  const [row] = await getDb().select().from(oauthPending).where(eq(oauthPending.tokenHash, hashToken(token))).limit(1);
+  if (!row || row.expiresAt.getTime() <= Date.now()) {
+    if (row) await getDb().delete(oauthPending).where(eq(oauthPending.id, row.id));
+    jar.delete(PENDING_COOKIE);
+    return null;
+  }
+  return { needPhone: !row.phone, needGender: !row.gender };
+}
+
+/** 빠진 성별·전화번호만 받아 가입을 끝냅니다. 둘 다 없으면 계정을 만들지 않습니다. */
+export async function completePendingSignup(input: { phone: string; gender: string }): Promise<void> {
+  await ensureDatabase();
+  const jar = await cookies();
+  const token = jar.get(PENDING_COOKIE)?.value;
+  if (!token) throw new Error("가입을 이어 갈 수 없습니다. 카카오 또는 네이버 로그인을 다시 눌러 주세요.");
+  const db = getDb();
+  const [row] = await db.select().from(oauthPending).where(eq(oauthPending.tokenHash, hashToken(token))).limit(1);
+  if (!row || row.expiresAt.getTime() <= Date.now()) {
+    jar.delete(PENDING_COOKIE);
+    throw new Error("가입 시간이 지났습니다. 카카오 또는 네이버 로그인을 다시 눌러 주세요.");
+  }
+  const phone = row.phone ?? parseAccountPhone(input.phone);
+  const gender = parseAccountGender(row.gender) ?? parseAccountGender(input.gender);
+  if (!phone || !gender) throw new Error("성별과 전화번호를 적어 주세요.");
+  await signInWithProfile({
+    provider: row.provider === "naver" ? "naver" : "kakao",
+    providerUserId: row.providerUserId,
+    name: row.name,
+    email: row.email,
+    phone,
+    gender,
+  });
+  await db.delete(oauthPending).where(eq(oauthPending.id, row.id));
+  jar.delete(PENDING_COOKIE);
 }

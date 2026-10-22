@@ -1,3 +1,5 @@
+import { parseAccountGender, parseAccountPhone } from "@/account/profile";
+
 /**
  * 카카오와 네이버 공식 로그인 주소입니다.
  * 콜백은 공개 주소 두 곳으로만 고정합니다. 다른 콜백 경로는 만들지 않습니다.
@@ -22,6 +24,8 @@ export type OauthProfile = {
   providerUserId: string;
   name: string;
   email: string | null;
+  phone: string | null;
+  gender: "male" | "female" | null;
 };
 
 function envValue(name: string): string {
@@ -48,7 +52,7 @@ export function kakaoAuthorizeUrl(state: string): string | null {
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", KAKAO_REDIRECT_URI);
   url.searchParams.set("state", state);
-  url.searchParams.set("scope", "profile_nickname,account_email");
+  url.searchParams.set("scope", "profile_nickname,account_email,phone_number,gender");
   return url.toString();
 }
 
@@ -77,7 +81,10 @@ function cleanEmail(value: unknown): string | null {
 
 export function parseKakaoProfile(payload: unknown): OauthProfile | null {
   if (!payload || typeof payload !== "object") return null;
-  const row = payload as { id?: unknown; kakao_account?: { email?: unknown; profile?: { nickname?: unknown } } };
+  const row = payload as {
+    id?: unknown;
+    kakao_account?: { email?: unknown; phone_number?: unknown; gender?: unknown; profile?: { nickname?: unknown } };
+  };
   if (typeof row.id !== "number" && typeof row.id !== "string") return null;
   const providerUserId = String(row.id).trim();
   if (!providerUserId) return null;
@@ -87,12 +94,17 @@ export function parseKakaoProfile(payload: unknown): OauthProfile | null {
     providerUserId,
     name: cleanName(typeof nickname === "string" ? nickname : "", "카카오"),
     email: cleanEmail(row.kakao_account?.email),
+    phone: parseAccountPhone(row.kakao_account?.phone_number),
+    gender: parseAccountGender(row.kakao_account?.gender),
   };
 }
 
 export function parseNaverProfile(payload: unknown): OauthProfile | null {
   if (!payload || typeof payload !== "object") return null;
-  const row = payload as { resultcode?: unknown; response?: { id?: unknown; email?: unknown; name?: unknown; nickname?: unknown } };
+  const row = payload as {
+    resultcode?: unknown;
+    response?: { id?: unknown; email?: unknown; name?: unknown; nickname?: unknown; mobile?: unknown; gender?: unknown };
+  };
   if (row.resultcode !== "00" || !row.response) return null;
   if (typeof row.response.id !== "string" || !row.response.id.trim()) return null;
   const name = typeof row.response.name === "string" ? row.response.name : "";
@@ -102,5 +114,7 @@ export function parseNaverProfile(payload: unknown): OauthProfile | null {
     providerUserId: row.response.id.trim(),
     name: cleanName(name || nickname, "네이버"),
     email: cleanEmail(row.response.email),
+    phone: parseAccountPhone(row.response.mobile),
+    gender: parseAccountGender(row.response.gender),
   };
 }

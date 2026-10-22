@@ -48,19 +48,31 @@ describe("간편 로그인 주소", () => {
     const kakao = new URL(kakaoAuthorizeUrl("abc") ?? "");
     assert.equal(`${kakao.origin}${kakao.pathname}`, "https://kauth.kakao.com/oauth/authorize");
     assert.equal(kakao.searchParams.get("redirect_uri"), KAKAO_REDIRECT_URI);
+    assert.equal(kakao.searchParams.get("scope"), "profile_nickname,account_email,phone_number,gender");
     const naver = new URL(naverAuthorizeUrl("abc") ?? "");
     assert.equal(`${naver.origin}${naver.pathname}`, "https://nid.naver.com/oauth2.0/authorize");
     assert.equal(naver.searchParams.get("redirect_uri"), NAVER_REDIRECT_URI);
   });
 
   it("프로필에서 제공자 번호만 읽습니다", () => {
-    const kakao = parseKakaoProfile({ id: 12, kakao_account: { profile: { nickname: "하나" }, email: "a@b.c" } });
+    const kakao = parseKakaoProfile({
+      id: 12,
+      kakao_account: { profile: { nickname: "하나" }, email: "a@b.c", phone_number: "+82 10-1234-5678", gender: "female" },
+    });
     assert.equal(kakao?.providerUserId, "12");
     assert.equal(kakao?.name, "하나");
+    assert.equal(kakao?.phone, "+82 10-1234-5678");
+    assert.equal(kakao?.gender, "female");
     assert.equal(parseKakaoProfile({}), null);
-    const naver = parseNaverProfile({ resultcode: "00", response: { id: "n1", nickname: "둘" } });
+    const naver = parseNaverProfile({
+      resultcode: "00",
+      response: { id: "n1", nickname: "둘", mobile: "010-1111-2222", gender: "M" },
+    });
     assert.equal(naver?.providerUserId, "n1");
     assert.equal(naver?.name, "둘");
+    assert.equal(naver?.phone, "010-1111-2222");
+    assert.equal(naver?.gender, "male");
+    assert.equal(parseNaverProfile({ resultcode: "00", response: { id: "n2", gender: "U" } })?.gender, null);
     assert.equal(parseNaverProfile({ resultcode: "024" }), null);
   });
 });

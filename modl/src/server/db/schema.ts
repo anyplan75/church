@@ -86,10 +86,15 @@ export const users = pgTable(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
+    phone: text("phone"),
+    gender: text("gender"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [uniqueIndex("users_email_uidx").on(table.email)],
+  (table) => [
+    uniqueIndex("users_email_uidx").on(table.email),
+    check("users_gender_check", sql`${table.gender} is null or ${table.gender} in ('male', 'female')`),
+  ],
 );
 
 /**
@@ -111,6 +116,31 @@ export const oauthIdentities = pgTable(
     uniqueIndex("oauth_identities_provider_user_uidx").on(table.provider, table.providerUserId),
     index("oauth_identities_user_id_idx").on(table.userId),
     check("oauth_identities_provider_check", sql`${table.provider} in ('kakao', 'naver')`),
+  ],
+);
+
+/**
+ * 성별이나 전화번호가 없어 아직 끝내지 못한 간편 가입입니다.
+ * 열쇠 값은 두지 않습니다.
+ */
+export const oauthPending = pgTable(
+  "oauth_pending",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tokenHash: text("token_hash").notNull(),
+    provider: text("provider").notNull(),
+    providerUserId: text("provider_user_id").notNull(),
+    name: text("name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    gender: text("gender"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("oauth_pending_token_hash_uidx").on(table.tokenHash),
+    check("oauth_pending_provider_check", sql`${table.provider} in ('kakao', 'naver')`),
+    check("oauth_pending_gender_check", sql`${table.gender} is null or ${table.gender} in ('male', 'female')`),
   ],
 );
 
@@ -931,6 +961,7 @@ export const worshipCaptionLinks = pgTable(
 export const dbSchema = {
   users,
   oauthIdentities,
+  oauthPending,
   sessions,
   communities,
   members,

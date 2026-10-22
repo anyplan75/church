@@ -8,6 +8,8 @@ import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
 import { TermText } from "@/components/term-text";
 import { SocialLoginButtons } from "@/components/social-login";
+import { loadPendingSignup } from "@/server/login/access";
+import { completeSocialSignup } from "@/server/login/oauth-actions";
 import { loginAction, logoutAction, signupAction } from "@/server/community/actions";
 import { loadAccountPage } from "@/server/community/service";
 import { loadChurchSettings } from "@/server/map/board";
@@ -40,6 +42,7 @@ export default async function AccountPage({
 }) {
   const query = await searchParams;
   const account = await loadAccountPage();
+  const pending = account.user ? null : await loadPendingSignup();
   const status = note(query.ok, query.count, query.missed);
   const tabs: Array<{ id: string; label: string; panel: ReactNode }> = [];
   if (account.user && showsPeopleSettings(account.role)) {
@@ -111,6 +114,25 @@ export default async function AccountPage({
         </div>
       ) : (
         <div className="grid gap-6">
+          {pending ? (
+            <form action={completeSocialSignup} id="signup-missing" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
+              <p className="leading-relaxed">가입을 마치려면 비어 있는 칸만 적어 주세요.</p>
+              {pending.needGender ? (
+                <label className="grid gap-1">
+                  <span className="font-semibold">
+                    <TermText termKey="field_gender" />
+                  </span>
+                  <select name="gender" required className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-snug">
+                    <option value="">선택</option>
+                    <option value="male">남</option>
+                    <option value="female">여</option>
+                  </select>
+                </label>
+              ) : null}
+              {pending.needPhone ? <TermField termKey="field_phone" name="phone" type="tel" required autoComplete="tel" /> : null}
+              <SubmitButton termKey="signup" />
+            </form>
+          ) : null}
           <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
             <SocialLoginButtons />
           </section>
@@ -123,6 +145,22 @@ export default async function AccountPage({
             <TermField termKey="field_name" name="name" required autoComplete="name" />
             <TermField termKey="field_email" name="email" type="email" required autoComplete="email" />
             <TermField termKey="field_password" name="password" type="password" required autoComplete="new-password" />
+            <label className="grid gap-1">
+              <span className="font-semibold">
+                <TermText termKey="field_gender" />
+              </span>
+              <select
+                name="gender"
+                required
+                data-testid="signup-gender"
+                className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-snug"
+              >
+                <option value="">선택</option>
+                <option value="male">남</option>
+                <option value="female">여</option>
+              </select>
+            </label>
+            <TermField termKey="field_phone" name="phone" type="tel" required autoComplete="tel" testId="signup-phone" />
             <SubmitButton termKey="signup" />
           </form>
         </div>

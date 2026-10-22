@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { parseAccountGender, parseAccountPhone } from "@/account/profile";
 import { closeSession } from "@/server/auth/session";
 import {
   applyToJoin,
@@ -42,15 +43,23 @@ export async function signupAction(formData: FormData) {
       name: z.string().trim().min(1, "이름을 적어 주세요."),
       email: z.string().trim().email("이메일 모양을 확인해 주세요.").transform((value) => value.toLowerCase()),
       password: z.string().min(8, "비밀번호는 8자 이상으로 해 주세요."),
+      phone: z.string().trim().min(1, "전화번호를 적어 주세요."),
+      gender: z.string().trim().min(1, "성별을 선택해 주세요."),
     })
     .safeParse({
       name: text(formData, "name"),
       email: text(formData, "email"),
       password: text(formData, "password"),
+      phone: text(formData, "phone"),
+      gender: text(formData, "gender"),
     });
   if (!parsed.success) fail("/account", new Error(parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요."));
+  const phone = parseAccountPhone(parsed.data.phone);
+  const gender = parseAccountGender(parsed.data.gender);
+  if (!phone) fail("/account", new Error("전화번호 모양을 확인해 주세요."));
+  if (!gender) fail("/account", new Error("성별을 선택해 주세요."));
   try {
-    await signupAccount(parsed.data);
+    await signupAccount({ ...parsed.data, phone, gender });
   } catch (error) {
     fail("/account", error);
   }

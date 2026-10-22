@@ -15,6 +15,7 @@ export function TermField({
   required = false,
   defaultValue = "",
   autoComplete,
+  testId,
 }: {
   termKey: TermKey;
   name: string;
@@ -22,6 +23,7 @@ export function TermField({
   required?: boolean;
   defaultValue?: string;
   autoComplete?: string;
+  testId?: string;
 }) {
   return (
     <label className="grid gap-1">
@@ -35,6 +37,7 @@ export function TermField({
         required={required}
         defaultValue={defaultValue}
         autoComplete={autoComplete}
+        data-testid={testId}
       />
     </label>
   );

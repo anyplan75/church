@@ -64,7 +64,13 @@ async function communityForActor(actor: Actor) {
   return communityId;
 }
 
-export async function signupAccount(input: { name: string; email: string; password: string }) {
+export async function signupAccount(input: {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  gender: "male" | "female";
+}) {
   await ensureDatabase();
   await assertTextsAllowed(input.name);
   try {
@@ -74,6 +80,8 @@ export async function signupAccount(input: { name: string; email: string; passwo
         name: input.name,
         email: input.email,
         passwordHash: hashPassword(input.password),
+        phone: input.phone,
+        gender: input.gender,
       })
       .returning();
     await openSession(user.id);
