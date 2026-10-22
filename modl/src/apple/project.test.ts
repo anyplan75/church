@@ -30,7 +30,7 @@ describe("폰 패드 맥 껍데기", () => {
     assert.match(entitlements, /com\.apple\.security\.app-sandbox/);
     assert.match(entitlements, /com\.apple\.security\.network\.client/);
     assert.match(entitlements, /com\.apple\.security\.files\.user-selected\.read-only/);
-    assert.match(project, /CURRENT_PROJECT_VERSION = 9;/);
+    assert.match(project, /CURRENT_PROJECT_VERSION = 10;/);
     const iconSet = readProject("Modl/Assets.xcassets/AppIcon.appiconset/Contents.json");
     assert.match(iconSet, /"platform" : "ios"/);
     assert.match(iconSet, /"size" : "1024x1024"/);
