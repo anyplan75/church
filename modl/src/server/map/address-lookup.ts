@@ -3,28 +3,27 @@
  * 상위 도로나 동네처럼 다른 장소의 검색 결과로는 핀을 옮기지 않습니다.
  */
 
-import { coordinatesWrittenInAddress, pickMatchingAddressPoint } from "@/map/address-point";
+import { addressGridToWgs } from "@/map/address-grid";
+import { coordinatesWrittenInAddress, isSameSavedAddress, pickMatchingAddressPoint } from "@/map/address-point";
 import { MAPBOX_ALLOWED_ORIGIN } from "@/map/origin";
 import { parseMapboxGeocodeCandidates, type MapPoint } from "@/map/rules";
 
 type AddressCandidate = { label: string; point: MapPoint };
 
-function finitePoint(lat: number, lon: number): MapPoint | null {
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
-  return { lat, lon };
+function finiteNumber(value: string | undefined): number | null {
+  if (!value) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
-async function kakaoAddressCandidates(query: string): Promise<AddressCandidate[]> {
-  const key = process.env.KAKAO_REST_API_KEY?.trim() ?? "";
-  if (!key) return [];
-  const url = new URL("https://dapi.kakao.com/v2/local/search/address.json");
-  url.searchParams.set("query", query);
-  url.searchParams.set("size", "5");
+/** 주소 표식에 적힌 좌표만 읽습니다. 제목이 저장된 주소와 다르면 버립니다. */
+async function addressRecordCandidates(query: string): Promise<AddressCandidate[]> {
+  const url = new URL("https://m.map.kakao.com/actions/searchView");
+  url.searchParams.set("q", query);
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { Authorization: `KakaoAK ${key}`, Accept: "application/json" },
+      headers: { Accept: "text/html", "User-Agent": "Mozilla/5.0" },
       cache: "no-store",
       signal: AbortSignal.timeout(12000),
     });
@@ -32,30 +31,15 @@ async function kakaoAddressCandidates(query: string): Promise<AddressCandidate[]
     return [];
   }
   if (!response.ok) return [];
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    return [];
-  }
-  if (!payload || typeof payload !== "object") return [];
-  const documents = (payload as { documents?: unknown }).documents;
-  if (!Array.isArray(documents)) return [];
+  const html = await response.text();
   const found: AddressCandidate[] = [];
-  for (const document of documents) {
-    if (!document || typeof document !== "object") continue;
-    const record = document as {
-      address_name?: unknown;
-      x?: unknown;
-      y?: unknown;
-      road_address?: { address_name?: unknown; x?: unknown; y?: unknown } | null;
-    };
-    const road = record.road_address;
-    const label = typeof road?.address_name === "string" ? road.address_name : typeof record.address_name === "string" ? record.address_name : "";
-    const lon = Number(road?.x ?? record.x);
-    const lat = Number(road?.y ?? record.y);
-    const point = finitePoint(lat, lon);
-    if (!label || !point) continue;
+  for (const block of html.split("<li ")) {
+    const label = block.match(/data-title="([^"]+)"/)?.[1] ?? "";
+    const wx = finiteNumber(block.match(/data-wx="(-?\d+)"/)?.[1]);
+    const wy = finiteNumber(block.match(/data-wy="(-?\d+)"/)?.[1]);
+    if (!label || wx === null || wy === null || !isSameSavedAddress(query, label)) continue;
+    const point = addressGridToWgs(wx, wy);
+    if (!point) continue;
     found.push({ label, point });
   }
   return found;
@@ -93,9 +77,9 @@ export async function lookupAddressPoint(query: string): Promise<MapPoint | null
   if (!text) return null;
   const written = coordinatesWrittenInAddress(text);
   if (written) return written;
-  const kakao = await kakaoAddressCandidates(text);
-  const fromKakao = pickMatchingAddressPoint(text, kakao);
-  if (fromKakao) return fromKakao;
+  const recorded = await addressRecordCandidates(text);
+  const fromRecord = pickMatchingAddressPoint(text, recorded);
+  if (fromRecord) return fromRecord;
   const mapbox = await mapboxAddressCandidates(text);
   return pickMatchingAddressPoint(text, mapbox);
 }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { coordinatesWrittenInAddress, isSameSavedAddress, pickMatchingAddressPoint } from "@/map/address-point";
+import { addressGridToWgs } from "@/map/address-grid";
 
 const SAVED = "서귀포시 남원읍 태위로 360번길 214-1";
 
@@ -21,6 +22,13 @@ describe("저장된 주소 좌표", () => {
       { label: "태위로", point: { lat: 33.277304, lon: 126.70465 } },
     ]);
     assert.deepEqual(picked, { lat: 33.2714827, lon: 126.6737485 });
+  });
+
+  it("주소 표식의 격자 좌표를 그 주소의 위도 경도로 바꿉니다", () => {
+    const point = addressGridToWgs(424011, -61483);
+    assert.ok(point);
+    assert.ok(Math.abs(point.lat - 33.2714827) < 0.00002);
+    assert.ok(Math.abs(point.lon - 126.6737485) < 0.00002);
   });
 
   it("상위 도로 좌표로는 핀을 옮기지 않습니다", () => {
