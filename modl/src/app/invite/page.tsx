@@ -1,4 +1,4 @@
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { InviteWork } from "@/components/account-work";
 import { TermHeading } from "@/components/term-heading";
@@ -13,7 +13,7 @@ export default async function InvitePage({
 }) {
   const query = await searchParams;
   const page = await loadInvitePage();
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) return <AccessScreen />;
   return (
     <section className="grid gap-4">
       <TermHeading termKey="invite" level={1} />

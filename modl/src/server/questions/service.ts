@@ -51,11 +51,11 @@ export async function loadQuestionHome() {
   await ensureDatabase();
   const actor = await loadActor();
   if (actor.kind !== "user") {
-    return { canAsk: false as const, pastors: [], questions: [] as QuestionCard[] };
+    return { canAsk: false as const, signedIn: false as const, pastors: [], questions: [] as QuestionCard[] };
   }
   const communityId = await activeCommunityId(actor);
   if (!communityId || !formalMembership(actor, communityId)) {
-    return { canAsk: false as const, pastors: [], questions: [] as QuestionCard[] };
+    return { canAsk: false as const, signedIn: true as const, pastors: [], questions: [] as QuestionCard[] };
   }
   const viewer = viewerFrom(actor, communityId);
   const db = getDb();
@@ -102,7 +102,7 @@ export async function loadQuestionHome() {
       answerState: !own ? "hidden" : mine.some((reply) => reply.status === "APPROVED") ? "arrived" : mine.length > 0 ? "waiting" : "none",
     });
   }
-  return { canAsk: true as const, pastors, questions: cards };
+  return { canAsk: true as const, signedIn: true as const, pastors, questions: cards };
 }
 
 export type QuestionCard = {

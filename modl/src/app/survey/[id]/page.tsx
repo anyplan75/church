@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { ErrorNote, NoteBanner, OkNote } from "@/components/form-note";
 import { SubmitButton } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
@@ -21,7 +21,7 @@ export default async function SurveyFormPage({
   const { id } = await params;
   const query = await searchParams;
   const page = await loadSurveyForm(id);
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) return <AccessScreen />;
 
   return (
     <section className="grid min-w-0 gap-4">

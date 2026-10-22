@@ -4,6 +4,8 @@ import { CategoryField, LeaderOnlyField } from "@/components/choice-fields";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
+import { LoginGuide } from "@/components/login-guide";
+import { viewerIsGuest } from "@/server/login/access";
 import { saveCalendarEventAction } from "@/server/calendar/actions";
 import { loadCalendarMonth } from "@/server/calendar/service";
 
@@ -26,6 +28,14 @@ export default async function CalendarPage({
   const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100 ? requestedYear : today.year;
   const month = Number.isInteger(requestedMonth) && requestedMonth >= 1 && requestedMonth <= 12 ? requestedMonth : today.month;
   const page = await loadCalendarMonth(year, month);
+  if (!page.ok && (await viewerIsGuest())) {
+    return (
+      <section className="grid min-w-0 gap-4">
+        <TermHeading termKey="calendar" level={1} />
+        <LoginGuide compact />
+      </section>
+    );
+  }
   const previous = shiftMonth(year, month, -1);
   const next = shiftMonth(year, month, 1);
   const monthText = String(month).padStart(2, "0");

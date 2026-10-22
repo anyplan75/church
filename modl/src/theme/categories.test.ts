@@ -33,8 +33,12 @@ describe("분류 메뉴", () => {
     );
   });
 
-  it("손님은 지도만 보고 구성원은 퀴즈와 행사자료를 봅니다", () => {
-    assert.deepEqual(sidebarHrefs({ formal: false, officer: false }), ["/map"]);
+  it("손님은 기도와 지도를 포함하고, 구성원은 퀴즈와 행사자료를 봅니다", () => {
+    const guest = sidebarHrefs({ formal: false, officer: false });
+    assert.equal(guest.includes("/prayer"), true);
+    assert.equal(guest.includes("/map"), true);
+    assert.equal(guest.includes("/attendance"), true);
+    assert.equal(guest.includes("/finance"), true);
     const member = sidebarHrefs({ formal: true, officer: false });
     assert.equal(member.includes("/quiz"), true);
     assert.equal(member.includes("/archive"), true);

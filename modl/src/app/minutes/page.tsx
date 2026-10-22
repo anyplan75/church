@@ -1,4 +1,4 @@
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermArea, TermField } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
@@ -15,7 +15,7 @@ export default async function MinutesPage({
 }) {
   const query = await searchParams;
   const page = await loadMinutesHome();
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) return <AccessScreen />;
 
   return (
     <section className="grid min-w-0 gap-4">

@@ -1,4 +1,4 @@
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermHeading } from "@/components/term-heading";
 import { loadFinanceHome } from "@/server/finance/service";
@@ -12,7 +12,7 @@ export default async function FinancePage({
 }) {
   const query = await searchParams;
   const page = await loadFinanceHome();
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) return <AccessScreen />;
 
   return (
     <section className="grid min-w-0 gap-6">

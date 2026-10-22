@@ -1,4 +1,4 @@
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { GroupWork, seasonYear } from "@/components/account-work";
 import { TermHeading } from "@/components/term-heading";
@@ -13,7 +13,7 @@ export default async function GroupPage({
 }) {
   const query = await searchParams;
   const page = await loadGroupPage();
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) return <AccessScreen />;
   const year = seasonYear(query.year);
 
   return (

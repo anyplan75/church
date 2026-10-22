@@ -1,11 +1,13 @@
+import Link from "next/link";
 import { ActionToast } from "@/components/action-toast";
 import { AnonymousField, VisibilityField } from "@/components/choice-fields";
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermButton } from "@/components/term-button";
 import { SubmitButton, TermArea } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
 import { TermText } from "@/components/term-text";
+import { viewerIsGuest } from "@/server/login/access";
 import { createPrayerAction, prayTogetherAction } from "@/server/prayer/actions";
 import { loadPrayerHome } from "@/server/prayer/service";
 import type { TermKey } from "@/theme/dictionary";
@@ -26,7 +28,23 @@ export default async function PrayerPage({
 }) {
   const query = await searchParams;
   const page = await loadPrayerHome();
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) {
+    if (await viewerIsGuest()) {
+      return (
+        <section className="grid min-w-0 gap-4">
+          <TermHeading termKey="prayer" level={1} />
+          <p className="leading-relaxed">
+            <TermText termKey="prayer_empty" />
+          </p>
+          <p className="leading-relaxed text-[#5c5148]">글을 남기려면 로그인해 주세요.</p>
+          <Link href="/account" className="font-medium text-[#1e293b] underline">
+            로그인
+          </Link>
+        </section>
+      );
+    }
+    return <AccessScreen />;
+  }
 
   return (
     <section className="grid min-w-0 gap-4">

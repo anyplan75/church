@@ -1,4 +1,4 @@
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { ApprovalWork } from "@/components/account-work";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermHeading } from "@/components/term-heading";
@@ -13,7 +13,7 @@ export default async function ApprovalsPage({
 }) {
   const query = await searchParams;
   const page = await loadApprovalPage();
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) return <AccessScreen />;
   const replyNote = query.ok === "reply_approved" ? "답글을 승인했습니다." : "";
   return (
     <section className="grid gap-4">

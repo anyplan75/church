@@ -93,6 +93,28 @@ export const users = pgTable(
 );
 
 /**
+ * 카카오·네이버로 들어온 계정 연결입니다.
+ * 열쇠 값은 여기에 두지 않습니다. 제공자 번호만 저장합니다.
+ */
+export const oauthIdentities = pgTable(
+  "oauth_identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    providerUserId: text("provider_user_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("oauth_identities_provider_user_uidx").on(table.provider, table.providerUserId),
+    index("oauth_identities_user_id_idx").on(table.userId),
+    check("oauth_identities_provider_check", sql`${table.provider} in ('kakao', 'naver')`),
+  ],
+);
+
+/**
  * 로그인 상태를 서버에 기억하는 표입니다.
  * 표식 원문은 저장하지 않고 해시만 둡니다.
  */
@@ -908,6 +930,7 @@ export const worshipCaptionLinks = pgTable(
 
 export const dbSchema = {
   users,
+  oauthIdentities,
   sessions,
   communities,
   members,

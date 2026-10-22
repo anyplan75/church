@@ -7,6 +7,7 @@ import { ChurchSettingsPanel } from "@/components/church-settings-panel";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
 import { TermText } from "@/components/term-text";
+import { SocialLoginButtons } from "@/components/social-login";
 import { loginAction, logoutAction, signupAction } from "@/server/community/actions";
 import { loadAccountPage } from "@/server/community/service";
 import { loadChurchSettings } from "@/server/map/board";
@@ -110,6 +111,9 @@ export default async function AccountPage({
         </div>
       ) : (
         <div className="grid gap-6">
+          <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
+            <SocialLoginButtons />
+          </section>
           <form action={loginAction} id="login-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
             <TermField termKey="field_email" name="email" type="email" required autoComplete="username" />
             <TermField termKey="field_password" name="password" type="password" required autoComplete="current-password" />
