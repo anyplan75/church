@@ -822,10 +822,10 @@ export function MapBoard({
           </label>
         </form>
       ) : null}
-      </div>
-      <div data-testid="map-phone-bar" className="z-20 shrink-0 border-t border-[#e5e7eb] bg-white md:hidden">
+      {/* 폰 분류와 교회 소개는 지도 위에 겹치지 않게 화면 아래에 붙입니다. */}
+      <div data-testid="map-phone-bar" className="absolute inset-x-0 bottom-0 z-20 md:hidden">
         {church || place || pickup ? (
-          <div className="max-h-[min(22rem,52dvh)] overflow-y-auto">
+          <div className="max-h-[min(22rem,46dvh)] overflow-y-auto border-t border-[#e5e7eb] bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.12)]">
             <article data-testid={church ? "map-phone-church" : undefined}>
               <div className="flex items-start justify-between gap-2 border-b border-[#e5e7eb] px-3 py-2">
                 <h2 className="text-base font-semibold leading-snug">{targetName}</h2>
@@ -898,7 +898,18 @@ export function MapBoard({
             </article>
           </div>
         ) : phoneFiltersOpen ? (
-          <div className="flex max-h-[min(28rem,62dvh)] min-h-0 flex-col overflow-hidden">
+          <div className="flex max-h-[min(22rem,46dvh)] min-h-0 flex-col overflow-hidden border-t border-[#e5e7eb] bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.12)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#e5e7eb] px-3 py-1">
+              <h2 className="text-base font-semibold leading-snug">분류</h2>
+              <button
+                type="button"
+                data-testid="map-phone-filter-close"
+                className="min-h-12 rounded-xl px-3 text-base text-[#4b5563]"
+                onClick={() => setPhoneFiltersOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
             {/* 아래 태그가 잘리지 않게 목록만 스크롤합니다. 완료는 이 목록 밖에 두어 스크롤 중에도 보입니다. */}
             <div
               data-testid="map-phone-filter-scroll"
@@ -916,7 +927,7 @@ export function MapBoard({
               <button
                 type="button"
                 data-testid="map-phone-filter-done"
-                className="w-full rounded-xl bg-[#111827] px-3 py-2 text-sm font-semibold text-white"
+                className="min-h-12 w-full rounded-xl bg-[#111827] px-3 text-base font-semibold text-white"
                 onClick={finishPhoneFilters}
               >
                 완료
@@ -939,23 +950,23 @@ export function MapBoard({
                 ))}
               </ul>
             ) : null}
-            <form onSubmit={onSearch} data-testid="map-phone-search" className="flex items-center gap-2 p-2">
+            <form onSubmit={onSearch} data-testid="map-phone-search" className="flex items-center gap-2 border-t border-[#e5e7eb] bg-white p-2">
               <label className="min-w-0 flex-1">
                 <span className="sr-only">장소 검색</span>
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  className="w-full rounded-xl border border-[#e5e7eb] px-3 py-2 text-sm leading-snug outline-none"
+                  className="w-full rounded-xl border border-[#e5e7eb] px-3 py-2 text-base leading-snug outline-none"
                   placeholder="장소나 주소"
                 />
               </label>
               <button
                 type="button"
                 data-testid="map-phone-filter"
-                className="shrink-0 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-semibold"
+                className="min-h-12 shrink-0 rounded-xl border border-[#e5e7eb] bg-white px-4 text-base font-semibold"
                 onClick={openPhoneFilters}
               >
-                필터
+                분류
               </button>
             </form>
             {visibleChurches.length === 0 ? (
@@ -965,6 +976,7 @@ export function MapBoard({
             ) : null}
           </>
         )}
+      </div>
       </div>
     </section>
   );

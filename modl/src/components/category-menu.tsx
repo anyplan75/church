@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { NavIcon } from "@/components/nav-icons";
 import { CATEGORY_MENUS } from "@/theme/categories";
 
@@ -56,7 +56,45 @@ export function CategoryMenu({
   );
 }
 
-/** 폰 위쪽 두 줄입니다. 첫 줄은 구역, 둘째 줄은 그 구역의 메뉴입니다. */
+/** 한 줄에 들어가는 칸 수입니다. 글자보다 좁아지면 같은 너비로 다음 줄에 이어 넣습니다. */
+function useEqualColumns(labels: readonly string[]) {
+  const ref = useRef<HTMLDivElement>(null);
+  const key = labels.join("\n");
+  const [columns, setColumns] = useState(Math.max(1, labels.length));
+  useLayoutEffect(() => {
+    const node = ref.current;
+    const names = key.length === 0 ? [] : key.split("\n");
+    if (!node || names.length === 0) return;
+    const measure = () => {
+      const width = node.clientWidth;
+      if (width <= 0) return;
+      const style = getComputedStyle(node);
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      if (context) context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const longest = names.reduce((max, label) => {
+        const text = context ? context.measureText(label).width : label.length * 16;
+        return Math.max(max, text);
+      }, 0);
+      const minCell = Math.ceil(longest + 16);
+      const fit = Math.max(1, Math.min(names.length, Math.floor(width / Math.max(minCell, 1))));
+      setColumns(fit);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [key]);
+  return { ref, columns };
+}
+
+function phoneTabClass(current: boolean) {
+  return `flex min-h-12 w-full items-center justify-center border-b border-r border-[#e2e8f0] px-1 text-center text-base font-semibold leading-tight ${
+    current ? "bg-[#1e293b] text-white" : "bg-white text-[#334155]"
+  }`;
+}
+
+/** 폰 위쪽 두 줄입니다. 첫 줄은 구역, 둘째 줄은 그 구역의 메뉴입니다. 각 줄은 화면 너비를 칸 수로 나눕니다. */
 export function PhoneCategoryTabs({ menuHrefs }: { menuHrefs: readonly string[] }) {
   const pathname = usePathname();
   const allowed = new Set(menuHrefs);
@@ -68,11 +106,21 @@ export function PhoneCategoryTabs({ menuHrefs }: { menuHrefs: readonly string[] 
   const [override, setOverride] = useState<{ path: string; label: string } | null>(null);
   const selectedLabel = override?.path === pathname ? override.label : (pathGroup ?? groups[0]?.label ?? "");
   const selected = groups.find((group) => group.label === selectedLabel) ?? groups[0];
+  const zoneLabels = groups.map((group) => group.label);
+  const itemLabels = selected?.items.map((item) => item.label) ?? [];
+  const zones = useEqualColumns(zoneLabels);
+  const items = useEqualColumns(itemLabels);
   if (!selected) return null;
 
   return (
-    <div className="grid gap-1 px-2 pb-2">
-      <div role="tablist" aria-label="구역" className="flex gap-1 overflow-x-auto">
+    <div className="grid w-full">
+      <div
+        ref={zones.ref}
+        role="tablist"
+        aria-label="구역"
+        className="grid w-full text-base"
+        style={{ gridTemplateColumns: `repeat(${zones.columns}, minmax(0, 1fr))` }}
+      >
         {groups.map((group) => {
           const current = group.label === selected.label;
           return (
@@ -81,9 +129,7 @@ export function PhoneCategoryTabs({ menuHrefs }: { menuHrefs: readonly string[] 
               type="button"
               role="tab"
               aria-selected={current}
-              className={`h-9 shrink-0 rounded-full px-3 text-sm font-medium leading-5 ${
-                current ? "bg-[#1e293b] text-white" : "bg-[#f8fafc] text-[#475569]"
-              }`}
+              className={phoneTabClass(current)}
               onClick={() => setOverride({ path: pathname, label: group.label })}
             >
               {group.label}
@@ -91,19 +137,17 @@ export function PhoneCategoryTabs({ menuHrefs }: { menuHrefs: readonly string[] 
           );
         })}
       </div>
-      <div role="tablist" aria-label={selected.label} className="flex gap-1">
+      <div
+        ref={items.ref}
+        role="tablist"
+        aria-label={selected.label}
+        className="grid w-full text-base"
+        style={{ gridTemplateColumns: `repeat(${items.columns}, minmax(0, 1fr))` }}
+      >
         {selected.items.map((item) => {
           const current = active(pathname, item.href);
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              role="tab"
-              aria-selected={current}
-              className={`inline-flex h-9 shrink-0 items-center rounded-full px-2 text-sm font-medium leading-5 ${
-                current ? "bg-[#f1f5f9] text-[#1e293b]" : "text-[#475569]"
-              }`}
-            >
+            <Link key={item.href} href={item.href} role="tab" aria-selected={current} className={phoneTabClass(current)}>
               {item.label}
             </Link>
           );
