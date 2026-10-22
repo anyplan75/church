@@ -34,6 +34,7 @@ const nextConfig: NextConfig = {
         "shape-recreational-character-transition.trycloudflare.com",
         "phd-poker-longer-arctic.trycloudflare.com",
         "modl--modl-comm.asia-east1.hosted.app",
+        "modl-jeju.vercel.app",
       ],
     },
   },

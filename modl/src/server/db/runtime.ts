@@ -6,7 +6,7 @@
  * 이 파일을 불러도 바로 접속하지 않고, ensureDatabase 를 부를 때 접속합니다.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolConfig } from "pg";
@@ -44,8 +44,23 @@ export async function prepareDatabasePool(): Promise<Pool> {
   return globalForDb.modlPool;
 }
 
+/**
+ * 버셀에는 구글 기본 로그인이 없습니다.
+ * 비밀 이름 GOOGLE_SQL_ADMIN_CREDENTIALS 가 있으면 그 내용으로 임시 파일을 만들어
+ * 클라우드 SQL 인증서만 받습니다. 값은 코드에 적지 않습니다.
+ */
+function prepareCloudSqlCredentials(): void {
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim()) return;
+  const raw = process.env.GOOGLE_SQL_ADMIN_CREDENTIALS?.trim();
+  if (!raw) return;
+  const file = "/tmp/modl-google-sql-admin.json";
+  writeFileSync(file, raw, { mode: 0o600 });
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = file;
+}
+
 async function openPool(): Promise<Pool> {
   if (usesCloudSql()) {
+    prepareCloudSqlCredentials();
     const { AuthTypes, Connector, IpAddressTypes } = await import("@google-cloud/cloud-sql-connector");
     const connector = new Connector();
     const options = await connector.getOptions({
