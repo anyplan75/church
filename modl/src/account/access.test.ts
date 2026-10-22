@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { showsCommunitySettings, showsOwnPickup, showsPeopleSettings } from "@/account/access";
+import { showsCommunitySettings, showsOwnPickup, showsPeopleSettings, showsSignupList } from "@/account/access";
 
 describe("계정 설정 범위", () => {
   it("사역자만 공동체 설정을 보고 다른 역할은 보지 않습니다", () => {
@@ -10,6 +10,15 @@ describe("계정 설정 범위", () => {
     assert.equal(showsCommunitySettings("MEMBER"), false);
     assert.equal(showsCommunitySettings("NEWCOMER"), false);
     assert.equal(showsCommunitySettings(null), false);
+  });
+
+  it("사역자만 가입자 목록을 보고 다른 역할은 보지 않습니다", () => {
+    assert.equal(showsSignupList("PASTOR"), true);
+    assert.equal(showsSignupList("EXECUTIVE"), false);
+    assert.equal(showsSignupList("CELL_LEADER"), false);
+    assert.equal(showsSignupList("MEMBER"), false);
+    assert.equal(showsSignupList("NEWCOMER"), false);
+    assert.equal(showsSignupList(null), false);
   });
 
   it("사역자와 임원만 사람 설정을 봅니다", () => {

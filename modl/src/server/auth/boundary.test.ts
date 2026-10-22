@@ -36,9 +36,11 @@ describe("화면과 서버 경계", () => {
     const church = readFileSync(path.join(path.resolve("src"), "app/signup/church/page.tsx"), "utf8");
     const form = readFileSync(path.join(path.resolve("src"), "components/signup-church-form.tsx"), "utf8");
     const together = `${church}\n${form}`;
-    assert.match(together, /이 교회 선택/);
-    assert.match(together, /목록에 없으면 직접 등록/);
+    assert.match(together, /교회 등록/);
     assert.match(together, /ChurchTagFilters/);
+    assert.doesNotMatch(together, /이 교회 선택|교회 목록|signup-church-search|signup-church-list/);
     assert.doesNotMatch(together, /planTier|field_role|사용 등급|name="region"|제주시|서귀포시/);
+    assert.match(account, /showsSignupList/);
+    assert.doesNotMatch(account, /등급/);
   });
 });

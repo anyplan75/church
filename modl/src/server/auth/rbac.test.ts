@@ -217,6 +217,8 @@ describe("역할별 권한", () => {
     assert.equal(can(member, { type: "apply_to_join" }), true);
     assert.equal(can(guest, { type: "create_community" }), false);
     assert.equal(can(guest, { type: "apply_to_join" }), false);
+    assert.equal(can(guest, { type: "ask_question", communityId: COMMUNITY }), false);
+    assert.equal(can(user("MEMBER", { memberships: [] }), { type: "ask_question", communityId: COMMUNITY }), true);
     const pending = user("MEMBER", { pendingCommunityIds: [COMMUNITY] });
     assert.equal(can(pending, { type: "issue_invite", communityId: COMMUNITY }), false);
     assert.equal(can(pending, { type: "review_approval", communityId: COMMUNITY }), false);

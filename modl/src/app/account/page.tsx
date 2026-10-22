@@ -1,17 +1,18 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { showsCommunitySettings, showsOwnPickup, showsPeopleSettings } from "@/account/access";
+import { showsCommunitySettings, showsOwnPickup, showsPeopleSettings, showsSignupList } from "@/account/access";
 import { ApprovalWork, GroupWork, InviteWork, NewcomerWork, RosterWork, seasonYear } from "@/components/account-work";
 import { BannedWordSettings, OwnPickupSettings, SurveyAccountSettings } from "@/components/account-settings";
 import { ChurchSettingsPanel } from "@/components/church-settings-panel";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
 import { TermText } from "@/components/term-text";
+import { SignupPeople } from "@/components/signup-people";
 import { SocialLoginButtons } from "@/components/social-login";
 import { loadPendingSignup } from "@/server/login/access";
 import { completeSocialSignup } from "@/server/login/oauth-actions";
 import { loginAction, logoutAction, signupAction } from "@/server/community/actions";
-import { loadAccountPage } from "@/server/community/service";
+import { loadAccountPage, loadSignupPeople } from "@/server/community/service";
 import { loadChurchSettings } from "@/server/map/board";
 import { loadBannedWordsForEditor } from "@/server/moderation/words";
 import { loadSurveyDesk } from "@/server/survey/service";
@@ -43,6 +44,7 @@ export default async function AccountPage({
   const query = await searchParams;
   const account = await loadAccountPage();
   const pending = account.user ? null : await loadPendingSignup();
+  const signupPeople = account.user && showsSignupList(account.role) ? await loadSignupPeople() : null;
   const status = note(query.ok, query.count, query.missed);
   const tabs: Array<{ id: string; label: string; panel: ReactNode }> = [];
   if (account.user && showsPeopleSettings(account.role)) {
@@ -90,6 +92,7 @@ export default async function AccountPage({
             ) : null}
           </section>
           {showsOwnPickup(account.role) ? <OwnPickupSettings /> : null}
+          {signupPeople ? <SignupPeople people={signupPeople} /> : null}
           {current ? (
             <div className="grid gap-4">
               <nav role="tablist" aria-label="계정 설정" data-testid="account-tabs" className="flex flex-wrap gap-2">

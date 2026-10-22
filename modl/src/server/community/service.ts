@@ -15,6 +15,7 @@ import {
   communities,
   groupMemberships,
   inviteCodes,
+  mapChurches,
   members,
   smallGroups,
   users,
@@ -592,6 +593,51 @@ export async function loadGroupPage() {
       .orderBy(asc(groupMemberships.assignedAt));
     return { groups, roster, history };
   });
+}
+
+export type SignupPersonRow = {
+  id: string;
+  name: string;
+  email: string;
+  gender: string;
+  phone: string;
+  churchName: string;
+};
+
+function genderLabel(value: string | null): string {
+  if (value === "male") return "남";
+  if (value === "female") return "여";
+  return "";
+}
+
+/** 사역자만 가입자 목록을 받습니다. 다른 역할은 빈 배열이 아니라 자료를 아예 읽지 않습니다. */
+export async function loadSignupPeople(): Promise<SignupPersonRow[]> {
+  await ensureDatabase();
+  const actor = await loadActor();
+  if (actor.kind !== "user") return [];
+  const communityId = await activeCommunityId(actor);
+  const membership = communityId ? formalMembership(actor, communityId) : null;
+  if (membership?.role !== "PASTOR") return [];
+  const rows = await getDb()
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      gender: users.gender,
+      phone: users.phone,
+      churchName: mapChurches.name,
+    })
+    .from(users)
+    .leftJoin(mapChurches, eq(users.homeChurchId, mapChurches.id))
+    .orderBy(asc(users.name));
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    gender: genderLabel(row.gender),
+    phone: row.phone ?? "",
+    churchName: row.churchName ?? "",
+  }));
 }
 
 export async function loadAccountPage() {

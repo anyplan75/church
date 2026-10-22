@@ -13,15 +13,14 @@ export default async function SignupChurchPage({
   const query = await searchParams;
   const page = await loadSignupChurchPage();
   if (!page.signedIn) redirect("/account");
+  if (page.alreadyChosen) redirect("/");
 
   return (
     <section className="grid gap-4" data-testid="signup-church">
       <h1 className="page-title text-[clamp(1.45rem,1.1rem+0.85vw,2rem)] leading-tight">다니는 교회</h1>
-      <p className="leading-relaxed text-[#5c5148]">
-        가입이 끝났습니다. 다니는 교회가 목록에 있으면 그 교회를 고르고, 없으면 아래에서 직접 등록합니다.
-      </p>
+      <p className="leading-relaxed text-[#5c5148]">가입이 끝났습니다. 다니는 교회를 아래에 등록합니다.</p>
       <ErrorNote message={query.error} />
-      <SignupChurchForm churches={page.churches} />
+      <SignupChurchForm />
     </section>
   );
 }
