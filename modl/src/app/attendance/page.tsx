@@ -36,7 +36,7 @@ export default async function AttendancePage({
           data-testid="group-attendance"
           className={`rounded-2xl px-4 py-3 font-semibold leading-snug ${query.pick === "group" ? "bg-[#1d6b45] text-white" : "bg-[#fffaf3]"}`}
         >
-          모임출석
+          모들출석
         </Link>
       </div>
       {query.pick === "church" ? (
@@ -58,7 +58,7 @@ export default async function AttendancePage({
       ) : null}
       {query.pick === "group" ? (
         <ul className="grid gap-2" data-testid="group-attendance-list">
-          {page.groups.length === 0 ? <li className="leading-relaxed">속한 모임이 없습니다.</li> : null}
+          {page.groups.length === 0 ? <li className="leading-relaxed">속한 모들이 없습니다.</li> : null}
           {page.groups.map((group) => (
             <li key={group.id}>
               <Link
@@ -73,7 +73,6 @@ export default async function AttendancePage({
           ))}
         </ul>
       ) : null}
-      <h1 className="page-title text-[clamp(1.6rem,1.2rem+1vw,2rem)] leading-snug">모들출석</h1>
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
       <section className="grid gap-2" data-testid="my-attendance">
