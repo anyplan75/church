@@ -87,6 +87,8 @@ export function MapBoard({
   const [address, setAddress] = useState(self?.address ?? "");
   const [consented, setConsented] = useState(self?.consented ?? false);
   const [selectedTags, setSelectedTags] = useState<ReadonlySet<string>>(new Set());
+  const [phoneFiltersOpen, setPhoneFiltersOpen] = useState(false);
+  const [phoneDraftTags, setPhoneDraftTags] = useState<ReadonlySet<string>>(new Set());
   const [churchRows, setChurchRows] = useState(churches);
   const [draft, setDraft] = useState<ChurchDraft | null>(null);
   useEffect(() => {
@@ -153,8 +155,28 @@ export function MapBoard({
     setNote("교회를 저장했습니다.");
   }
 
+  function openPhoneFilters() {
+    setPhoneDraftTags(new Set(selectedTags));
+    setPhoneFiltersOpen(true);
+  }
+
+  function finishPhoneFilters() {
+    setSelectedTags(new Set(phoneDraftTags));
+    setPhoneFiltersOpen(false);
+  }
+
+  function togglePhoneDraft(tag: ChurchTag) {
+    setPhoneDraftTags((current) => {
+      const next = new Set(current);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  }
+
   function choose(next: Selected) {
     setDraft(null);
+    setPhoneFiltersOpen(false);
     setSelected(next);
     setGuiding(false);
     setRoute(null);
@@ -441,7 +463,8 @@ export function MapBoard({
   }
 
   return (
-    <section className="map-stage">
+    <section className="map-stage flex flex-col">
+      <div className="relative min-h-0 flex-1">
       <h1 className="page-title absolute left-3 top-3 z-20 rounded-xl bg-white px-3 py-2 text-[clamp(1.22rem,1rem+0.5vw,1.6rem)] leading-tight shadow-md">지도</h1>
       <MapCanvas
         places={places}
@@ -457,6 +480,7 @@ export function MapBoard({
         onSelect={choose}
         onClear={() => {
           setDraft(null);
+          setPhoneFiltersOpen(false);
           setSelected(null);
           setGuiding(false);
           setRoute(null);
@@ -466,7 +490,7 @@ export function MapBoard({
           stopNavigation();
         }}
       />
-      <div data-testid="map-dock" className="absolute inset-x-2 bottom-2 z-20 flex max-h-[calc(100%-5.5rem)] flex-col">
+      <div data-testid="map-dock" className="absolute inset-x-2 bottom-2 z-20 hidden max-h-[calc(100%-5.5rem)] flex-col md:flex">
         <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-md">
           {church ? null : (
           <>
@@ -531,6 +555,7 @@ export function MapBoard({
                   className="rounded-xl px-3 py-2 text-[#4b5563]"
                   onClick={() => {
                     setDraft(null);
+                    setPhoneFiltersOpen(false);
                     setSelected(null);
                     setGuiding(false);
                     setRoute(null);
@@ -787,6 +812,146 @@ export function MapBoard({
           </label>
         </form>
       ) : null}
+      </div>
+      <div data-testid="map-phone-bar" className="z-20 shrink-0 border-t border-[#e5e7eb] bg-white md:hidden">
+        {church || place || pickup ? (
+          <div className="max-h-[min(22rem,52dvh)] overflow-y-auto">
+            <article data-testid={church ? "map-phone-church" : undefined}>
+              <div className="flex items-start justify-between gap-2 border-b border-[#e5e7eb] px-3 py-2">
+                <h2 className="text-base font-semibold leading-snug">{targetName}</h2>
+                <button
+                  type="button"
+                  className="rounded-xl px-3 py-2 text-sm text-[#4b5563]"
+                  onClick={() => {
+                    setDraft(null);
+                    setPhoneFiltersOpen(false);
+                    setSelected(null);
+                    setGuiding(false);
+                    setRoute(null);
+                    setBus(null);
+                    setBusLine([]);
+                    setBusRouteId(null);
+                    stopNavigation();
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+              <section className="grid gap-2 px-3 py-2">
+                {church ? (
+                  <>
+                    <dl className="grid gap-1 text-sm leading-relaxed">
+                      <Detail label="교회이름" value={church.name} />
+                      <Detail label="담임목사" value={church.pastorName} />
+                      <Detail label="주소" value={church.address} />
+                      <Detail label="지역" value={church.region ?? ""} />
+                      <Detail label="전화번호" value={church.phone} />
+                      <Detail label="주일 예배시간" value={church.serviceTime} />
+                      <Detail label="메모" value={church.memo} />
+                      {church.tags.length > 0 ? <Detail label="태그" value={church.tags.join(" · ")} /> : null}
+                    </dl>
+                    {canEditChurches ? (
+                      <button
+                        type="button"
+                        data-testid="map-phone-church-edit"
+                        className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-semibold"
+                        onClick={() => openChurchEdit(church)}
+                      >
+                        수정
+                      </button>
+                    ) : null}
+                  </>
+                ) : null}
+                {place ? (
+                  <dl className="grid gap-1 text-sm leading-relaxed">
+                    <Detail label="이름" value={place.name} />
+                    <Detail label="주소" value={place.address} />
+                  </dl>
+                ) : null}
+                {pickup ? <p className="text-sm leading-relaxed">데리러 가기 핀</p> : null}
+                {guiding ? (
+                  <div className="grid gap-2">
+                    <div className="flex flex-wrap gap-2" role="tablist" aria-label="길안내">
+                      <ModeButton current={travel} mode="car" label="자동차" onPick={pickTravel} />
+                      <ModeButton current={travel} mode="walk" label="도보" onPick={pickTravel} />
+                      <ModeButton current={travel} mode="bus" label="버스" onPick={pickTravel} />
+                    </div>
+                    {travel !== "bus" && route ? <p className="text-sm leading-relaxed">{routeSummary(route) || "길을 찾았습니다."}</p> : null}
+                    {rerouting ? <p className="text-sm leading-relaxed">재탐색</p> : null}
+                  </div>
+                ) : (
+                  <button type="button" className="w-fit rounded-xl bg-[#111827] px-3 py-2 text-sm font-semibold text-white" onClick={openGuide}>
+                    길안내
+                  </button>
+                )}
+              </section>
+            </article>
+          </div>
+        ) : phoneFiltersOpen ? (
+          <div className="grid max-h-[min(28rem,62dvh)] grid-rows-[minmax(0,1fr)_auto]">
+            <div className="overflow-y-auto px-3 py-3">
+              <ChurchTagFilters layout="board" testId="map-phone-filters" selected={phoneDraftTags} onToggle={togglePhoneDraft} />
+            </div>
+            <div className="grid gap-2 border-t border-[#e5e7eb] px-3 py-2">
+              <p className="text-sm leading-relaxed" data-testid="map-phone-edit-request">
+                교회정보수정요청{" "}
+                <a className="underline" href="mailto:anyplan@me.com">
+                  anyplan@me.com
+                </a>
+              </p>
+              <button
+                type="button"
+                data-testid="map-phone-filter-done"
+                className="w-full rounded-xl bg-[#111827] px-3 py-2 text-sm font-semibold text-white"
+                onClick={finishPhoneFilters}
+              >
+                완료
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {places.length > 0 ? (
+              <ul className="max-h-36 list-none overflow-y-auto border-b border-[#e5e7eb]">
+                {places.map((item) => (
+                  <li key={item.id}>
+                    <button type="button" className="grid w-full gap-0.5 px-3 py-2 text-left" onClick={() => choose({ type: "place", id: item.id })}>
+                      <span className="text-sm font-semibold">
+                        {PLACE_KIND_LABEL[item.kind]} · {item.name}
+                      </span>
+                      <span className="break-words text-xs text-[#4b5563]">{item.address}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <form onSubmit={onSearch} data-testid="map-phone-search" className="flex items-center gap-2 p-2">
+              <label className="min-w-0 flex-1">
+                <span className="sr-only">장소 검색</span>
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  className="w-full rounded-xl border border-[#e5e7eb] px-3 py-2 text-sm leading-snug outline-none"
+                  placeholder="장소나 주소"
+                />
+              </label>
+              <button
+                type="button"
+                data-testid="map-phone-filter"
+                className="shrink-0 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-semibold"
+                onClick={openPhoneFilters}
+              >
+                필터
+              </button>
+            </form>
+            {visibleChurches.length === 0 ? (
+              <p className="px-3 pb-2 text-sm leading-relaxed">
+                {churchRows.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
+              </p>
+            ) : null}
+          </>
+        )}
+      </div>
     </section>
   );
 }
@@ -866,6 +1031,14 @@ function MapCanvas({
   clearRef.current = onClear;
   followingRef.current = following;
   lineCountRef.current = line.length;
+
+  useEffect(() => {
+    if (!ready || !host.current) return;
+    const node = host.current;
+    const observer = new ResizeObserver(() => mapRef.current?.resize());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ready]);
 
   useEffect(() => {
     let alive = true;
