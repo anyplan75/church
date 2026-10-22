@@ -9,6 +9,9 @@ export default async function MapPage() {
   return (
     <MapScreen
       churches={board.churches}
+      gatherings={board.gatherings}
+      churchPinColor={board.churchPinColor}
+      gatheringPinColor={board.gatheringPinColor}
       pickups={board.pickups}
       self={board.self}
       hasChurches={board.hasChurches}

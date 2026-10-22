@@ -11,6 +11,7 @@ import { assertApprovedMember, assertCan, can, formalMembership } from "@/server
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { communities, members, surveyResponses, surveys } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { currentChurchIdFor, loadPlaceScope, visibleSharedRows } from "@/server/place/service";
 import { assertTextsAllowed } from "@/server/moderation/guard";
 
 export class SurveyFlowError extends Error {
@@ -48,7 +49,10 @@ export async function loadSurveyHome() {
   const db = getDb();
   const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
   if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
-  const rows = await db.select().from(surveys).where(eq(surveys.communityId, communityId)).orderBy(asc(surveys.title));
+  const rows = visibleSharedRows(
+    await db.select().from(surveys).where(eq(surveys.communityId, communityId)).orderBy(asc(surveys.title)),
+    await loadPlaceScope(actor.userId),
+  );
   return {
     ok: true as const,
     communityName: community.name,
@@ -97,6 +101,7 @@ export async function createSurvey(input: {
     .insert(surveys)
     .values({
       communityId,
+      churchId: actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null,
       title: input.title.trim(),
       questionsJson: questions,
       allowAnonymous: input.allowAnonymous,

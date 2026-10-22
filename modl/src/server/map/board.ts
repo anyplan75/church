@@ -13,7 +13,8 @@ import { cityFromStored, regionFromAddress } from "@/map/region";
 import type { MapPoint } from "@/map/rules";
 import { formalMembership } from "@/server/auth/membership";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { communities, mapChurches, members, users } from "@/server/db/schema";
+import { CHURCH_PIN_COLOR, GATHERING_PIN_COLOR } from "@/place/rules";
+import { communities, mapChurches, members, smallGroups, users } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { lookupAddressPoint } from "@/server/map/address-lookup";
 import { geocodeAddress } from "@/server/map/mapbox";
@@ -25,8 +26,18 @@ export type MapSelf = {
   consented: boolean;
 };
 
+export type GatheringPin = {
+  id: string;
+  name: string;
+  address: string;
+  point: MapPoint;
+};
+
 export type MapBoardData = {
   churches: ChurchPin[];
+  gatherings: GatheringPin[];
+  churchPinColor: string;
+  gatheringPinColor: string;
   pickups: Array<{ id: string; name: string; point: MapPoint }>;
   self: MapSelf | null;
   hasChurches: boolean;
@@ -136,7 +147,7 @@ async function operatorCommunityId(): Promise<string | null> {
 export async function loadMapBoard(): Promise<MapBoardData> {
   const seen = await viewer();
   const communityId = seen?.communityId ?? (await operatorCommunityId());
-  if (!communityId) return { churches: [], pickups: [], self: null, hasChurches: false, canEditChurches: false };
+  if (!communityId) return { churches: [], gatherings: [], churchPinColor: CHURCH_PIN_COLOR, gatheringPinColor: GATHERING_PIN_COLOR, pickups: [], self: null, hasChurches: false, canEditChurches: false };
   const db = getDb();
   const churchRows = await db.select().from(mapChurches).where(eq(mapChurches.communityId, communityId));
   const memberRows = seen
@@ -172,6 +183,21 @@ export async function loadMapBoard(): Promise<MapBoardData> {
       },
     ];
   });
+  const groupRows = await db
+    .select({
+      id: smallGroups.id,
+      name: smallGroups.name,
+      address: smallGroups.address,
+      lat: smallGroups.lat,
+      lon: smallGroups.lon,
+    })
+    .from(smallGroups)
+    .where(eq(smallGroups.isArchived, false));
+  const gatherings = groupRows.flatMap((row) => {
+    const point = finitePoint(row.lat, row.lon);
+    if (!point) return [];
+    return [{ id: row.id, name: row.name, address: row.address, point }];
+  });
   const pickups: MapBoardData["pickups"] = [];
   for (const row of memberRows) {
     if (!row.pickupConsentAt || !seen) continue;
@@ -198,6 +224,9 @@ export async function loadMapBoard(): Promise<MapBoardData> {
   const mine = seen ? memberRows.find((row) => row.id === seen.membership.memberId) ?? null : null;
   return {
     churches,
+    gatherings,
+    churchPinColor: CHURCH_PIN_COLOR,
+    gatheringPinColor: GATHERING_PIN_COLOR,
     pickups,
     self: mine ? { address: mine.address ?? "", consented: mine.pickupConsentAt !== null } : null,
     hasChurches: churchRows.length > 0,
@@ -334,11 +363,13 @@ export async function registerSignupChurch(input: ChurchInput & { tags?: readonl
     .where(and(eq(mapChurches.communityId, communityId), eq(mapChurches.name, church.name)))
     .limit(1);
   if (same) {
-    await rememberHomeChurch(userId, same.id);
+    const { attachChurchToUser } = await import("@/server/place/service");
+    await attachChurchToUser(userId, same.id, { created: false, makeCurrent: true });
     return;
   }
   const written = await insertSignupChurch(communityId, church, tags);
-  await rememberHomeChurch(userId, written.id);
+  const { attachChurchToUser } = await import("@/server/place/service");
+  await attachChurchToUser(userId, written.id, { created: true, makeCurrent: true });
 }
 
 async function insertSignupChurch(communityId: string, church: ChurchInput, tags: ChurchTag[]): Promise<{ id: string }> {

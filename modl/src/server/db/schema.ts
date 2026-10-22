@@ -90,12 +90,15 @@ export const users = pgTable(
     gender: text("gender"),
     /** 가입 뒤에 고르거나 직접 등록한 다니는 교회입니다. 비밀이 아닙니다. */
     homeChurchId: uuid("home_church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "set null" }),
+    /** 지금 갈 모임입니다. 비밀이 아닙니다. */
+    currentGroupId: uuid("current_group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "set null" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
     uniqueIndex("users_email_uidx").on(table.email),
     index("users_home_church_id_idx").on(table.homeChurchId),
+    index("users_current_group_id_idx").on(table.currentGroupId),
     check("users_gender_check", sql`${table.gender} is null or ${table.gender} in ('male', 'female')`),
   ],
 );
@@ -240,6 +243,11 @@ export const smallGroups = pgTable(
       onDelete: "set null",
     }),
     isArchived: boolean("is_archived").notNull().default(false),
+    address: text("address").notNull().default(""),
+    lat: doublePrecision("lat"),
+    lon: doublePrecision("lon"),
+    createdByUserId: uuid("created_by_user_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+    slug: text("slug"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -355,6 +363,8 @@ export const bulletins = pgTable(
     communityId: uuid("community_id")
       .notNull()
       .references(() => communities.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
     worshipDate: date("worship_date").notNull(),
     /** 주보에서 읽은 예배 이름. 1부, 2부, 3부와 새벽·수요·금요·특별입니다. */
     serviceLabel: text("service_label").notNull().default(""),
@@ -434,6 +444,7 @@ export const calendarEvents = pgTable(
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     /** 비어 있으면 교회 일정입니다. 있으면 그 모들 식구만 봅니다. */
     groupId: uuid("group_id").references(() => smallGroups.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
     /** 주보를 읽어 만든 일정입니다. 주보를 지우면 함께 지워집니다. */
     bulletinId: uuid("bulletin_id").references(() => bulletins.id, { onDelete: "cascade" }),
     sourceKey: text("source_key"),
@@ -460,6 +471,8 @@ export const dailyQts = pgTable(
     communityId: uuid("community_id")
       .notNull()
       .references(() => communities.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
     qtDate: date("qt_date").notNull(),
     scriptureTitle: text("scripture_title").notNull(),
     scriptureBody: text("scripture_body").notNull(),
@@ -530,6 +543,7 @@ export const prayerRequests = pgTable(
       .notNull()
       .references(() => members.id, { onDelete: "cascade" }),
     groupId: uuid("group_id").references(() => smallGroups.id, { onDelete: "set null" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
     isAnonymous: boolean("is_anonymous").notNull().default(false),
     visibility: prayerVisibilityEnum("visibility").notNull().default("PUBLIC"),
@@ -603,6 +617,8 @@ export const financeCategories = pgTable(
     type: financeTypeEnum("type").notNull(),
     name: text("name").notNull(),
     budgetAmount: numeric("budget_amount", { precision: 14, scale: 0 }).notNull().default("0"),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -629,6 +645,8 @@ export const transactions = pgTable(
     description: text("description").notNull(),
     receiptImageUrls: jsonList("receipt_image_urls"),
     recordedBy: uuid("recorded_by").references(() => members.id, { onDelete: "set null" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -649,6 +667,8 @@ export const surveys = pgTable(
     communityId: uuid("community_id")
       .notNull()
       .references(() => communities.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     questionsJson: jsonValue("questions_json"),
     allowAnonymous: boolean("allow_anonymous").notNull().default(false),
@@ -690,6 +710,8 @@ export const meetingMinutes = pgTable(
     communityId: uuid("community_id")
       .notNull()
       .references(() => communities.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
     meetingDate: date("meeting_date").notNull(),
     attendees: jsonValue("attendees"),
     content: text("content").notNull(),
@@ -708,6 +730,8 @@ export const eventArchives = pgTable(
     communityId: uuid("community_id")
       .notNull()
       .references(() => communities.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     eventDate: date("event_date"),
     photoUrls: jsonList("photo_urls"),
@@ -761,6 +785,8 @@ export const websiteConfigs = pgTable(
     communityId: uuid("community_id")
       .notNull()
       .references(() => communities.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
     slug: text("slug").notNull(),
     themeJson: jsonObject("theme_json"),
     seoJson: jsonObject("seo_json"),
@@ -770,7 +796,6 @@ export const websiteConfigs = pgTable(
     updatedAt: updatedAt(),
   },
   (table) => [
-    uniqueIndex("website_configs_community_id_uidx").on(table.communityId),
     uniqueIndex("website_configs_slug_uidx").on(table.slug),
     check("website_configs_visit_nonnegative", sql`${table.visitCount} >= 0`),
   ],
@@ -885,6 +910,8 @@ export const mapChurches = pgTable(
     regionId: text("region_id"),
     /** 사람이 수정 화면에서 켠 태그입니다. 주소로 채우지 않습니다. */
     tags: jsonb("tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    createdByUserId: uuid("created_by_user_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+    slug: text("slug"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -961,6 +988,65 @@ export const worshipCaptionLinks = pgTable(
   ],
 );
 
+/** 한 사람이 구독해 둔 교회입니다. */
+export const churchFollows = pgTable(
+  "church_follows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id")
+      .notNull()
+      .references(() => mapChurches.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("church_follows_user_church_uidx").on(table.userId, table.churchId),
+    index("church_follows_user_id_idx").on(table.userId),
+    index("church_follows_church_id_idx").on(table.churchId),
+  ],
+);
+
+/** 한 사람이 골라 둔 모임입니다. */
+export const groupFollows = pgTable(
+  "group_follows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => smallGroups.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("group_follows_user_group_uidx").on(table.userId, table.groupId),
+    index("group_follows_user_id_idx").on(table.userId),
+    index("group_follows_group_id_idx").on(table.groupId),
+  ],
+);
+
+/** 태우리가 소속원에게 준 재정·일정 수정 권한입니다. */
+export const placeEditGrants = pgTable(
+  "place_edit_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id").references(() => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references(() => smallGroups.id, { onDelete: "cascade" }),
+    grantedByUserId: uuid("granted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("place_edit_grants_user_id_idx").on(table.userId),
+    check("place_edit_grants_one_place", sql`(${table.churchId} is not null) <> (${table.groupId} is not null)`),
+  ],
+);
+
 export const dbSchema = {
   users,
   oauthIdentities,
@@ -997,6 +1083,9 @@ export const dbSchema = {
   questions,
   questionReplies,
   mapChurches,
+  churchFollows,
+  groupFollows,
+  placeEditGrants,
   bannedWords,
   worshipCaptionLinks,
 };

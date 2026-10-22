@@ -107,6 +107,6 @@ describe("덮어쓰기 파싱", () => {
       languageMode: "JEJU_ONLY",
       overrides: { finance: { text: "" } },
     });
-    assert.equal(term.primary, "공동체 살림");
+    assert.equal(term.primary, "살림");
   });
 });

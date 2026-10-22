@@ -7,6 +7,7 @@ import { ChurchSettingsPanel } from "@/components/church-settings-panel";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
 import { TermText } from "@/components/term-text";
+import { PlaceAccount } from "@/components/place-account";
 import { SignupPeople } from "@/components/signup-people";
 import { SocialLoginButtons } from "@/components/social-login";
 import { loadPendingSignup } from "@/server/login/access";
@@ -25,6 +26,16 @@ function note(ok: string | undefined, count: string | undefined, missed: string 
   if (ok === "missed") return "교회는 저장했지만, 주소를 지도에서 찾지 못해 핀은 없습니다.";
   if (ok === "banned") return "금지어를 저장했습니다.";
   if (ok === "banned-removed") return "금지어를 지웠습니다.";
+  if (ok === "church-follow") return "교회를 구독했습니다.";
+  if (ok === "church-current") return "지금 말씀을 들을 교회를 바꿨습니다.";
+  if (ok === "church-left") return "교회 구독을 뺐습니다.";
+  if (ok === "gathering") return "모임을 만들었습니다.";
+  if (ok === "gathering-follow") return "모임을 골랐습니다.";
+  if (ok === "gathering-current") return "지금 갈 모임을 바꿨습니다.";
+  if (ok === "gathering-left") return "모임을 뺐습니다.";
+  if (ok === "grant") return "수정 권한을 주었습니다.";
+  if (ok === "revoke") return "수정 권한을 뺐습니다.";
+  if (ok === "steward") return "태우리를 지정했습니다.";
   if (ok === "address") return "내 주소를 저장했습니다.";
   if (ok === "pickup") return "데리러 가기 동의를 저장했습니다.";
   if (ok === "survey") return "설문을 저장했습니다.";
@@ -39,7 +50,7 @@ function note(ok: string | undefined, count: string | undefined, missed: string 
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; ok?: string; count?: string; missed?: string; tab?: string; year?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string; count?: string; missed?: string; tab?: string; year?: string; church?: string; gathering?: string }>;
 }) {
   const query = await searchParams;
   const account = await loadAccountPage();
@@ -87,10 +98,8 @@ export default async function AccountPage({
         <div className="grid gap-6">
           <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
             <p className="font-semibold leading-snug">{account.user.name}</p>
-            {account.pendingCount > 0 ? (
-              <p className="leading-relaxed text-[#5c5148]">가입 승인을 기다리는 공동체가 있습니다. 승인이 나기 전에는 정식 일을 할 수 없습니다.</p>
-            ) : null}
           </section>
+          <PlaceAccount churchQuery={query.church ?? ""} gatheringQuery={query.gathering ?? ""} />
           {showsOwnPickup(account.role) ? <OwnPickupSettings /> : null}
           {signupPeople ? <SignupPeople people={signupPeople} /> : null}
           {current ? (

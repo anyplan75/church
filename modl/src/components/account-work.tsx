@@ -35,7 +35,6 @@ export async function RosterWork() {
   if (!page.ok) return blocked();
   return (
     <>
-      <p className="leading-relaxed text-[#5c5148]">{page.community.name}</p>
       <Link href="/roster/new" className="inline-flex w-fit max-w-full rounded-2xl bg-[#1d6b45] px-4 py-3 font-semibold leading-snug text-white">
         <TermText termKey="add_roster" />
       </Link>
@@ -95,7 +94,6 @@ export async function GroupWork({ year, scope }: { year: number; scope: "account
 
   return (
     <>
-      <p className="leading-relaxed text-[#5c5148]">{page.community.name}</p>
       <nav aria-label="시즌 연도" className="flex flex-wrap gap-2">
         {years.map((item) => (
           <Link
@@ -184,7 +182,6 @@ export async function InviteWork() {
   if (!page.ok) return blocked();
   return (
     <>
-      <p className="leading-relaxed text-[#5c5148]">{page.community.name}</p>
       <form action={issueInviteAction} id="invite-form" className="grid gap-3">
         <TermField termKey="issue_invite" name="maxUses" type="number" />
         <SubmitButton termKey="issue_invite" />

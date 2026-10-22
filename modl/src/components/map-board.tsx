@@ -15,7 +15,9 @@ type Pending = "search" | "route" | "bus" | "gps" | "address" | "consent" | "chu
 type TravelMode = "car" | "walk" | "bus";
 type PickupPin = { id: string; name: string; point: MapPoint };
 type MapSelf = { address: string; consented: boolean };
-type Selected = { type: "church" | "place" | "pickup"; id: string };
+type Selected = { type: "church" | "gathering" | "place" | "pickup"; id: string };
+
+type GatheringPin = { id: string; name: string; address: string; point: MapPoint };
 type ChurchDraft = {
   id: string;
   name: string;
@@ -49,6 +51,9 @@ function arrivalLine(arrival: { label: string; minutes: number | null; stopsLeft
 
 export function MapBoard({
   churches,
+  gatherings,
+  churchPinColor,
+  gatheringPinColor,
   pickups,
   self,
   hasChurches,
@@ -56,6 +61,9 @@ export function MapBoard({
   mapboxToken,
 }: {
   churches: ChurchPin[];
+  gatherings: GatheringPin[];
+  churchPinColor: string;
+  gatheringPinColor: string;
   pickups: PickupPin[];
   self: MapSelf | null;
   hasChurches: boolean;
@@ -105,10 +113,11 @@ export function MapBoard({
   );
 
   const church = selected?.type === "church" ? visibleChurches.find((item) => item.id === selected.id) ?? null : null;
+  const gathering = selected?.type === "gathering" ? gatherings.find((item) => item.id === selected.id) ?? null : null;
   const place = selected?.type === "place" ? places.find((item) => item.id === selected.id) ?? null : null;
   const pickup = selected?.type === "pickup" ? pickups.find((item) => item.id === selected.id) ?? null : null;
-  const target = church?.point ?? place?.point ?? pickup?.point ?? null;
-  const targetName = church?.name ?? place?.name ?? pickup?.name ?? "";
+  const target = church?.point ?? gathering?.point ?? place?.point ?? pickup?.point ?? null;
+  const targetName = church?.name ?? gathering?.name ?? place?.name ?? pickup?.name ?? "";
 
   const followSegments = useMemo<RouteSegment[]>(() => {
     if (travel === "bus") return busLine.length >= 2 ? [{ line: busLine, speedMps: null }] : [];
@@ -476,9 +485,27 @@ export function MapBoard({
     <section className="map-stage flex flex-col">
       <div className="relative min-h-0 flex-1">
       <h1 className="page-title absolute left-3 top-3 z-20 rounded-xl bg-white px-3 py-2 text-[clamp(1.22rem,1rem+0.5vw,1.6rem)] leading-tight shadow-md">지도</h1>
+      <p
+        data-testid="pin-legend"
+        data-church-color={churchPinColor}
+        data-gathering-color={gatheringPinColor}
+        className="absolute right-3 top-3 z-20 grid gap-1 rounded-xl bg-white px-3 py-2 text-sm leading-snug shadow-md"
+      >
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-block h-3 w-3 rounded-full" style={{ background: churchPinColor }} />
+          교회
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-block h-3 w-3 rounded-full" style={{ background: gatheringPinColor }} />
+          모들
+        </span>
+      </p>
       <MapCanvas
         places={places}
         churches={visibleChurches}
+        gatherings={gatherings}
+        churchPinColor={churchPinColor}
+        gatheringPinColor={gatheringPinColor}
         pickups={pickups}
         selected={selected}
         line={drawnLine}
@@ -1019,6 +1046,9 @@ function ModeButton({
 function MapCanvas({
   places,
   churches,
+  gatherings,
+  churchPinColor,
+  gatheringPinColor,
   pickups,
   selected,
   line,
@@ -1032,6 +1062,9 @@ function MapCanvas({
 }: {
   places: PlaceHit[];
   churches: ChurchPin[];
+  gatherings: GatheringPin[];
+  churchPinColor: string;
+  gatheringPinColor: string;
   pickups: PickupPin[];
   selected: Selected | null;
   line: MapPoint[];
@@ -1137,10 +1170,18 @@ function MapCanvas({
         markers.push(marker);
       };
       for (const church of churches) {
-        const marker = new mapboxgl.Marker({ color: selected?.type === "church" && selected.id === church.id ? "#1e3a8a" : "#1d4ed8" })
-          .setLngLat([church.point.lon, church.point.lat])
-          .addTo(map);
+        const color = selected?.type === "church" && selected.id === church.id ? "#1e3a8a" : churchPinColor;
+        const marker = new mapboxgl.Marker({ color }).setLngLat([church.point.lon, church.point.lat]).addTo(map);
+        marker.getElement().dataset.pinKind = "church";
+        marker.getElement().dataset.pinColor = color;
         add(marker, { type: "church", id: church.id }, church.name);
+      }
+      for (const gathering of gatherings) {
+        const color = selected?.type === "gathering" && selected.id === gathering.id ? "#4c1d95" : gatheringPinColor;
+        const marker = new mapboxgl.Marker({ color }).setLngLat([gathering.point.lon, gathering.point.lat]).addTo(map);
+        marker.getElement().dataset.pinKind = "gathering";
+        marker.getElement().dataset.pinColor = color;
+        add(marker, { type: "gathering", id: gathering.id }, gathering.name);
       }
       for (const pin of pickups) {
         const marker = new mapboxgl.Marker({ color: "#b45309" }).setLngLat([pin.point.lon, pin.point.lat]).addTo(map);
@@ -1170,7 +1211,7 @@ function MapCanvas({
         map.addLayer({ id: "route-line", type: "line", source: "route-line", paint: { "line-color": "#1d4ed8", "line-width": 5 } });
       }
     });
-  }, [ready, churches, pickups, places, selected, line]);
+  }, [ready, churches, gatherings, churchPinColor, gatheringPinColor, pickups, places, selected, line]);
 
   useEffect(() => {
     if (!ready) return;
@@ -1205,11 +1246,12 @@ function MapCanvas({
     const map = mapRef.current;
     const point =
       (selected.type === "church" ? churches.find((item) => item.id === selected.id)?.point : null) ??
+      (selected.type === "gathering" ? gatherings.find((item) => item.id === selected.id)?.point : null) ??
       (selected.type === "place" ? places.find((item) => item.id === selected.id)?.point : null) ??
       (selected.type === "pickup" ? pickups.find((item) => item.id === selected.id)?.point : null);
     if (!map || !point) return;
     map.easeTo({ center: [point.lon, point.lat], zoom: Math.max(map.getZoom(), 14) });
-  }, [ready, selected, churches, places, pickups]);
+  }, [ready, selected, churches, gatherings, places, pickups]);
 
   useEffect(() => {
     if (!ready || followingRef.current || line.length >= 2) return;

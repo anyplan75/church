@@ -42,7 +42,7 @@ export const TERM_DICTIONARY = {
       jeju_alt: "모심 쪽지",
     },
     calendar: {
-      standard: "공동체 일정",
+      standard: "일정",
       jeju_primary: "혼디 날짜",
       jeju_alt: "모이는 날",
     },
@@ -63,7 +63,7 @@ export const TERM_DICTIONARY = {
     },
     finance: {
       standard: "재정·회계 관리",
-      jeju_primary: "공동체 살림",
+      jeju_primary: "살림",
       jeju_alt: "고팡 지킴",
     },
     website: {

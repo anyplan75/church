@@ -10,7 +10,8 @@ import type { Actor } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
 import { assertApprovedMember, assertCan, can, formalMembership } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { bulletins, calendarEvents, communities, surveys, websiteConfigs, websiteInquiries } from "@/server/db/schema";
+import { ensurePlaceSlug, loadPlaceScope } from "@/server/place/service";
+import { bulletins, calendarEvents, communities, mapChurches, smallGroups, surveys, websiteConfigs, websiteInquiries } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { assertTextsAllowed } from "@/server/moderation/guard";
 import {
@@ -165,32 +166,41 @@ export async function loadWebsiteEditor(origin: string) {
   if (actor.kind !== "user") {
     return { ok: false as const, message: "홈페이지를 고치려면 먼저 들어가 주세요." };
   }
-  const communityId = await activeCommunityId(actor);
-  if (!communityId) {
-    return { ok: false as const, message: "먼저 공동체를 만들거나, 가입 승인을 받아 주세요." };
+  const scope = await loadPlaceScope(actor.userId);
+  const ownerKind = scope.currentChurchId && scope.editChurchIds.has(scope.currentChurchId)
+    ? "church"
+    : scope.currentGroupId && scope.editGroupIds.has(scope.currentGroupId)
+      ? "gathering"
+      : null;
+  if (!ownerKind) {
+    return { ok: false as const, message: "지금 말씀을 들을 교회나 지금 갈 모임의 태우리이거나, 수정 권한이 있어야 소개 페이지를 고칩니다." };
   }
-  const membership = formalMembership(actor, communityId);
-  if (!membership) {
-    return { ok: false as const, message: "승인 대기 중이거나 이 공동체 구성원이 아니어서 홈페이지를 고칠 수 없습니다." };
-  }
-  if (!can(actor, { type: "manage_website", communityId })) {
-    return { ok: false as const, message: "홈페이지 편집은 사역자와 임원만 합니다." };
-  }
+  const ownerId = ownerKind === "church" ? scope.currentChurchId : scope.currentGroupId;
+  if (!ownerId) return { ok: false as const, message: "소개 페이지를 둘 교회나 모임을 계정에서 골라 주세요." };
   const db = getDb();
-  const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
-  if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
-  const [config] = await db.select().from(websiteConfigs).where(eq(websiteConfigs.communityId, communityId)).limit(1);
+  const ownerSlug = await ensurePlaceSlug(ownerKind, ownerId);
+  const [ownerChurch] = ownerKind === "church" ? await db.select().from(mapChurches).where(eq(mapChurches.id, ownerId)).limit(1) : [undefined];
+  const [ownerGroup] = ownerKind === "gathering" ? await db.select().from(smallGroups).where(eq(smallGroups.id, ownerId)).limit(1) : [undefined];
+  const ownerCommunityId = ownerChurch?.communityId ?? ownerGroup?.communityId;
+  if (!ownerCommunityId) return { ok: false as const, message: "소개 페이지를 찾지 못했습니다." };
+  const [community] = await db.select().from(communities).where(eq(communities.id, ownerCommunityId)).limit(1);
+  if (!community) return { ok: false as const, message: "소개 페이지를 찾지 못했습니다." };
+  const [config] = await db
+    .select()
+    .from(websiteConfigs)
+    .where(ownerKind === "church" ? eq(websiteConfigs.churchId, ownerId) : eq(websiteConfigs.groupId, ownerId))
+    .limit(1);
   const theme = parseTheme(config?.themeJson ?? DEFAULT_THEME);
   const seo = parseSeo(config?.seoJson ?? DEFAULT_SEO);
   const parsedBlocks = parseBlocks(config?.blocksJson ?? []);
   const blocks = parsedBlocks.ok ? parsedBlocks.blocks : [];
-  const linked = await linkedContent(communityId, blocks);
+  const linked = await linkedContent(ownerCommunityId, blocks);
   const notices = await db
     .select()
     .from(websiteInquiries)
-    .where(eq(websiteInquiries.communityId, communityId))
+    .where(eq(websiteInquiries.communityId, ownerCommunityId))
     .orderBy(desc(websiteInquiries.createdAt));
-  const publicPath = publicSitePath(community.slug);
+  const publicPath = publicSitePath(ownerSlug);
   let qrDataUrl = "";
   try {
     qrDataUrl = await QRCode.toDataURL(`${origin}${publicPath}`, { margin: 1, width: 240 });
@@ -199,15 +209,15 @@ export async function loadWebsiteEditor(origin: string) {
   }
   return {
     ok: true as const,
-    communityName: community.name,
-    slug: community.slug,
+    communityName: ownerChurch?.name ?? ownerGroup?.name ?? community.name,
+    slug: ownerSlug,
     planTier: community.planTier as WebsitePlan,
     theme,
     seo,
     blocks,
     visitCount: config?.visitCount ?? 0,
     publicPath,
-    atPath: atSitePath(community.slug),
+    atPath: atSitePath(ownerSlug),
     qrDataUrl,
     pushReady: inquiryPushReady({ INQUIRY_PUSH_KEY: process.env.INQUIRY_PUSH_KEY }),
     notices: notices.map(
@@ -230,16 +240,31 @@ export async function loadWebsiteEditor(origin: string) {
 export async function saveWebsite(input: { blocks: WebsiteBlock[]; theme: WebsiteTheme; seo: WebsiteSeo }): Promise<void> {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await activeCommunityId(actor);
-  if (!communityId) throw new WebsiteFlowError("먼저 공동체를 만들거나, 가입 승인을 받아 주세요.");
-  await requireEditor(actor, communityId);
+  if (actor.kind !== "user") throw new WebsiteFlowError("홈페이지를 고치려면 먼저 들어가 주세요.");
+  const scope = await loadPlaceScope(actor.userId);
+  const ownerKind = scope.currentChurchId && scope.editChurchIds.has(scope.currentChurchId)
+    ? "church"
+    : scope.currentGroupId && scope.editGroupIds.has(scope.currentGroupId)
+      ? "gathering"
+      : null;
+  const ownerId = ownerKind === "church" ? scope.currentChurchId : ownerKind === "gathering" ? scope.currentGroupId : null;
+  if (!ownerKind || !ownerId) throw new WebsiteFlowError("지금 말씀을 들을 교회나 지금 갈 모임의 태우리이거나, 수정 권한이 있어야 소개 페이지를 고칩니다.");
   const db = getDb();
-  const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
-  if (!community) throw new WebsiteFlowError("공동체를 찾지 못했습니다.");
+  const slug = await ensurePlaceSlug(ownerKind, ownerId);
+  const communityId = ownerKind === "church"
+    ? (await db.select({ communityId: mapChurches.communityId }).from(mapChurches).where(eq(mapChurches.id, ownerId)).limit(1))[0]?.communityId
+    : (await db.select({ communityId: smallGroups.communityId }).from(smallGroups).where(eq(smallGroups.id, ownerId)).limit(1))[0]?.communityId;
+  if (!communityId) throw new WebsiteFlowError("소개 페이지를 찾지 못했습니다.");
   await assertTextsAllowed(input.blocks, input.theme, input.seo);
-  const [existing] = await db.select().from(websiteConfigs).where(eq(websiteConfigs.communityId, communityId)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(websiteConfigs)
+    .where(ownerKind === "church" ? eq(websiteConfigs.churchId, ownerId) : eq(websiteConfigs.groupId, ownerId))
+    .limit(1);
   const values = {
-    slug: community.slug,
+    slug,
+    churchId: ownerKind === "church" ? ownerId : null,
+    groupId: ownerKind === "gathering" ? ownerId : null,
     themeJson: input.theme,
     seoJson: input.seo,
     blocksJson: input.blocks,
@@ -255,13 +280,28 @@ export async function saveWebsite(input: { blocks: WebsiteBlock[]; theme: Websit
   });
 }
 
+async function ownerBySlug(slug: string) {
+  const db = getDb();
+  const [church] = await db.select().from(mapChurches).where(eq(mapChurches.slug, slug)).limit(1);
+  if (church) return { kind: "church" as const, id: church.id, name: church.name, communityId: church.communityId };
+  const [group] = await db.select().from(smallGroups).where(eq(smallGroups.slug, slug)).limit(1);
+  if (group) return { kind: "gathering" as const, id: group.id, name: group.name, communityId: group.communityId };
+  return null;
+}
+
 export async function loadPublicSite(slug: string, countVisit: boolean) {
   await ensureDatabase();
   const db = getDb();
-  const [community] = await db.select().from(communities).where(eq(communities.slug, slug)).limit(1);
-  if (!community) return null;
-  const [config] = await db.select().from(websiteConfigs).where(eq(websiteConfigs.communityId, community.id)).limit(1);
+  const owner = await ownerBySlug(slug);
+  if (!owner) return null;
+  const [config] = await db
+    .select()
+    .from(websiteConfigs)
+    .where(owner.kind === "church" ? eq(websiteConfigs.churchId, owner.id) : eq(websiteConfigs.groupId, owner.id))
+    .limit(1);
   if (!config) return null;
+  const [community] = await db.select().from(communities).where(eq(communities.id, owner.communityId)).limit(1);
+  if (!community) return null;
   assertCan(await loadActor(), { type: "view_open_website", communityId: community.id });
   const theme = parseTheme(config.themeJson);
   const seo = parseSeo(config.seoJson);
@@ -279,8 +319,8 @@ export async function loadPublicSite(slug: string, countVisit: boolean) {
     if (updated) visitCount = updated.visitCount;
   }
   return {
-    communityName: community.name,
-    slug: community.slug,
+    communityName: owner.name,
+    slug,
     planTier: community.planTier as WebsitePlan,
     theme,
     seo,
@@ -304,15 +344,19 @@ export async function submitInquiry(input: {
   const parsed = parseInquiry(input);
   if (!parsed.ok) throw new WebsiteFlowError(parsed.message);
   const db = getDb();
-  const [community] = await db.select().from(communities).where(eq(communities.slug, input.slug)).limit(1);
-  if (!community) throw new WebsiteFlowError("홈페이지를 찾지 못했습니다.");
-  const [config] = await db.select().from(websiteConfigs).where(eq(websiteConfigs.communityId, community.id)).limit(1);
+  const owner = await ownerBySlug(input.slug);
+  if (!owner) throw new WebsiteFlowError("홈페이지를 찾지 못했습니다.");
+  const [config] = await db
+    .select()
+    .from(websiteConfigs)
+    .where(owner.kind === "church" ? eq(websiteConfigs.churchId, owner.id) : eq(websiteConfigs.groupId, owner.id))
+    .limit(1);
   if (!config) throw new WebsiteFlowError("홈페이지를 찾지 못했습니다.");
   const actor = await loadActor();
-  assertCan(actor, { type: "submit_website_inquiry", communityId: community.id });
+  assertCan(actor, { type: "submit_website_inquiry", communityId: owner.communityId });
   await assertTextsAllowed(parsed.visitorName, parsed.visitorContact, parsed.message);
   await db.insert(websiteInquiries).values({
-    communityId: community.id,
+    communityId: owner.communityId,
     visitorName: parsed.visitorName,
     visitorContact: parsed.visitorContact,
     message: parsed.message,

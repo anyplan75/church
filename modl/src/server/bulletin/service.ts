@@ -13,6 +13,7 @@ import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { bulletinsForActor, canPublishBulletin } from "@/server/bulletin/access";
 import { bulletins, communities } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { currentChurchIdFor, loadPlaceScope, visibleSharedRows } from "@/server/place/service";
 import { replaceBulletinSchedule } from "@/server/calendar/from-bulletin";
 import { assertTextsAllowed } from "@/server/moderation/guard";
 import type { LanguageMode } from "@/theme/types";
@@ -108,11 +109,14 @@ export async function loadBulletinList() {
   const db = getDb();
   const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
   if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
-  const rows = await db
-    .select()
-    .from(bulletins)
-    .where(eq(bulletins.communityId, communityId))
-    .orderBy(desc(bulletins.worshipDate), desc(bulletins.createdAt));
+  const rows = visibleSharedRows(
+    await db
+      .select()
+      .from(bulletins)
+      .where(eq(bulletins.communityId, communityId))
+      .orderBy(desc(bulletins.worshipDate), desc(bulletins.createdAt)),
+    await loadPlaceScope(actor.userId),
+  );
   const visible = bulletinsForActor(
     actor,
     communityId,
@@ -192,6 +196,7 @@ export async function saveBulletin(input: {
       .insert(bulletins)
       .values({
         communityId,
+        churchId: actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null,
         worshipDate: input.worshipDate,
         sermonTitle: input.sermonTitle,
         scriptureText: input.scriptureText,
@@ -272,6 +277,7 @@ export async function saveBulletinWeek(
         .insert(bulletins)
         .values({
           communityId,
+          churchId: actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null,
           worshipDate: service.worshipDate,
           serviceLabel: service.label,
           serviceTime: service.time,

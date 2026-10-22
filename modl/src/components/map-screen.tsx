@@ -12,6 +12,9 @@ const MapBoard = dynamic(() => import("@/components/map-board").then((mod) => mo
 /** 지도 그림은 브라우저에서만 불러 서버가 그 묶음을 찾지 못해 멈추지 않게 합니다. */
 export function MapScreen({
   churches,
+  gatherings,
+  churchPinColor,
+  gatheringPinColor,
   pickups,
   self,
   hasChurches,
@@ -19,6 +22,9 @@ export function MapScreen({
   mapboxToken,
 }: {
   churches: ChurchPin[];
+  gatherings: Array<{ id: string; name: string; address: string; point: MapPoint }>;
+  churchPinColor: string;
+  gatheringPinColor: string;
   pickups: Array<{ id: string; name: string; point: MapPoint }>;
   self: { address: string; consented: boolean } | null;
   hasChurches: boolean;
@@ -28,6 +34,9 @@ export function MapScreen({
   return (
     <MapBoard
       churches={churches}
+      gatherings={gatherings}
+      churchPinColor={churchPinColor}
+      gatheringPinColor={gatheringPinColor}
       pickups={pickups}
       self={self}
       hasChurches={hasChurches}
