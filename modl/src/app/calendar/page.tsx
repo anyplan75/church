@@ -43,7 +43,9 @@ export default async function CalendarPage({
         <p className="leading-relaxed">{page.message}</p>
       ) : (
         <>
-          <p className="leading-relaxed text-[#5c5148]">{page.communityName}</p>
+          <p className="leading-relaxed text-[#5c5148]" data-testid="calendar-scope-note">
+            내가 속한 교회 일정과 내가 속한 모들 일정만 보입니다.
+          </p>
           <nav aria-label="달 이동" className="flex flex-wrap items-center justify-between gap-2">
             <Link href={`/calendar?year=${previous.year}&month=${previous.month}`} className="rounded-2xl bg-[#fffaf3] px-3 py-2 leading-snug">
               이전 달
@@ -143,6 +145,7 @@ export default async function CalendarPage({
               <TermField termKey="field_event_end" name="endAt" type="datetime-local" required defaultValue={`${year}-${monthText}-01T11:00`} />
               <CategoryField />
               <LeaderOnlyField />
+              <GroupChoice groups={page.myGroups} />
               <SubmitButton termKey="save_event" />
             </form>
           ) : (
@@ -151,5 +154,22 @@ export default async function CalendarPage({
         </>
       )}
     </section>
+  );
+}
+
+function GroupChoice({ groups, selected = "" }: { groups: readonly { id: string; name: string }[]; selected?: string | null }) {
+  if (groups.length === 0) return <input type="hidden" name="groupId" value="" />;
+  return (
+    <label className="grid gap-1">
+      <span className="font-semibold">모들</span>
+      <select name="groupId" defaultValue={selected ?? ""} className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-6">
+        <option value="">교회 일정</option>
+        {groups.map((group) => (
+          <option key={group.id} value={group.id}>
+            {group.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

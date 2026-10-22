@@ -34,6 +34,7 @@ export default async function CalendarEventPage({
             <TermField termKey="field_event_end" name="endAt" type="datetime-local" required defaultValue={page.event.endAt} />
             <CategoryField defaultValue={page.event.category} />
             <LeaderOnlyField defaultChecked={page.event.isLeaderOnly} />
+            <GroupChoice groups={page.myGroups} selected={page.event.groupId} />
             <SubmitButton termKey="save_event" />
           </form>
           {page.googleCanWrite ? (
@@ -66,5 +67,22 @@ export default async function CalendarEventPage({
         </article>
       )}
     </section>
+  );
+}
+
+function GroupChoice({ groups, selected = "" }: { groups: readonly { id: string; name: string }[]; selected?: string | null }) {
+  if (groups.length === 0) return <input type="hidden" name="groupId" value="" />;
+  return (
+    <label className="grid gap-1">
+      <span className="font-semibold">모들</span>
+      <select name="groupId" defaultValue={selected ?? ""} className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-6">
+        <option value="">교회 일정</option>
+        {groups.map((group) => (
+          <option key={group.id} value={group.id}>
+            {group.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

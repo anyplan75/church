@@ -37,6 +37,30 @@ export function eventsForActor<T extends CalendarEventView>(
   );
 }
 
+export type CalendarMembership = {
+  communityId: string;
+  groupIds: readonly string[];
+  canViewLeaderCalendar: boolean;
+};
+
+/** 속한 교회의 교회 일정과, 속한 모들의 일정만 남깁니다. */
+export function eventsForMemberships<T extends CalendarEventView & { groupId: string | null }>(
+  events: readonly T[],
+  memberships: readonly CalendarMembership[],
+): T[] {
+  const byChurch = new Map(memberships.map((item) => [item.communityId, item]));
+  return events.filter((event) => {
+    const membership = byChurch.get(event.communityId);
+    if (!membership) return false;
+    if (event.groupId && !membership.groupIds.includes(event.groupId)) return false;
+    return canSeeEvent({
+      isLeaderOnly: event.isLeaderOnly,
+      isFormalMember: true,
+      canViewLeaderCalendar: membership.canViewLeaderCalendar,
+    });
+  });
+}
+
 export type BirthdaySource = {
   memberId: string;
   name: string;

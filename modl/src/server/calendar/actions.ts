@@ -53,6 +53,7 @@ export async function saveCalendarEventAction(formData: FormData) {
       endAt,
       category: parsed.data.category,
       isLeaderOnly: text(formData, "isLeaderOnly") === "yes",
+      groupId: text(formData, "groupId") || null,
     });
   } catch (error) {
     fail(back, error);

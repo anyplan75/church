@@ -377,6 +377,11 @@ export const calendarEvents = pgTable(
     title: text("title").notNull(),
     startAt: timestamp("start_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
+    /** 비어 있으면 교회 일정입니다. 있으면 그 모들 식구만 봅니다. */
+    groupId: uuid("group_id").references(() => smallGroups.id, { onDelete: "cascade" }),
+    /** 주보를 읽어 만든 일정입니다. 주보를 지우면 함께 지워집니다. */
+    bulletinId: uuid("bulletin_id").references(() => bulletins.id, { onDelete: "cascade" }),
+    sourceKey: text("source_key"),
     category: calendarCategoryEnum("category").notNull(),
     isLeaderOnly: boolean("is_leader_only").notNull().default(false),
     googleEventId: text("google_event_id"),
@@ -386,6 +391,8 @@ export const calendarEvents = pgTable(
   (table) => [
     index("calendar_events_community_id_idx").on(table.communityId),
     index("calendar_events_community_start_idx").on(table.communityId, table.startAt),
+    index("calendar_events_group_id_idx").on(table.groupId),
+    uniqueIndex("calendar_events_bulletin_source_uidx").on(table.bulletinId, table.sourceKey),
     check("calendar_events_time_order", sql`${table.endAt} >= ${table.startAt}`),
   ],
 );

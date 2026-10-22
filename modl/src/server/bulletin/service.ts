@@ -13,6 +13,7 @@ import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { bulletinsForActor, canPublishBulletin } from "@/server/bulletin/access";
 import { bulletins, communities } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { replaceBulletinSchedule } from "@/server/calendar/from-bulletin";
 import { assertTextsAllowed } from "@/server/moderation/guard";
 import type { LanguageMode } from "@/theme/types";
 
@@ -199,7 +200,14 @@ export async function saveBulletin(input: {
         isPublic: share.isPublic,
         shareToken: share.shareToken,
       })
-      .returning({ id: bulletins.id });
+        .returning({ id: bulletins.id });
+    await replaceBulletinSchedule(communityId, created.id, {
+      label: "",
+      time: "",
+      worshipDate: input.worshipDate,
+      sermonTitle: input.sermonTitle,
+      blocks: parsed.blocks,
+    });
     return created.id;
   }
 
@@ -224,6 +232,13 @@ export async function saveBulletin(input: {
       updatedAt: new Date(),
     })
     .where(and(eq(bulletins.id, existing.id), eq(bulletins.communityId, communityId)));
+  await replaceBulletinSchedule(communityId, existing.id, {
+    label: existing.serviceLabel,
+    time: existing.serviceTime,
+    worshipDate: input.worshipDate,
+    sermonTitle: input.sermonTitle,
+    blocks: parsed.blocks,
+  });
   return existing.id;
 }
 
@@ -269,6 +284,18 @@ export async function saveBulletinWeek(
         })
         .returning({ id: bulletins.id });
       created.push(row.id);
+      await replaceBulletinSchedule(
+        communityId,
+        row.id,
+        {
+          label: service.label,
+          time: service.time,
+          worshipDate: service.worshipDate,
+          sermonTitle: service.sermonTitle,
+          blocks: service.blocks,
+        },
+        tx,
+      );
     }
     return created;
   });

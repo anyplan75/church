@@ -5,6 +5,7 @@ import {
   birthdaysForActor,
   canSeeEvent,
   eventsForActor,
+  eventsForMemberships,
   googleCalendarCanWriteFromEnv,
   googleCalendarConfigFromEnv,
   googleCalendarReadPlan,
@@ -55,6 +56,23 @@ describe("리더 일정 숨김", () => {
   it("손님은 일정을 받지 않습니다", () => {
     assert.deepEqual(eventsForActor(events, COMMUNITY, false, false), []);
     assert.equal(canSeeEvent({ isLeaderOnly: false, isFormalMember: false, canViewLeaderCalendar: false }), false);
+  });
+
+  it("속한 교회와 속한 모들 일정만 보여 줍니다", () => {
+    const rows = [
+      { id: "church", communityId: COMMUNITY, groupId: null, isLeaderOnly: false },
+      { id: "my-group", communityId: COMMUNITY, groupId: "group-1", isLeaderOnly: false },
+      { id: "other-group", communityId: COMMUNITY, groupId: "group-2", isLeaderOnly: false },
+      { id: "other-church", communityId: OTHER, groupId: null, isLeaderOnly: false },
+      { id: "leaders", communityId: COMMUNITY, groupId: null, isLeaderOnly: true },
+    ];
+    const visible = eventsForMemberships(rows, [
+      { communityId: COMMUNITY, groupIds: ["group-1"], canViewLeaderCalendar: false },
+    ]);
+    assert.deepEqual(
+      visible.map((event) => event.id),
+      ["church", "my-group"],
+    );
   });
 });
 
