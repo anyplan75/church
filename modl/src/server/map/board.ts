@@ -349,7 +349,12 @@ export async function registerSignupChurch(input: ChurchInput & { tags?: readonl
 
 async function insertSignupChurch(communityId: string, church: ChurchInput, tags: ChurchTag[]): Promise<{ id: string }> {
   await assertTextsAllowed(church.name, church.pastorName, church.address, church.phone, church.serviceTime, church.memo, ...tags);
-  const located = await pointFor(church.address, null);
+  let located: { point: { lat: number; lon: number } | null; missed: boolean } = { point: null, missed: Boolean(church.address) };
+  try {
+    located = await pointFor(church.address, null);
+  } catch (error) {
+    if (!(error instanceof MapServiceError) || !error.message.includes("열쇠")) throw error;
+  }
   const region = regionFromAddress(church.address);
   const inserted = await getDb()
     .insert(mapChurches)
