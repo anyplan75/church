@@ -4,7 +4,7 @@
  *
  * 역할
  * - PASTOR: 그 공동체의 모든 일. 사역자 전용 기도, 말투, 사용 등급 포함.
- * - EXECUTIVE: 교적, 주보 발행, 전체 출석 수정, 출석 통계, 보고픈 괸당, 재정, 설문·회의록, 홈페이지, 리더 일정, 질문 답글 승인.
+ * - EXECUTIVE: 교적, 전체 출석 수정, 출석 통계, 보고픈 괸당, 재정, 설문·회의록, 홈페이지, 리더 일정, 질문 답글 승인. 주보 만들기는 그 교회 담당자(사역자)만 합니다.
  *   교적에서 목사 등록과 또래·선배 구분도 합니다. 사역자 전용 기도는 볼 수 없습니다.
  * - CELL_LEADER: 자신이 맡은 모들, 또는 지금 속한 모들의 출석·게시·사진.
  *   리더 전용 기도는 그 모들만. 리더 일정은 볼 수 있습니다.
@@ -107,12 +107,12 @@ function canWritePrayer(actor: Actor, action: Extract<AppAction, { type: "write_
 export function can(actor: Actor, action: AppAction): boolean {
   switch (action.type) {
     case "manage_plan_and_language":
+    case "publish_bulletin":
       return roleIs(actor, action.communityId, ["PASTOR"]);
     case "manage_roster":
     case "issue_invite":
     case "review_approval":
     case "manage_groups":
-    case "publish_bulletin":
     case "view_attendance_stats":
     case "view_long_absent":
     case "manage_finance":

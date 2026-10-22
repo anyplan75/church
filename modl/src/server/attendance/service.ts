@@ -4,7 +4,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import {
   attendanceRates,
   canLeaderEditMember,
@@ -21,7 +21,7 @@ import type { Actor } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
 import { assertApprovedMember, assertCan, assertSameCommunity, can, formalMembership } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { attendanceRecords, attendanceSessions, communities, members } from "@/server/db/schema";
+import { attendanceRecords, attendanceSessions, bulletins, communities, groupMemberships, members, smallGroups } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { assertTextsAllowed } from "@/server/moderation/guard";
 
@@ -82,7 +82,16 @@ async function refreshMemberStatus(communityId: string, memberId: string): Promi
     .where(and(eq(members.id, memberId), eq(members.communityId, communityId)));
 }
 
-export async function loadAttendanceHome() {
+function attendanceStatusLabel(status: string): string {
+  if (status === "PRESENT") return "출석";
+  if (status === "LATE") return "지각";
+  if (status === "ABSENT") return "결석";
+  if (status === "EXCUSED") return "사유";
+  return status;
+}
+
+/** 출석 첫 화면입니다. 교회와 모들, 나의 출석, 고른 교회의 주보를 함께 줍니다. */
+export async function loadAttendanceHome(query?: { churchId?: string; groupId?: string }) {
   await ensureDatabase();
   const actor = await loadActor();
   if (actor.kind !== "user") {
@@ -99,6 +108,82 @@ export async function loadAttendanceHome() {
   const db = getDb();
   const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
   if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
+  const churchIds = [...new Set(actor.memberships.map((item) => item.communityId))];
+  const churchRows =
+    churchIds.length === 0
+      ? []
+      : await db
+          .select({ id: communities.id, name: communities.name })
+          .from(communities)
+          .where(inArray(communities.id, churchIds));
+  const churches = churchRows.slice().sort((left, right) => left.name.localeCompare(right.name, "ko"));
+  const memberIds = actor.memberships.map((item) => item.memberId);
+  const groupIdSet = new Set<string>();
+  for (const item of actor.memberships) {
+    if (item.currentGroupId) groupIdSet.add(item.currentGroupId);
+    for (const id of item.leaderGroupIds) groupIdSet.add(id);
+  }
+  if (memberIds.length > 0) {
+    const openRows = await db
+      .select({ groupId: groupMemberships.groupId })
+      .from(groupMemberships)
+      .where(and(inArray(groupMemberships.memberId, memberIds), isNull(groupMemberships.endedAt)));
+    for (const row of openRows) groupIdSet.add(row.groupId);
+  }
+  const allowedChurches = new Set(churchIds);
+  const groupRows =
+    groupIdSet.size === 0
+      ? []
+      : await db
+          .select({ id: smallGroups.id, name: smallGroups.name, communityId: smallGroups.communityId })
+          .from(smallGroups)
+          .where(and(inArray(smallGroups.id, [...groupIdSet]), eq(smallGroups.isArchived, false)));
+  const groups = groupRows
+    .filter((row) => allowedChurches.has(row.communityId))
+    .sort((left, right) => left.name.localeCompare(right.name, "ko"));
+  const askedGroup = groups.find((row) => row.id === query?.groupId) ?? null;
+  const askedChurch = churches.find((row) => row.id === (askedGroup?.communityId ?? query?.churchId)) ?? null;
+  const selectedChurchId = askedChurch?.id ?? null;
+  const selectedGroupId = askedGroup?.id ?? null;
+  const mineRows =
+    memberIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: attendanceRecords.id,
+            sessionDate: attendanceSessions.sessionDate,
+            title: attendanceSessions.title,
+            status: attendanceRecords.status,
+            communityId: attendanceSessions.communityId,
+          })
+          .from(attendanceRecords)
+          .innerJoin(attendanceSessions, eq(attendanceRecords.sessionId, attendanceSessions.id))
+          .where(inArray(attendanceRecords.memberId, memberIds))
+          .orderBy(desc(attendanceSessions.sessionDate), desc(attendanceRecords.checkedAt))
+          .limit(200);
+  const scoped = selectedChurchId ? mineRows.filter((row) => row.communityId === selectedChurchId) : mineRows;
+  const rateFacts = scoped.flatMap((row) => {
+    if (row.status !== "PRESENT" && row.status !== "LATE" && row.status !== "ABSENT" && row.status !== "EXCUSED") return [];
+    return [{ sessionDate: row.sessionDate, status: row.status as AttendanceStatus }];
+  });
+  const monthRate = attendanceRates(rateFacts).month[0]?.rate ?? 0;
+  const bulletinRows = selectedChurchId
+    ? await db.select().from(bulletins).where(eq(bulletins.communityId, selectedChurchId)).orderBy(desc(bulletins.worshipDate))
+    : [];
+  const churchMembership = selectedChurchId ? formalMembership(actor, selectedChurchId) : null;
+  const visibleBulletins = bulletinRows.filter(
+    (row) => row.isPublic || churchMembership?.role === "PASTOR" || churchMembership?.role === "EXECUTIVE",
+  );
+  const latestDate = visibleBulletins[0]?.worshipDate ?? "";
+  const bulletinItems = visibleBulletins
+    .filter((row) => row.worshipDate === latestDate)
+    .map((row) => ({
+      id: row.id,
+      worshipDate: row.worshipDate,
+      serviceLabel: row.serviceLabel,
+      serviceTime: row.serviceTime,
+      sermonTitle: row.sermonTitle,
+    }));
   const sessions = await db
     .select()
     .from(attendanceSessions)
@@ -125,6 +210,18 @@ export async function loadAttendanceHome() {
     communityName: community.name,
     canCreate,
     canSeeStats,
+    churches,
+    groups,
+    selectedChurchId,
+    selectedGroupId,
+    rate: monthRate,
+    mine: scoped.slice(0, 20).map((row) => ({
+      id: row.id,
+      sessionDate: row.sessionDate,
+      title: row.title,
+      statusLabel: attendanceStatusLabel(row.status),
+    })),
+    bulletins: bulletinItems,
     sessions: sessions.map((session) => ({
       id: session.id,
       title: session.title,

@@ -32,14 +32,15 @@ const rows = [
 ];
 
 describe("주보 열람 권한", () => {
-  it("사역자와 임원만 발행하고 비공개 주보도 봅니다", () => {
-    for (const role of ["PASTOR", "EXECUTIVE"] as const) {
-      const actor = user(role);
-      assert.equal(canPublishBulletin(actor, COMMUNITY), true);
-      assert.equal(can(actor, { type: "view_public_bulletin", communityId: COMMUNITY, isPublic: false }), true);
-      const visible = bulletinsForActor(actor, COMMUNITY, rows).map((row) => row.id);
-      assert.deepEqual(visible, ["draft", "new", "old"]);
-    }
+  it("교회 담당자만 주보를 만들고, 임원은 비공개 주보를 보기만 합니다", () => {
+    const pastor = user("PASTOR");
+    assert.equal(canPublishBulletin(pastor, COMMUNITY), true);
+    assert.equal(can(pastor, { type: "view_public_bulletin", communityId: COMMUNITY, isPublic: false }), true);
+    assert.deepEqual(bulletinsForActor(pastor, COMMUNITY, rows).map((row) => row.id), ["draft", "new", "old"]);
+    const executive = user("EXECUTIVE");
+    assert.equal(canPublishBulletin(executive, COMMUNITY), false);
+    assert.equal(can(executive, { type: "view_public_bulletin", communityId: COMMUNITY, isPublic: false }), true);
+    assert.deepEqual(bulletinsForActor(executive, COMMUNITY, rows).map((row) => row.id), ["draft", "new", "old"]);
   });
 
   it("구성원과 테우리는 발행된 주보만 보고 발행하지 못합니다", () => {

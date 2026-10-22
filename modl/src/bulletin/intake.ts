@@ -116,7 +116,7 @@ export function servicesFromBulletinText(text: string, nextId: () => string): Bu
     if (inNews) {
       if (isBullet(raw)) {
         const body = stripBullet(raw).slice(0, 500);
-        if (body && !isPhoneLine(body)) news.push(body);
+        if (body && !isPhoneLine(body) && !isOfferingLine(body)) news.push(body);
         continue;
       }
       inNews = false;
@@ -137,7 +137,7 @@ export function servicesFromBulletinText(text: string, nextId: () => string): Bu
     if (!current) continue;
     if (inAnnouncements && isBullet(raw)) {
       const body = stripBullet(raw).slice(0, 500);
-      if (body) current.announcements.push(body);
+      if (body && !isOfferingLine(body)) current.announcements.push(body);
       continue;
     }
     const item = parseItem(raw);
@@ -297,8 +297,13 @@ function songLabel(item: Item): string {
   return item.song || item.detail || item.title;
 }
 
+function isOfferingLine(line: string): boolean {
+  return /십일조|헌금|봉헌/.test(line);
+}
+
 function parseItem(raw: string): Item | null {
   const line = raw.replace(/^\d+\s*[.)]\s*/, "").trim();
+  if (isOfferingLine(line)) return null;
   if (line.length > 180 && !/^(찬송|찬양|성가|설교|말씀|성경봉독|기도|대표기도|광고)/.test(line)) return null;
   const hymn = line.match(/^찬송\s*(\d+)\s*장\s*(.*)$/);
   if (hymn) {

@@ -33,6 +33,29 @@ describe("주보 글 나누기", () => {
     const news = fields?.blocks.find((block) => block.type === "announcement");
     assert.equal(news?.type === "announcement" ? news.body.includes("새가족을 환영합니다.") : false, true);
     assert.equal(JSON.stringify(fields).includes("가짜"), false);
+    assert.equal(JSON.stringify(fields).includes("봉헌"), false);
+  });
+
+  it("십일조와 헌금은 순서와 광고에 넣지 않습니다", () => {
+    let n = 0;
+    const services = servicesFromBulletinText(
+      `2026년 10월 18일
+주일 2부 예배 오전 11:00
+묵도
+헌금
+십일조 안내
+설교 다시 모인 자리
+축도
+교회소식
+- 십일조 봉투를 준비해 주세요.
+- 새가족을 환영합니다.`,
+      () => `id-${n++}`,
+    );
+    const text = JSON.stringify(services);
+    assert.equal(text.includes("헌금"), false);
+    assert.equal(text.includes("십일조"), false);
+    assert.equal(text.includes("새가족을 환영합니다."), true);
+    assert.equal(text.includes("다시 모인 자리"), true);
   });
 
   it("예배 구분이 없으면 칸을 만들지 않습니다", () => {

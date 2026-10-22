@@ -36,7 +36,7 @@ export default async function BulletinListPage({
               <TermText termKey="bulletin_new" />
             </Link>
           ) : (
-            <p className="leading-relaxed text-[#5c5148]">발행된 주보만 볼 수 있습니다. 만들거나 고치는 일은 사역자와 임원만 합니다.</p>
+            <p className="leading-relaxed text-[#5c5148]">발행된 주보만 볼 수 있습니다. 주보만들기는 그 교회 담당자만 합니다.</p>
           )}
           <TermHeading termKey="bulletin_archive" level={2} />
           {page.bulletins.length === 0 ? (

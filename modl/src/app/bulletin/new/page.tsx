@@ -22,7 +22,7 @@ export default async function NewBulletinPage({
       {!page.ok ? (
         <p className="leading-relaxed">{page.message}</p>
       ) : !page.canPublish ? (
-        <p className="leading-relaxed">주보를 만들 수 있는 사람은 사역자와 임원입니다.</p>
+        <p className="leading-relaxed">주보만들기는 그 교회 담당자만 합니다.</p>
       ) : (
         <BulletinEditor
           action={saveBulletinAction}

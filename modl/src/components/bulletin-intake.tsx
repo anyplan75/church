@@ -28,6 +28,9 @@ export function BulletinIntake({ onApply }: { onApply: (services: BulletinServic
     <div className="grid gap-3 rounded-3xl bg-[#fffaf3] px-4 py-4">
       <h2 className="text-[clamp(1.1rem,1rem+0.3vw,1.35rem)] font-semibold leading-snug">주보 입력</h2>
       <p className="text-sm leading-6 text-[#5c5148]">{bulletinFormatNote()}</p>
+      <p className="text-sm leading-6 text-[#5c5148]">
+        anyplan@me.com 으로 보낸 파일은 지금 받지 않습니다. 담당자가 이 화면에서 파일을 올리면 그 주 예배를 만듭니다. 십일조, 헌금, 봉헌은 넣지 않습니다.
+      </p>
       {error ? (
         <p role="alert" className="text-sm leading-6 text-[#9a3412]">
           {error}

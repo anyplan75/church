@@ -879,6 +879,26 @@ export const websiteInquiries = pgTable(
   (table) => [index("website_inquiries_community_id_idx").on(table.communityId)],
 );
 
+/** 예배 설정에서 언어마다 연결한 실시간 번역기 자막 주소입니다. */
+export const worshipCaptionLinks = pgTable(
+  "worship_caption_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    communityId: uuid("community_id")
+      .notNull()
+      .references(() => communities.id, { onDelete: "cascade" }),
+    languageCode: text("language_code").notNull(),
+    captionUrl: text("caption_url").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("worship_caption_links_community_language_uidx").on(table.communityId, table.languageCode),
+    index("worship_caption_links_community_id_idx").on(table.communityId),
+    check("worship_caption_links_url_https", sql`${table.captionUrl} like 'https://%'`),
+  ],
+);
+
 export const dbSchema = {
   users,
   sessions,
@@ -914,4 +934,5 @@ export const dbSchema = {
   questionReplies,
   mapChurches,
   bannedWords,
+  worshipCaptionLinks,
 };

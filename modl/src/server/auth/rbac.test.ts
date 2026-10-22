@@ -67,7 +67,7 @@ describe("역할별 권한", () => {
   it("임원은 교적과 재정은 되고 사역자 전용은 안 됩니다", () => {
     const actor = user("EXECUTIVE");
     assert.equal(can(actor, { type: "manage_roster", communityId: COMMUNITY }), true);
-    assert.equal(can(actor, { type: "publish_bulletin", communityId: COMMUNITY }), true);
+    assert.equal(can(actor, { type: "publish_bulletin", communityId: COMMUNITY }), false);
     assert.equal(can(actor, { type: "view_attendance_stats", communityId: COMMUNITY }), true);
     assert.equal(
       can(actor, { type: "manage_group_attendance", communityId: COMMUNITY, groupId: "group-9" }),

@@ -78,3 +78,23 @@ select {
     scroll-behavior: auto;
   }
 }
+
+/* 고른 언어의 자막은 화면 위 3분의 1입니다. 폰을 가로로 두면 그 자막만 전체 화면입니다. */
+.worship-live .worship-caption {
+  height: 33dvh;
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .worship-live .worship-caption {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .worship-live .worship-body {
+    display: none;
+  }
+}

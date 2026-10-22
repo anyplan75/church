@@ -25,7 +25,7 @@ export async function readBulletinSourceAction(formData: FormData): Promise<Bull
   const actor = await loadActor();
   const communityId = await activeCommunityId(actor);
   if (!communityId || !canPublishBulletin(actor, communityId)) {
-    return { ok: false, message: "주보를 만들 수 있는 사람은 사역자와 임원입니다." };
+    return { ok: false, message: "주보를 만들 수 있는 사람은 그 교회 담당자입니다." };
   }
   const pasted = typeof formData.get("text") === "string" ? String(formData.get("text")) : "";
   const file = formData.get("file");
