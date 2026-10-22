@@ -1,12 +1,18 @@
 import Foundation
 
-/// 서버 주소는 앱 설정에만 저장합니다. 빌드 파일에 주소를 적지 않습니다.
+/// 처음 여는 주소는 제주 모들 웹입니다.
+/// 사용자가 바꾼 주소는 앱 설정에만 저장하고, 그 주소가 있으면 처음 주소 대신 엽니다.
 enum ServerAddressStore {
     static let key = "modl.serverAddress"
+    static let defaultAddress = "https://modl-jeju.vercel.app"
 
     static func saved() -> String {
         let raw = UserDefaults.standard.string(forKey: key) ?? ""
-        return raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return defaultAddress
+        }
+        return trimmed
     }
 
     static func save(_ raw: String) {

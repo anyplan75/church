@@ -23,12 +23,14 @@ describe("폰 패드 맥 껍데기", () => {
     assert.match(project, /productType = "com\.apple\.product-type\.application";/);
     assert.match(scheme, /BlueprintName = "Modl"/);
     assert.match(readProject("Modl/Info.plist"), /UISupportedInterfaceOrientations~ipad/);
-    assert.match(readProject("Modl/Info.plist"), /ITSAppUsesNonExemptEncryption/);
+    const info = readProject("Modl/Info.plist");
+    assert.match(info, /ITSAppUsesNonExemptEncryption/);
+    assert.match(info, /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/);
     const entitlements = readProject("Modl/Modl.entitlements");
     assert.match(entitlements, /com\.apple\.security\.app-sandbox/);
     assert.match(entitlements, /com\.apple\.security\.network\.client/);
     assert.match(entitlements, /com\.apple\.security\.files\.user-selected\.read-only/);
-    assert.match(project, /CURRENT_PROJECT_VERSION = 8;/);
+    assert.match(project, /CURRENT_PROJECT_VERSION = 9;/);
     const iconSet = readProject("Modl/Assets.xcassets/AppIcon.appiconset/Contents.json");
     assert.match(iconSet, /"platform" : "ios"/);
     assert.match(iconSet, /"size" : "1024x1024"/);
@@ -45,13 +47,16 @@ describe("폰 패드 맥 껍데기", () => {
     assert.match(project, /"CODE_SIGN_ENTITLEMENTS\[sdk=macosx\*\]" = Modl\/Modl\.entitlements;/);
   });
 
-  it("서버 주소를 빌드에 적지 않고, 주소가 없으면 안내 문구가 있습니다", () => {
+  it("처음 여는 주소는 제주 모들이고, 서버 주소를 고치는 칸은 남아 있습니다", () => {
     const swiftFiles = readdirSync(path.join(appleRoot, "Modl")).filter((name) => name.endsWith(".swift"));
     assert.ok(swiftFiles.length >= 4);
     const swift = swiftFiles.map((name) => readProject(path.join("Modl", name))).join("\n");
     assert.match(swift, /서버 주소는 나중에 연결됩니다/);
     assert.match(swift, /UserDefaults/);
-    assert.doesNotMatch(swift, /https?:\/\/[A-Za-z0-9]/);
+    assert.match(swift, /서버 주소/);
+    assert.match(swift, /https:\/\/modl-jeju\.vercel\.app/);
+    const urls = swift.match(/https?:\/\/[A-Za-z0-9][^"'\s]*/g) ?? [];
+    assert.deepEqual([...new Set(urls)], ["https://modl-jeju.vercel.app"]);
     assert.doesNotMatch(swift, /trycloudflare/);
     assert.doesNotMatch(swift, /가지/);
     const signing = readProject("Config/Signing.xcconfig");

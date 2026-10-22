@@ -3,8 +3,8 @@ import SwiftUI
 /// 주소가 없으면 안내를 보여 주고, 주소가 있으면 웹 화면을 엽니다.
 struct RootView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var draft = ""
-    @State private var saved = ""
+    @State private var draft = ServerAddressStore.saved()
+    @State private var saved = ServerAddressStore.saved()
     @State private var editing = false
     @State private var loadFailed = false
     @State private var notice = ""
