@@ -99,7 +99,6 @@ export function QuestionComposer({
             </label>
           ))}
         </div>
-        <p className="text-sm leading-5 text-[#64748b]">답은 목사가 씁니다. 승인 후에 질문한 사람에게만 보입니다.</p>
       </div>
     </form>
   );
