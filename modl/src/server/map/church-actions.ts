@@ -23,12 +23,12 @@ function text(formData: FormData, key: string): string {
 }
 
 const churchSchema = z.object({
-  name: z.string().trim().min(1, "교회 이름을 적어 주세요.").max(80),
-  pastorName: z.string().trim().max(80),
-  address: z.string().trim().max(200),
-  phone: z.string().trim().max(40),
-  serviceTime: z.string().trim().max(80),
-  memo: z.string().trim().max(500),
+  name: z.string().trim().min(1, "교회 이름을 적어 주세요.").max(80, "교회 이름은 80자 안으로 적어 주세요."),
+  pastorName: z.string().trim().max(80, "담임목사 이름은 80자 안으로 적어 주세요."),
+  address: z.string().trim().max(200, "주소는 200자 안으로 적어 주세요."),
+  phone: z.string().trim().max(40, "전화번호는 40자 안으로 적어 주세요."),
+  serviceTime: z.string().trim().max(80, "주일 예배시간은 80자 안으로 적어 주세요."),
+  memo: z.string().trim().max(500, "메모는 500자 안으로 적어 주세요."),
 });
 
 export async function saveMapChurchAction(input: {

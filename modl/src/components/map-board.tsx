@@ -82,6 +82,7 @@ export function MapBoard({
   const rerouteGen = useRef(0);
   const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState("");
+  const editErrorRef = useRef<HTMLParagraphElement>(null);
   const [note, setNote] = useState("");
   const [addressOpen, setAddressOpen] = useState(false);
   const [address, setAddress] = useState(self?.address ?? "");
@@ -91,6 +92,10 @@ export function MapBoard({
   const [phoneDraftTags, setPhoneDraftTags] = useState<ReadonlySet<string>>(new Set());
   const [churchRows, setChurchRows] = useState(churches);
   const [draft, setDraft] = useState<ChurchDraft | null>(null);
+  useEffect(() => {
+    if (!draft || !error) return;
+    editErrorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [draft, error]);
   useEffect(() => {
     setChurchRows(churches);
   }, [churches]);
@@ -133,26 +138,31 @@ export function MapBoard({
     if (!draft) return;
     setPending("church");
     setError("");
-    const result = await saveMapChurchAction({ ...draft, churchId: draft.id });
-    setPending(null);
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const result = await saveMapChurchAction({ ...draft, churchId: draft.id });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      const saved = result.church;
+      setChurchRows((current) => {
+        const rest = current.filter((item) => item.id !== saved.id);
+        if (!saved.point) return rest;
+        return [...rest, { ...saved, point: saved.point }];
+      });
+      setDraft(null);
+      if (!saved.point) {
+        setSelected(null);
+        setNote("교회는 저장했지만, 주소를 지도에서 찾지 못해 핀은 없습니다.");
+        return;
+      }
+      setSelected({ type: "church", id: saved.id });
+      setNote("교회를 저장했습니다.");
+    } catch (caught) {
+      setError(caught instanceof Error && caught.message ? caught.message : "교회를 저장하지 못했습니다.");
+    } finally {
+      setPending(null);
     }
-    const saved = result.church;
-    setChurchRows((current) => {
-      const rest = current.filter((item) => item.id !== saved.id);
-      if (!saved.point) return rest;
-      return [...rest, { ...saved, point: saved.point }];
-    });
-    setDraft(null);
-    if (!saved.point) {
-      setSelected(null);
-      setNote("교회는 저장했지만, 주소를 지도에서 찾지 못해 핀은 없습니다.");
-      return;
-    }
-    setSelected({ type: "church", id: saved.id });
-    setNote("교회를 저장했습니다.");
   }
 
   function openPhoneFilters() {
@@ -778,7 +788,7 @@ export function MapBoard({
               }
             />
             {error ? (
-              <p role="alert" className="rounded-xl bg-[#fde8e2] px-3 py-2 leading-relaxed">
+              <p ref={editErrorRef} role="alert" data-testid="map-church-edit-error" className="rounded-xl bg-[#fde8e2] px-3 py-2 leading-relaxed">
                 {error}
               </p>
             ) : null}
