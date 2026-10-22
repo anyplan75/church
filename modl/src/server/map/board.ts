@@ -15,6 +15,7 @@ import { formalMembership } from "@/server/auth/membership";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { communities, mapChurches, members, users } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import { lookupAddressPoint } from "@/server/map/address-lookup";
 import { geocodeAddress } from "@/server/map/mapbox";
 import { MapServiceError } from "@/server/map/service";
 import { assertTextsAllowed } from "@/server/moderation/guard";
@@ -112,6 +113,21 @@ async function pointFor(address: string, previous: { address: string; lat: numbe
   return { point: null, missed: true };
 }
 
+function movedPoint(left: MapPoint, right: MapPoint): boolean {
+  return Math.abs(left.lat - right.lat) > 0.0002 || Math.abs(left.lon - right.lon) > 0.0002;
+}
+
+/** 저장된 주소의 좌표입니다. 다른 장소의 검색 결과는 쓰지 않습니다. */
+async function pointForSavedAddress(address: string, stored: MapPoint | null): Promise<MapPoint | null> {
+  const text = address.trim();
+  if (!text) return stored;
+  try {
+    return await lookupAddressPoint(text);
+  } catch {
+    return stored;
+  }
+}
+
 async function operatorCommunityId(): Promise<string | null> {
   const rows = await getDb().select({ id: communities.id }).from(communities).where(eq(communities.slug, "modl")).limit(1);
   return rows[0]?.id ?? null;
@@ -156,22 +172,29 @@ export async function loadMapBoard(): Promise<MapBoardData> {
       },
     ];
   });
-  const pickups = memberRows.flatMap((row) => {
-    if (!row.pickupConsentAt) return [];
-    const point = finitePoint(row.pickupLat, row.pickupLon);
-    if (!point) return [];
+  const pickups: MapBoardData["pickups"] = [];
+  for (const row of memberRows) {
+    if (!row.pickupConsentAt || !seen) continue;
+    const stored = finitePoint(row.pickupLat, row.pickupLon);
+    const point = (await pointForSavedAddress(row.address ?? "", stored)) ?? stored;
+    if (!point) continue;
+    if (row.address && (!stored || movedPoint(stored, point))) {
+      await db
+        .update(members)
+        .set({ pickupLat: point.lat, pickupLon: point.lon, updatedAt: new Date() })
+        .where(and(eq(members.id, row.id), eq(members.communityId, seen.communityId)));
+    }
     if (
-      !seen ||
       !canSeePickupPin({
         viewerUserId: seen.actor.userId,
         viewerRole: seen.membership.role,
         pinUserId: row.userId,
       })
     ) {
-      return [];
+      continue;
     }
-    return [{ id: row.id, name: row.name, point }];
-  });
+    pickups.push({ id: row.id, name: row.name, point });
+  }
   const mine = seen ? memberRows.find((row) => row.id === seen.membership.memberId) ?? null : null;
   return {
     churches,
@@ -417,7 +440,7 @@ export async function saveMyAddress(address: string): Promise<void> {
       .where(and(eq(members.id, seen.membership.memberId), eq(members.communityId, seen.communityId)));
     return;
   }
-  const point = await geocodeAddress(text);
+  const point = await lookupAddressPoint(text);
   if (!point) throw new MapServiceError("이 주소를 지도에서 찾지 못했습니다.");
   await getDb()
     .update(members)
