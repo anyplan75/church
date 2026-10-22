@@ -43,7 +43,10 @@ root=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 archive="$root/build/Modl.xcarchive"
 export_dir="$root/build/export"
 mkdir -p "$root/build"
+rm -rf "$archive" "$export_dir"
 
+# 개발용 프로파일(기기를 등록하는 서명)이 없어도 배포 서명으로 올립니다.
+# 아카이브는 서명하지 않고, 내보낼 때 이 맥의 배포 인증서로 서명합니다.
 xcodebuild \
   -project "$root/Modl.xcodeproj" \
   -scheme Modl \
@@ -52,6 +55,8 @@ xcodebuild \
   -archivePath "$archive" \
   MODL_BUNDLE_ID="$MODL_BUNDLE_ID" \
   APPLE_TEAM_ID="$APPLE_TEAM_ID" \
+  DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+  CODE_SIGNING_ALLOWED=NO \
   archive
 
 cat > "$root/build/ExportOptions.plist" <<EOF
