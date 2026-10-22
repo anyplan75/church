@@ -189,20 +189,6 @@ export function GenderField({ defaultValue = "" }: { defaultValue?: string }) {
   );
 }
 
-export function PlanField({ defaultValue = "FREE" }: { defaultValue?: "FREE" | "PRO" }) {
-  return (
-    <label className="grid gap-1">
-      <span className="font-semibold">
-        <TermText termKey="field_plan" />
-      </span>
-      <select className={inputClass} name="planTier" defaultValue={defaultValue}>
-        <ChoiceOption value="FREE" termKey="plan_free" />
-        <ChoiceOption value="PRO" termKey="plan_pro" />
-      </select>
-    </label>
-  );
-}
-
 export function LanguageField({
   defaultValue = "STANDARD",
 }: {

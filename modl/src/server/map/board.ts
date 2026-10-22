@@ -13,7 +13,7 @@ import { cityFromStored, regionFromAddress } from "@/map/region";
 import type { MapPoint } from "@/map/rules";
 import { formalMembership } from "@/server/auth/membership";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { communities, mapChurches, members } from "@/server/db/schema";
+import { communities, mapChurches, members, users } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { geocodeAddress } from "@/server/map/mapbox";
 import { MapServiceError } from "@/server/map/service";
@@ -276,6 +276,103 @@ async function writeChurch(
   const id = inserted[0]?.id;
   if (!id) throw new MapServiceError("교회를 저장하지 못했습니다.");
   return { missed: located.missed, id };
+}
+
+export type SignupChurchChoice = {
+  id: string;
+  name: string;
+  address: string;
+};
+
+/** 가입 직후 화면입니다. 로그인하지 않았으면 교회 목록을 비웁니다. */
+export async function loadSignupChurchPage(): Promise<{ signedIn: boolean; churches: SignupChurchChoice[] }> {
+  await ensureDatabase();
+  const actor = await loadActor();
+  if (actor.kind !== "user") return { signedIn: false, churches: [] };
+  return { signedIn: true, churches: await listSignupChurches() };
+}
+
+/** 가입 직후 고를 수 있는 교회 목록입니다. 지역 필터는 없습니다. */
+export async function listSignupChurches(): Promise<SignupChurchChoice[]> {
+  await ensureDatabase();
+  const communityId = await operatorCommunityId();
+  if (!communityId) return [];
+  const rows = await getDb()
+    .select({ id: mapChurches.id, name: mapChurches.name, address: mapChurches.address })
+    .from(mapChurches)
+    .where(eq(mapChurches.communityId, communityId));
+  return rows.sort((left, right) => left.name.localeCompare(right.name, "ko"));
+}
+
+async function signupUserId(): Promise<string> {
+  const actor = await loadActor();
+  if (actor.kind !== "user") throw new MapServiceError("먼저 계정을 만들어 주세요.");
+  return actor.userId;
+}
+
+async function rememberHomeChurch(userId: string, churchId: string): Promise<void> {
+  await getDb().update(users).set({ homeChurchId: churchId, updatedAt: new Date() }).where(eq(users.id, userId));
+}
+
+/** 목록에 있는 교회를 계정에 붙입니다. 등급은 묻지 않습니다. */
+export async function chooseSignupChurch(churchId: string): Promise<void> {
+  await ensureDatabase();
+  const userId = await signupUserId();
+  const communityId = await operatorCommunityId();
+  if (!communityId) throw new MapServiceError("교회 목록을 아직 열 수 없습니다.");
+  const [row] = await getDb()
+    .select({ id: mapChurches.id })
+    .from(mapChurches)
+    .where(and(eq(mapChurches.id, churchId.trim()), eq(mapChurches.communityId, communityId)))
+    .limit(1);
+  if (!row) throw new MapServiceError("목록에서 교회를 다시 골라 주세요.");
+  await rememberHomeChurch(userId, row.id);
+}
+
+/** 목록에 없는 교회를 그 자리에서 등록하고 계정에 붙입니다. 지역 필터와 등급은 받지 않습니다. */
+export async function registerSignupChurch(input: ChurchInput & { tags?: readonly string[] }): Promise<void> {
+  await ensureDatabase();
+  const userId = await signupUserId();
+  const communityId = await operatorCommunityId();
+  if (!communityId) throw new MapServiceError("교회 목록을 아직 열 수 없습니다.");
+  const church = cleanChurch(input);
+  const tags = normalizeChurchTags(input.tags ?? []);
+  const [same] = await getDb()
+    .select({ id: mapChurches.id })
+    .from(mapChurches)
+    .where(and(eq(mapChurches.communityId, communityId), eq(mapChurches.name, church.name)))
+    .limit(1);
+  if (same) throw new MapServiceError("같은 이름의 교회가 목록에 있습니다. 목록에서 골라 주세요.");
+  const written = await insertSignupChurch(communityId, church, tags);
+  await rememberHomeChurch(userId, written.id);
+}
+
+async function insertSignupChurch(communityId: string, church: ChurchInput, tags: ChurchTag[]): Promise<{ id: string }> {
+  await assertTextsAllowed(church.name, church.pastorName, church.address, church.phone, church.serviceTime, church.memo, ...tags);
+  const located = await pointFor(church.address, null);
+  const region = regionFromAddress(church.address);
+  const inserted = await getDb()
+    .insert(mapChurches)
+    .values({
+      communityId,
+      name: church.name,
+      pastorName: church.pastorName,
+      address: church.address,
+      phone: church.phone,
+      serviceTime: church.serviceTime,
+      memo: church.memo,
+      lat: located.point?.lat ?? null,
+      lon: located.point?.lon ?? null,
+      sido: region?.sido ?? null,
+      district: region?.district ?? null,
+      regionId: region?.regionId ?? null,
+      tags,
+      updatedAt: new Date(),
+    })
+    .returning({ id: mapChurches.id });
+  const id = inserted[0]?.id;
+  if (!id) throw new MapServiceError("교회를 저장하지 못했습니다.");
+  return { id };
 }
 
 export async function saveChurch(

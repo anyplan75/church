@@ -246,7 +246,7 @@ export async function finishOauthLogin(input: {
       return "/account?need=profile";
     }
     await signInWithProfile(profile);
-    return "/";
+    return "/signup/church";
   } catch {
     return accountError(failed);
   }

@@ -88,11 +88,14 @@ export const users = pgTable(
     name: text("name").notNull(),
     phone: text("phone"),
     gender: text("gender"),
+    /** 가입 뒤에 고르거나 직접 등록한 다니는 교회입니다. 비밀이 아닙니다. */
+    homeChurchId: uuid("home_church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "set null" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
     uniqueIndex("users_email_uidx").on(table.email),
+    index("users_home_church_id_idx").on(table.homeChurchId),
     check("users_gender_check", sql`${table.gender} is null or ${table.gender} in ('male', 'female')`),
   ],
 );

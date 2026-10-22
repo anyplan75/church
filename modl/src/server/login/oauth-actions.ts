@@ -39,5 +39,5 @@ export async function completeSocialSignup(formData: FormData): Promise<void> {
     const message = error instanceof Error && /[\uac00-\ud7a3]/.test(error.message) ? error.message : "가입을 끝내지 못했습니다.";
     redirect(`/account?need=profile&error=${encodeURIComponent(message)}`);
   }
-  redirect("/");
+  redirect("/signup/church");
 }

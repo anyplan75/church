@@ -1,5 +1,5 @@
 import { ErrorNote } from "@/components/form-note";
-import { LanguageField, PlanField, SubmitButton, TermField } from "@/components/term-field";
+import { LanguageField, SubmitButton, TermField } from "@/components/term-field";
 import { TermText } from "@/components/term-text";
 import { createCommunityAction } from "@/server/community/actions";
 
@@ -26,7 +26,6 @@ export default async function NewCommunityPage({
         <TermField termKey="field_denomination" name="denomination" required />
         <TermField termKey="field_slug" name="slug" required />
         <TermField termKey="field_phone" name="phone" autoComplete="tel" />
-        <PlanField />
         <LanguageField />
         <label className="flex items-start gap-2 leading-snug">
           <input type="checkbox" name="requireApproval" value="yes" className="mt-1" />

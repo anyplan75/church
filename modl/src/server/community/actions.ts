@@ -63,7 +63,7 @@ export async function signupAction(formData: FormData) {
   } catch (error) {
     fail("/account", error);
   }
-  redirect("/community/new");
+  redirect("/signup/church");
 }
 
 export async function loginAction(formData: FormData) {
