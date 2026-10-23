@@ -77,7 +77,7 @@ async function readBulletinSource(formData: FormData): Promise<BulletinReadResul
   const file = formData.get("file");
   if (file instanceof File && file.size > 0) {
     if (file.size > BULLETIN_UPLOAD_BYTES) {
-      return { ok: false, message: "파일은 16MB 이하로 올려 주세요." };
+      return { ok: false, message: "파일은 30MB 이하로 올려 주세요." };
     }
     const bytes = Buffer.from(await file.arrayBuffer());
     return interpretBulletin(file.name || "bulletin", bytes, pasted);
@@ -143,7 +143,7 @@ export async function finishBulletinUploadAction(formData: FormData): Promise<Bu
     }
     const bytes = Buffer.concat(pieces);
     if (bytes.length === 0 || bytes.length > BULLETIN_UPLOAD_BYTES) {
-      return { ok: false, message: "파일은 16MB 이하로 올려 주세요." };
+      return { ok: false, message: "파일은 30MB 이하로 올려 주세요." };
     }
     const sentName = typeof formData.get("name") === "string" ? String(formData.get("name")).trim() : "";
     const name = (sentName || rows[0]?.file_name || "bulletin").slice(0, 240);
@@ -176,7 +176,7 @@ async function interpretBulletin(name: string, bytes: Buffer, pasted: string): P
       fileHref = await saveBulletinFile(name, bytes);
     } catch (error) {
       const message = error instanceof Error ? error.message : "파일을 저장하지 못했습니다.";
-      if (message.includes("16MB") || message.includes("골라 주세요") || message.includes("올릴 수 있습니다")) {
+      if (message.includes("30MB") || message.includes("골라 주세요") || message.includes("올릴 수 있습니다")) {
         return { ok: false, message };
       }
       fileHref = null;

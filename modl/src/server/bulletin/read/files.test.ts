@@ -77,30 +77,36 @@ describe("주보 파일 읽기", () => {
     const lines = [
       "2026년 10월 11일",
       "주일 2부 예배 오전 11:00",
-      "묵도",
-      "찬송 1장",
-      "기도",
-      "성경봉독",
-      "찬양",
-      "설교 선한 목자",
-      "광고",
-      "- 다음 주 구역 모임",
-      "- 십일조와 헌금은 넣지 않습니다",
-      "축도",
+      "찬송 44장 지난 이레 동안에",
+      "찬송 250장 구주의 십자가 보혈로",
+      "신앙고백 사도신경",
+      "성경봉독 민수기 21장 4-9절",
+      "찬양 시온찬양대",
+      "말씀 그것을 보면 살리라",
+      "봉헌 150장 길보리산 위에",
+      "축도 이종찬 목사",
+      "교회소식",
+      "- 새가족을 진심으로 환영합니다.",
+      "- 정기제직회는 주일 2부예배 후에 있습니다.",
+      "- 오늘은 이웃을 위한 헌금 봉헌주일입니다.",
     ];
     const file = hwpFile(Buffer.concat(lines.map((line) => hwpParagraph(line))));
     assert.equal(resolveBulletinExtension(name, file), ".hwp");
     const read = await readBulletinFile(name, file, async () => "없는 문장");
     assert.equal(read.kind, "text");
     if (read.kind !== "text") return;
-    assert.match(read.text, /묵도/);
-    assert.match(read.text, /다음 주 구역 모임/);
+    assert.match(read.text, /찬송 44장/);
+    assert.match(read.text, /민수기 21장 4-9절/);
     let serial = 0;
     const services = servicesFromBulletinText(read.text, () => `id-${serial++}`);
     const packed = JSON.stringify(services);
     assert.match(packed, /주일 2부 예배/);
-    assert.match(packed, /묵도/);
-    assert.match(packed, /다음 주 구역 모임/);
+    assert.match(packed, /44장/);
+    assert.match(packed, /250장/);
+    assert.match(packed, /민수기 21장 4-9절/);
+    assert.match(packed, /새가족을 진심으로 환영합니다/);
+    assert.match(packed, /정기제직회는 주일 2부예배 후에 있습니다/);
+    assert.equal(packed.includes("선한 목자"), false);
     assert.equal(packed.includes("십일조"), false);
     assert.equal(packed.includes("헌금"), false);
     assert.equal(packed.includes("봉헌"), false);

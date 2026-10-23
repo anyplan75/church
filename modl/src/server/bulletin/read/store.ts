@@ -45,7 +45,7 @@ export async function saveBulletinFile(name: string, bytes: Buffer): Promise<str
   const ext = resolveBulletinExtension(name, bytes);
   if (!ext) throw new Error("텍스트, 워드, 한글, PDF, RTF, ODT, HTML, 사진만 올릴 수 있습니다.");
   if (bytes.length === 0) throw new Error("파일을 골라 주세요.");
-  if (bytes.length > BULLETIN_UPLOAD_BYTES) throw new Error("파일은 16MB 이하로 올려 주세요.");
+  if (bytes.length > BULLETIN_UPLOAD_BYTES) throw new Error("파일은 30MB 이하로 올려 주세요.");
   const stored = `${Date.now()}-${randomBytes(8).toString("hex")}${ext === ".jpeg" ? ".jpg" : ext}`;
   const dir = path.join(process.cwd(), "public", "uploads");
   await mkdir(dir, { recursive: true });

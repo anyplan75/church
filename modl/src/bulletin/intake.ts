@@ -5,10 +5,10 @@
 
 import type { BulletinBlock } from "@/bulletin/blocks";
 
-export const BULLETIN_UPLOAD_BYTES = 16 * 1024 * 1024;
+export const BULLETIN_UPLOAD_BYTES = 30 * 1024 * 1024;
 
-/** 배포 서버가 한 요청으로 받는 한도보다 작게 나눕니다. */
-export const BULLETIN_PART_BYTES = 2 * 1024 * 1024;
+/** 한 요청은 4MB 아래입니다. 배포 서버는 약 4.5MB에서 함수를 시작하기 전에 거절합니다. */
+export const BULLETIN_PART_BYTES = 3 * 1024 * 1024;
 
 const ACCEPT = [
   ".txt",

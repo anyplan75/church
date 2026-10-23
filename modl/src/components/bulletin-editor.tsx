@@ -81,7 +81,7 @@ export function BulletinEditor({
             {week.map((service) => {
               const blocks = Array.isArray(service.blocks) ? service.blocks : [];
               const order = blocks.find((block) => block.type === "order");
-              const labels = order?.type === "order" ? order.items.map((item) => item.label) : [];
+              const labels = order?.type === "order" ? order.items.map((item) => [item.label, item.detail].filter(Boolean).join(" ")) : [];
               const announcement = blocks.find((block) => block.type === "announcement");
               const news = announcement?.type === "announcement" ? announcement.body : "";
               return (
@@ -91,6 +91,7 @@ export function BulletinEditor({
                   </p>
                   <p className="leading-relaxed text-[#5c5148]">{service.worshipDate || "날짜를 읽지 못했습니다."}</p>
                   {service.sermonTitle ? <p className="leading-relaxed">{service.sermonTitle}</p> : null}
+                  {service.scriptureText ? <p className="leading-relaxed">{service.scriptureText}</p> : null}
                   {labels.length > 0 ? <p className="leading-relaxed">{labels.join(" · ")}</p> : null}
                   {news ? <p className="whitespace-pre-wrap leading-relaxed">{news}</p> : null}
                 </li>

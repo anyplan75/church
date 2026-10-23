@@ -91,7 +91,7 @@ export function BulletinIntake({ onApply }: { onApply: (services: BulletinServic
 
 async function readLargeFile(file: File, text: string) {
   if (file.size > BULLETIN_UPLOAD_BYTES) {
-    return { ok: false as const, message: "파일은 16MB 이하로 올려 주세요." };
+    return { ok: false as const, message: "파일은 30MB 이하로 올려 주세요." };
   }
   const uploadId = crypto.randomUUID();
   const count = Math.ceil(file.size / BULLETIN_PART_BYTES);
