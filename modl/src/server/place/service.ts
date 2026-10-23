@@ -243,6 +243,56 @@ export async function createGathering(input: { name: string; address: string }) 
   await ensurePlaceSlug("gathering", created.id);
 }
 
+export async function loadGatheringSettings(): Promise<
+  { ok: true; gatherings: Array<{ id: string; name: string; address: string }> } | { ok: false; message: string }
+> {
+  const actor = await loadActor();
+  if (actor.kind !== "user") return { ok: false, message: "모들 목록을 고치려면 사역자로 들어가 주세요." };
+  const scope = await loadPlaceScope(actor.userId);
+  if (!scope.isPastor) return { ok: false, message: "모들 목록은 사역자만 고칩니다." };
+  const rows = await getDb()
+    .select({ id: smallGroups.id, name: smallGroups.name, address: smallGroups.address })
+    .from(smallGroups)
+    .where(eq(smallGroups.isArchived, false))
+    .orderBy(asc(smallGroups.name));
+  return { ok: true, gatherings: rows };
+}
+
+/** 사역자가 모들 이름과 주소를 고칩니다. 개인이 모들을 만드는 일과는 따로입니다. */
+export async function updateGathering(input: { groupId: string; name: string; address: string }) {
+  const actor = await loadActor();
+  if (actor.kind !== "user") throw new PlaceFlowError("먼저 들어가 주세요.");
+  const scope = await loadPlaceScope(actor.userId);
+  if (!scope.isPastor) throw new PlaceFlowError("모들 목록은 사역자만 고칩니다.");
+  const name = input.name.trim();
+  const address = input.address.trim();
+  const groupId = input.groupId.trim();
+  if (!groupId) throw new PlaceFlowError("모들을 찾지 못했습니다.");
+  if (!name) throw new PlaceFlowError("모들 이름을 적어 주세요.");
+  if (name.length > 80) throw new PlaceFlowError("모들 이름은 80자 안으로 적어 주세요.");
+  if (address.length > 200) throw new PlaceFlowError("주소는 200자 안으로 적어 주세요.");
+  await assertTextsAllowed(name, address);
+  const point = address ? await lookupAddressPoint(address) : null;
+  if (address && !point) throw new PlaceFlowError("이 주소를 지도에서 찾지 못했습니다.");
+  const db = getDb();
+  const [row] = await db
+    .select({ id: smallGroups.id })
+    .from(smallGroups)
+    .where(and(eq(smallGroups.id, groupId), eq(smallGroups.isArchived, false)))
+    .limit(1);
+  if (!row) throw new PlaceFlowError("모들을 찾지 못했습니다.");
+  await db
+    .update(smallGroups)
+    .set({
+      name,
+      address,
+      lat: point?.lat ?? null,
+      lon: point?.lon ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(smallGroups.id, groupId));
+}
+
 export async function subscribeGathering(groupId: string) {
   const userId = await requireUserId();
   await ensureDatabase();

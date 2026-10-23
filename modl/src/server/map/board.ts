@@ -9,6 +9,7 @@ import { showsCommunitySettings } from "@/account/access";
 import { canSeePickupPin } from "@/map/access";
 import { type ChurchInput, type ChurchPin, type ChurchRecord, parseChurchRows } from "@/map/church-sheet";
 import { normalizeChurchTags, type ChurchTag } from "@/map/church-tags";
+import { openingFocus, type MapOpeningSource } from "@/map/opening";
 import { cityFromStored, regionFromAddress } from "@/map/region";
 import type { MapPoint } from "@/map/rules";
 import { formalMembership } from "@/server/auth/membership";
@@ -49,6 +50,8 @@ export type MapBoardData = {
   signedIn: boolean;
   followedChurchIds: string[];
   followedGroupIds: string[];
+  openingPoint: MapPoint;
+  openingSource: MapOpeningSource;
 };
 
 export type SavedChurch = {
@@ -162,6 +165,7 @@ export async function loadMapBoard(): Promise<MapBoardData> {
   const seen = await viewer();
   const communityId = seen?.communityId ?? (await operatorCommunityId());
   if (!communityId) {
+    const opening = openingFocus({});
     return {
       churches: [],
       gatherings: [],
@@ -173,6 +177,8 @@ export async function loadMapBoard(): Promise<MapBoardData> {
       self: null,
       hasChurches: false,
       canEditChurches: false,
+      openingPoint: opening.point,
+      openingSource: opening.source,
       ...follows,
     };
   }
@@ -257,6 +263,7 @@ export async function loadMapBoard(): Promise<MapBoardData> {
     pickups.push({ id: row.id, name: row.name, point });
   }
   const mine = seen ? memberRows.find((row) => row.id === seen.membership.memberId) ?? null : null;
+  const opening = await openingFor(mapActor.kind === "user" ? mapActor.userId : null, mine, churchRows);
   return {
     churches,
     gatherings,
@@ -272,8 +279,39 @@ export async function loadMapBoard(): Promise<MapBoardData> {
     self: mine ? { address: mine.address ?? "", consented: mine.pickupConsentAt !== null } : null,
     hasChurches: churchRows.length > 0,
     canEditChurches: Boolean(seen && showsCommunitySettings(seen.membership.role)),
+    openingPoint: opening.point,
+    openingSource: opening.source,
     ...follows,
   };
+}
+
+async function openingFor(
+  userId: string | null,
+  mine: { address: string | null; pickupLat: number | null; pickupLon: number | null } | null,
+  churchRows: readonly { id: string; lat: number | null; lon: number | null }[],
+) {
+  if (!userId) return openingFocus({});
+  const db = getDb();
+  const [user] = await db.select({ homeChurchId: users.homeChurchId }).from(users).where(eq(users.id, userId)).limit(1);
+  const homeRow = user?.homeChurchId ? churchRows.find((row) => row.id === user.homeChurchId) : undefined;
+  let homeChurchPoint = homeRow ? finitePoint(homeRow.lat, homeRow.lon) : null;
+  if (user?.homeChurchId && !homeChurchPoint) {
+    const [home] = await db.select({ lat: mapChurches.lat, lon: mapChurches.lon }).from(mapChurches).where(eq(mapChurches.id, user.homeChurchId)).limit(1);
+    homeChurchPoint = home ? finitePoint(home.lat, home.lon) : null;
+  }
+  let addressText = mine?.address?.trim() ?? "";
+  let stored = mine ? finitePoint(mine.pickupLat, mine.pickupLon) : null;
+  if (!addressText) {
+    const [member] = await db
+      .select({ address: members.address, pickupLat: members.pickupLat, pickupLon: members.pickupLon })
+      .from(members)
+      .where(eq(members.userId, userId))
+      .limit(1);
+    addressText = member?.address?.trim() ?? "";
+    stored = member ? finitePoint(member.pickupLat, member.pickupLon) : null;
+  }
+  const addressPoint = addressText ? (stored ?? (await pointForSavedAddress(addressText, null))) : null;
+  return openingFocus({ addressPoint, addressText, homeChurchPoint });
 }
 
 export async function loadChurchSettings(): Promise<ChurchSettings> {

@@ -214,19 +214,28 @@ export async function loadCalendarMonth(year: number, month: number) {
     googleHasId: readGoogleCalendarHasId(),
     googleRead: google.status,
     events: visible.map((event) => {
-      const scopeLabel = event.groupId
-        ? groupPlaceNames.get(event.groupId) ?? groupNames.get(event.groupId) ?? "모들"
-        : event.churchId
-          ? churchPlaceNames.get(event.churchId) ?? "교회"
-          : churchNames.get(event.communityId) ?? "교회";
+      const place = event.groupId
+        ? {
+            placeId: event.groupId,
+            placeKind: "gathering" as const,
+            placeName: groupPlaceNames.get(event.groupId) ?? groupNames.get(event.groupId) ?? "모들",
+          }
+        : {
+            placeId: event.churchId ?? event.communityId,
+            placeKind: "church" as const,
+            placeName: event.churchId
+              ? (churchPlaceNames.get(event.churchId) ?? "교회")
+              : (churchNames.get(event.communityId) ?? "교회"),
+          };
       return {
         id: event.id,
-        title: `${scopeLabel} · ${event.title}`,
+        title: event.title,
         startAt: formatLocalDateTime(event.startAt),
         endAt: formatLocalDateTime(event.endAt),
         category: event.category,
         isLeaderOnly: event.isLeaderOnly,
         googleEventId: event.googleEventId,
+        ...place,
       };
     }),
     birthdays,

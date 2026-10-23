@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { followWindowMeters, distanceToLineMeters, HERE_RADIUS_METERS, JEJU_VIEW, lineLengthMeters, nearestSegmentIndex, OFF_ROUTE_METERS, radiusView } from "@/map/follow";
+import { followWindowMeters, distanceToLineMeters, HERE_RADIUS_METERS, lineLengthMeters, nearestSegmentIndex, OFF_ROUTE_METERS, radiusView } from "@/map/follow";
+import type { MapOpeningSource } from "@/map/opening";
+import { boundsSpanKm, pinsForView, pointInside, type ViewBounds } from "@/map/viewport";
 import type { BusGuide } from "@/map/jeju-bus";
 import type { ChurchPin } from "@/map/church-sheet";
 import { churchMatchesTags, normalizeChurchTags, type ChurchTag } from "@/map/church-tags";
@@ -66,6 +68,8 @@ export function MapBoard({
   signedIn,
   followedChurchIds,
   followedGroupIds,
+  openingPoint,
+  openingSource,
   mapboxToken,
 }: {
   churches: ChurchPin[];
@@ -81,6 +85,8 @@ export function MapBoard({
   signedIn: boolean;
   followedChurchIds: string[];
   followedGroupIds: string[];
+  openingPoint: MapPoint;
+  openingSource: MapOpeningSource;
   mapboxToken: string;
 }) {
   const [query, setQuery] = useState("");
@@ -672,6 +678,8 @@ export function MapBoard({
         following={following}
         here={here}
         speed={speed}
+        openingPoint={openingPoint}
+        openingSource={openingSource}
         mapboxToken={mapboxToken}
         onSelect={choose}
         onClear={() => {
@@ -1357,6 +1365,8 @@ function MapCanvas({
   following,
   here,
   speed,
+  openingPoint,
+  openingSource,
   mapboxToken,
   onSelect,
   onClear,
@@ -1373,6 +1383,8 @@ function MapCanvas({
   following: boolean;
   here: MapPoint | null;
   speed: number | null;
+  openingPoint: MapPoint;
+  openingSource: MapOpeningSource;
   mapboxToken: string;
   onSelect: (selected: Selected) => void;
   onClear: () => void;
@@ -1387,6 +1399,11 @@ function MapCanvas({
   const lineCountRef = useRef(line.length);
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState("");
+  const [viewTick, setViewTick] = useState(0);
+  const [churchDrawn, setChurchDrawn] = useState(0);
+  const [viewSpanKm, setViewSpanKm] = useState("");
+  const openingRef = useRef(openingPoint);
+  openingRef.current = openingPoint;
   selectRef.current = onSelect;
   clearRef.current = onClear;
   followingRef.current = following;
@@ -1421,8 +1438,8 @@ function MapCanvas({
           },
           layers: [{ id: "modl", type: "raster", source: "modl" }],
         },
-        center: [(JEJU_VIEW.west + JEJU_VIEW.east) / 2, (JEJU_VIEW.south + JEJU_VIEW.north) / 2],
-        zoom: 9,
+        center: [openingRef.current.lon, openingRef.current.lat],
+        zoom: 12,
         attributionControl: false,
         logoPosition: "top-right",
       });
@@ -1437,10 +1454,14 @@ function MapCanvas({
       });
       map.on("load", () => {
         if (!alive || !map) return;
-        const bounds = new mapboxgl.LngLatBounds([JEJU_VIEW.west, JEJU_VIEW.south], [JEJU_VIEW.east, JEJU_VIEW.north]);
+        const view = radiusView(openingRef.current, HERE_RADIUS_METERS);
+        const bounds = new mapboxgl.LngLatBounds([view.west, view.south], [view.east, view.north]);
         map.fitBounds(bounds, { padding: 48, duration: 0 });
         mapRef.current = map;
         setReady(true);
+      });
+      map.on("moveend", () => {
+        if (alive) setViewTick((value) => value + 1);
       });
     });
     return () => {
@@ -1462,6 +1483,13 @@ function MapCanvas({
       const mapboxgl = mod.default;
       markersRef.current.forEach((marker) => marker.remove());
       const markers: import("mapbox-gl").Marker[] = [];
+      const raw = map.getBounds();
+      const frame: ViewBounds = { west: raw.getWest(), south: raw.getSouth(), east: raw.getEast(), north: raw.getNorth() };
+      const zoom = map.getZoom();
+      const churchPins = pinsForView(churches, frame, zoom);
+      const gatheringPins = pinsForView(gatherings, frame, zoom);
+      setChurchDrawn(churchPins.length);
+      setViewSpanKm(boundsSpanKm(frame).toFixed(1));
       const add = (marker: import("mapbox-gl").Marker, choice: Selected, label: string) => {
         marker.getElement().setAttribute("aria-label", label);
         marker.getElement().addEventListener("click", (event) => {
@@ -1470,14 +1498,51 @@ function MapCanvas({
         });
         markers.push(marker);
       };
-      for (const church of churches) {
+      const addCluster = (kind: "church" | "gathering", color: string, pin: { point: MapPoint; count: number; items: Array<{ point: MapPoint }> }) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.pinKind = kind;
+        button.dataset.pinCluster = "true";
+        button.dataset.pinColor = color;
+        button.textContent = String(pin.count);
+        button.setAttribute("aria-label", `${pin.count}곳`);
+        button.style.width = "32px";
+        button.style.height = "32px";
+        button.style.borderRadius = "999px";
+        button.style.background = color;
+        button.style.color = "#ffffff";
+        button.style.border = "2px solid #ffffff";
+        button.style.fontSize = "12px";
+        button.style.fontWeight = "700";
+        const marker = new mapboxgl.Marker({ element: button }).setLngLat([pin.point.lon, pin.point.lat]).addTo(map);
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const next = new mapboxgl.LngLatBounds();
+          for (const item of pin.items) next.extend([item.point.lon, item.point.lat]);
+          map.fitBounds(next, { padding: 64, maxZoom: 14 });
+        });
+        markers.push(marker);
+      };
+      for (const pin of churchPins) {
+        if (pin.count > 1) {
+          addCluster("church", churchPinColor, pin);
+          continue;
+        }
+        const church = pin.items[0];
+        if (!church) continue;
         const color = selected?.type === "church" && selected.id === church.id ? "#1e3a8a" : churchPinColor;
         const marker = new mapboxgl.Marker({ color }).setLngLat([church.point.lon, church.point.lat]).addTo(map);
         marker.getElement().dataset.pinKind = "church";
         marker.getElement().dataset.pinColor = color;
         add(marker, { type: "church", id: church.id }, church.name);
       }
-      for (const gathering of gatherings) {
+      for (const pin of gatheringPins) {
+        if (pin.count > 1) {
+          addCluster("gathering", gatheringPinColor, pin);
+          continue;
+        }
+        const gathering = pin.items[0];
+        if (!gathering) continue;
         const color = selected?.type === "gathering" && selected.id === gathering.id ? "#4c1d95" : gatheringPinColor;
         const marker = new mapboxgl.Marker({ color }).setLngLat([gathering.point.lon, gathering.point.lat]).addTo(map);
         marker.getElement().dataset.pinKind = "gathering";
@@ -1485,10 +1550,12 @@ function MapCanvas({
         add(marker, { type: "gathering", id: gathering.id }, gathering.name);
       }
       for (const pin of pickups) {
+        if (!pointInside(pin.point, frame, 0.02) && !(selected?.type === "pickup" && selected.id === pin.id)) continue;
         const marker = new mapboxgl.Marker({ color: "#b45309" }).setLngLat([pin.point.lon, pin.point.lat]).addTo(map);
         add(marker, { type: "pickup", id: pin.id }, pin.name);
       }
       for (const item of places) {
+        if (!pointInside(item.point, frame, 0.02) && !(selected?.type === "place" && selected.id === item.id)) continue;
         const marker = new mapboxgl.Marker({ color: selected?.type === "place" && selected.id === item.id ? "#111827" : "#64748b" })
           .setLngLat([item.point.lon, item.point.lat])
           .addTo(map);
@@ -1512,7 +1579,7 @@ function MapCanvas({
         map.addLayer({ id: "route-line", type: "line", source: "route-line", paint: { "line-color": "#1d4ed8", "line-width": 5 } });
       }
     });
-  }, [ready, churches, gatherings, churchPinColor, gatheringPinColor, pickups, places, selected, line]);
+  }, [ready, viewTick, churches, gatherings, churchPinColor, gatheringPinColor, pickups, places, selected, line]);
 
   useEffect(() => {
     if (!ready) return;
@@ -1558,7 +1625,7 @@ function MapCanvas({
     if (!ready || followingRef.current || line.length >= 2) return;
     const map = mapRef.current;
     if (!map) return;
-    const view = here ? radiusView(here, HERE_RADIUS_METERS) : JEJU_VIEW;
+    const view = radiusView(here ?? openingRef.current, HERE_RADIUS_METERS);
     void import("mapbox-gl").then((mod) => {
       if (!mapRef.current || followingRef.current || lineCountRef.current >= 2) return;
       const next = new mod.default.LngLatBounds([view.west, view.south], [view.east, view.north]);
@@ -1609,7 +1676,18 @@ function MapCanvas({
   return (
     <div className="h-full">
       {mapError ? <p className="absolute left-3 top-24 z-10 rounded-2xl bg-white px-4 py-3 leading-relaxed shadow-md">{mapError}</p> : null}
-      <div ref={host} className="modl-map" aria-label="지도" />
+      <div
+        ref={host}
+        className="modl-map"
+        aria-label="지도"
+        data-testid="map-canvas"
+        data-opening-source={openingSource}
+        data-opening-lat={openingPoint.lat}
+        data-opening-lon={openingPoint.lon}
+        data-church-total={churches.length}
+        data-church-drawn={churchDrawn}
+        data-view-span-km={viewSpanKm}
+      />
     </div>
   );
 }

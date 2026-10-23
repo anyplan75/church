@@ -255,6 +255,9 @@ export type CalendarDayEvent = {
   startAt: string;
   endAt: string;
   isLeaderOnly: boolean;
+  placeName?: string | null;
+  placeKind?: "church" | "gathering" | null;
+  placeId?: string | null;
 };
 
 export type GoogleEventView = {
@@ -271,7 +274,56 @@ export type DayMark = {
   kind: "event" | "birthday" | "google" | "season";
   href: string | null;
   leaderOnly: boolean;
+  placeName: string | null;
+  placeKind: "church" | "gathering" | null;
+  placeColor: string | null;
 };
+
+const CHURCH_SWATCHES = ["#1e3a8a", "#1e40af", "#1d4ed8", "#2563eb", "#1d4f91", "#1a56c4", "#2451b8", "#0f3d91", "#163e86", "#1c4ed8", "#1347b8", "#1e4b9c"] as const;
+const GATHERING_SWATCHES = ["#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#6b21a8", "#581c87", "#7e22ce", "#5521a8", "#6d28b8", "#4a1d96", "#6928c4", "#5b1d9a"] as const;
+
+function swatchIndex(id: string, size: number): number {
+  let hash = 2166136261;
+  for (let index = 0; index < id.length; index += 1) {
+    hash ^= id.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % size;
+}
+
+/** 같은 교회·모들은 항상 같은 색입니다. 교회는 파란 계열, 모들은 보라 계열입니다. */
+export function schedulePlaceColor(kind: "church" | "gathering", id: string): string {
+  const palette = kind === "church" ? CHURCH_SWATCHES : GATHERING_SWATCHES;
+  return palette[swatchIndex(id, palette.length)] ?? palette[0];
+}
+
+const NO_PLACE = { placeName: null, placeKind: null, placeColor: null } as const;
+
+function placeOf(event: CalendarDayEvent): { placeName: string | null; placeKind: "church" | "gathering" | null; placeColor: string | null } {
+  const placeName = event.placeName?.trim() || null;
+  const placeKind = event.placeKind === "church" || event.placeKind === "gathering" ? event.placeKind : null;
+  const placeId = event.placeId?.trim() || null;
+  if (!placeName || !placeKind || !placeId) return NO_PLACE;
+  return { placeName, placeKind, placeColor: schedulePlaceColor(placeKind, placeId) };
+}
+
+/** 일요일로 시작하는 그 주의 일곱 날짜입니다. 없는 날짜는 만들지 않습니다. */
+export function weekDateKeys(anchor: string): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) return [];
+  const [year, month, day] = anchor.split("-").map(Number);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return [];
+  const check = new Date(Date.UTC(year, month - 1, day));
+  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return [];
+  const start = addCivilDays({ year, month, day }, -check.getUTCDay());
+  return Array.from({ length: 7 }, (_, index) => civilKey(addCivilDays(start, index)));
+}
+
+export function shiftDateKey(date: string, days: number): string {
+  const keys = weekDateKeys(date);
+  if (keys.length !== 7) return date;
+  const [year, month, day] = date.split("-").map(Number);
+  return civilKey(addCivilDays({ year, month, day }, days));
+}
 
 export type MonthDayCell = {
   date: string | null;
@@ -481,6 +533,7 @@ export function monthDayMarks(
         kind: "event",
         href: `/calendar/${event.id}`,
         leaderOnly: event.isLeaderOnly,
+        ...placeOf(event),
       });
     }
     for (const event of googleEvents) {
@@ -493,6 +546,7 @@ export function monthDayMarks(
         kind: "google",
         href: null,
         leaderOnly: false,
+        ...NO_PLACE,
       });
     }
     for (const season of seasons) {
@@ -503,6 +557,7 @@ export function monthDayMarks(
         kind: "season",
         href: null,
         leaderOnly: false,
+        ...NO_PLACE,
       });
     }
     for (const birthday of birthdays) {
@@ -513,6 +568,7 @@ export function monthDayMarks(
         kind: "birthday",
         href: null,
         leaderOnly: false,
+        ...NO_PLACE,
       });
     }
     return { date: cell.date, day: cell.day, marks };

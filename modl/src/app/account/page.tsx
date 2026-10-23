@@ -3,7 +3,6 @@ import Link from "next/link";
 import { showsChurchManager, showsGatheringManager, showsOwnPickup, showsPeopleSettings, showsSignupList, showsSiteOperator } from "@/account/access";
 import { ApprovalWork, GroupWork, InviteWork, NewcomerWork, RosterWork, seasonYear } from "@/components/account-work";
 import { BannedWordSettings, OwnPickupSettings, SurveyAccountSettings } from "@/components/account-settings";
-import { ChurchSettingsPanel } from "@/components/church-settings-panel";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
 import { TermText } from "@/components/term-text";
@@ -15,7 +14,6 @@ import { loadPendingSignup } from "@/server/login/access";
 import { completeSocialSignup } from "@/server/login/oauth-actions";
 import { loginAction, logoutAction, signupAction } from "@/server/community/actions";
 import { loadAccountPage, loadSignupPeople } from "@/server/community/service";
-import { loadChurchSettings } from "@/server/map/board";
 import { loadBannedWordsForEditor } from "@/server/moderation/words";
 import { loadSurveyDesk } from "@/server/survey/service";
 
@@ -70,7 +68,6 @@ export default async function AccountPage({
   const year = seasonYear(query.year);
   const tabs: Array<{ id: string; label: string; panel: ReactNode }> = [];
   if (account.user && siteOperator) {
-    const churches = await loadChurchSettings();
     const banned = await loadBannedWordsForEditor();
     tabs.push({
       id: "site",
@@ -80,7 +77,9 @@ export default async function AccountPage({
           {signupPeople ? <SignupPeople people={signupPeople} /> : null}
           {banned.ok ? <BannedWordSettings words={banned.words.map((item) => item.word).join(", ")} /> : null}
           {place ? <PlaceAccount place={place} part="site" churchQuery={query.church ?? ""} gatheringQuery={query.gathering ?? ""} /> : null}
-          {churches.ok ? <ChurchSettingsPanel churches={churches.churches} toolsOnly /> : null}
+          <Link href="/account/places" data-testid="operator-places-link" className="w-fit rounded-2xl bg-[#111827] px-4 py-3 font-semibold text-white">
+            교회와 모들 전체 수정
+          </Link>
         </div>
       ),
     });

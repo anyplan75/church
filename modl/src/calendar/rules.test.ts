@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { generateKeyPairSync } from "node:crypto";
 import {
@@ -18,6 +19,9 @@ import {
   seasonIconKey,
   monthCells,
   monthDayMarks,
+  schedulePlaceColor,
+  shiftDateKey,
+  weekDateKeys,
   westernAdventStart,
   westernEaster,
   parseLocalDateTime,
@@ -283,6 +287,72 @@ describe("교회 절기", () => {
     assert.deepEqual(christmas?.marks.map((mark) => mark.title), ["전체 모임", "성탄절"]);
     assert.equal(christmas?.marks[1]?.kind, "season");
     assert.equal(christmas?.marks[1]?.href, null);
+  });
+
+  it("한 주는 일요일부터 일곱 날이고 일정에는 교회·모들 색이 붙습니다", () => {
+    assert.deepEqual(weekDateKeys("2026-10-23"), [
+      "2026-10-18",
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-21",
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-24",
+    ]);
+    assert.equal(weekDateKeys("2026-02-31").length, 0);
+    assert.equal(shiftDateKey("2026-10-18", 7), "2026-10-25");
+    const church = schedulePlaceColor("church", "church-a");
+    const again = schedulePlaceColor("church", "church-a");
+    const gathering = schedulePlaceColor("gathering", "church-a");
+    assert.equal(church, again);
+    assert.notEqual(church, gathering);
+    const hue = (hex: string) => {
+      const value = Number.parseInt(hex.slice(1), 16);
+      const red = (value >> 16) & 255;
+      const green = (value >> 8) & 255;
+      const blue = value & 255;
+      const max = Math.max(red, green, blue);
+      const min = Math.min(red, green, blue);
+      const span = max - min;
+      if (span === 0) return 0;
+      const raw = max === red ? ((green - blue) / span) % 6 : max === green ? (blue - red) / span + 2 : (red - green) / span + 4;
+      const turn = raw * 60;
+      return turn < 0 ? turn + 360 : turn;
+    };
+    assert.ok(hue(church) > 200 && hue(church) < 245);
+    assert.ok(hue(gathering) > 250 && hue(gathering) < 300);
+    const days = monthDayMarks(
+      2026,
+      10,
+      [
+        {
+          id: "modl-1",
+          title: "전체 모임",
+          startAt: "2026-10-19T10:00",
+          endAt: "2026-10-19T11:00",
+          isLeaderOnly: false,
+          placeName: "가시리교회",
+          placeKind: "church",
+          placeId: "church-a",
+        },
+      ],
+      [],
+      [],
+    );
+    const mark = days.find((cell) => cell.date === "2026-10-19")?.marks[0];
+    assert.equal(mark?.placeName, "가시리교회");
+    assert.equal(mark?.placeColor, church);
+    assert.equal(mark?.title, "전체 모임");
+    const page = readFileSync(new URL("../app/calendar/page.tsx", import.meta.url), "utf8");
+    assert.doesNotMatch(page, /수정 권한이 없으면 일정은 보기만 합니다/);
+    const note = page.indexOf("내가 속한 교회 일정과 내가 속한 모들 일정만 보입니다");
+    const monthGrid = page.indexOf('data-testid="month-grid"');
+    const weekBoard = page.indexOf('data-testid="week-board"');
+    assert.ok(note > monthGrid && note > weekBoard);
+    const tabs = page.slice(page.indexOf('data-testid="calendar-view-tabs"'), page.indexOf("</nav>"));
+    assert.match(tabs, /월별일정/);
+    assert.match(tabs, /주간일정/);
+    assert.doesNotMatch(tabs, /달력/);
   });
 });
 

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ChurchPin } from "@/map/church-sheet";
+import type { MapOpeningSource } from "@/map/opening";
 import type { MapPoint } from "@/map/rules";
 
 const MapBoard = dynamic(() => import("@/components/map-board").then((mod) => mod.MapBoard), {
@@ -24,6 +25,8 @@ export function MapScreen({
   signedIn,
   followedChurchIds,
   followedGroupIds,
+  openingPoint,
+  openingSource,
   mapboxToken,
 }: {
   churches: ChurchPin[];
@@ -39,6 +42,8 @@ export function MapScreen({
   signedIn: boolean;
   followedChurchIds: string[];
   followedGroupIds: string[];
+  openingPoint: MapPoint;
+  openingSource: MapOpeningSource;
   mapboxToken: string;
 }) {
   return (
@@ -56,6 +61,8 @@ export function MapScreen({
       signedIn={signedIn}
       followedChurchIds={followedChurchIds}
       followedGroupIds={followedGroupIds}
+      openingPoint={openingPoint}
+      openingSource={openingSource}
       mapboxToken={mapboxToken}
     />
   );

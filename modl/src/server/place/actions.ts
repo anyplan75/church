@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import {
   assignSteward,
   createGathering,
-  grantPlaceEdit,
   readablePlaceError,
+  updateGathering,
+  grantPlaceEdit,
   revokePlaceEdit,
   setCurrentChurch,
   setCurrentGathering,
@@ -77,6 +78,15 @@ export async function createGatheringAction(formData: FormData) {
     fail(error);
   }
   redirect("/account?ok=gathering");
+}
+
+export async function updateGatheringAction(formData: FormData) {
+  try {
+    await updateGathering({ groupId: text(formData, "groupId"), name: text(formData, "name"), address: text(formData, "address") });
+  } catch (error) {
+    redirect(`/account/places?error=${encodeURIComponent(readablePlaceError(error))}`);
+  }
+  redirect("/account/places?ok=gathering-saved");
 }
 
 export async function subscribeGatheringAction(formData: FormData) {
