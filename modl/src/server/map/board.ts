@@ -37,6 +37,8 @@ export type GatheringPin = {
 export type MapBoardData = {
   churches: ChurchPin[];
   gatherings: GatheringPin[];
+  directoryChurches: Array<{ id: string; name: string; address: string }>;
+  directoryGatherings: Array<{ id: string; name: string; address: string }>;
   churchPinColor: string;
   gatheringPinColor: string;
   pickups: Array<{ id: string; name: string; point: MapPoint }>;
@@ -163,6 +165,8 @@ export async function loadMapBoard(): Promise<MapBoardData> {
     return {
       churches: [],
       gatherings: [],
+      directoryChurches: [],
+      directoryGatherings: [],
       churchPinColor: CHURCH_PIN_COLOR,
       gatheringPinColor: GATHERING_PIN_COLOR,
       pickups: [],
@@ -256,6 +260,12 @@ export async function loadMapBoard(): Promise<MapBoardData> {
   return {
     churches,
     gatherings,
+    directoryChurches: churchRows
+      .filter((row) => row.name.trim())
+      .map((row) => ({ id: row.id, name: row.name, address: row.address })),
+    directoryGatherings: groupRows
+      .filter((row) => row.name.trim())
+      .map((row) => ({ id: row.id, name: row.name, address: row.address })),
     churchPinColor: CHURCH_PIN_COLOR,
     gatheringPinColor: GATHERING_PIN_COLOR,
     pickups,

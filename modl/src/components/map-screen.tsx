@@ -13,6 +13,8 @@ const MapBoard = dynamic(() => import("@/components/map-board").then((mod) => mo
 export function MapScreen({
   churches,
   gatherings,
+  directoryChurches,
+  directoryGatherings,
   churchPinColor,
   gatheringPinColor,
   pickups,
@@ -26,6 +28,8 @@ export function MapScreen({
 }: {
   churches: ChurchPin[];
   gatherings: Array<{ id: string; name: string; address: string; point: MapPoint }>;
+  directoryChurches: Array<{ id: string; name: string; address: string }>;
+  directoryGatherings: Array<{ id: string; name: string; address: string }>;
   churchPinColor: string;
   gatheringPinColor: string;
   pickups: Array<{ id: string; name: string; point: MapPoint }>;
@@ -41,6 +45,8 @@ export function MapScreen({
     <MapBoard
       churches={churches}
       gatherings={gatherings}
+      directoryChurches={directoryChurches}
+      directoryGatherings={directoryGatherings}
       churchPinColor={churchPinColor}
       gatheringPinColor={gatheringPinColor}
       pickups={pickups}

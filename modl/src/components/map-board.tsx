@@ -7,8 +7,8 @@ import type { BusGuide } from "@/map/jeju-bus";
 import type { ChurchPin } from "@/map/church-sheet";
 import { churchMatchesTags, normalizeChurchTags, type ChurchTag } from "@/map/church-tags";
 import { ChurchTagFilters } from "@/components/church-tag-filters";
-import { directoryHits, type DirectoryHit } from "@/map/directory";
-import { PLACE_KIND_LABEL, type MapPoint, type PlaceHit, type RouteResult, type RouteSegment } from "@/map/rules";
+import { directoryEmptyNote, directoryHits, type DirectoryHit } from "@/map/directory";
+import { type MapPoint, type PlaceHit, type RouteResult, type RouteSegment } from "@/map/rules";
 import { busGuideAction, busRouteLineAction, searchPlacesAction, travelAction } from "@/server/map/actions";
 import { saveMapChurchAction, saveMyAddressAction, setPickupConsentAction } from "@/server/map/church-actions";
 import { subscribePlaceOnMapAction } from "@/server/place/actions";
@@ -55,6 +55,8 @@ function arrivalLine(arrival: { label: string; minutes: number | null; stopsLeft
 export function MapBoard({
   churches,
   gatherings,
+  directoryChurches,
+  directoryGatherings,
   churchPinColor,
   gatheringPinColor,
   pickups,
@@ -68,6 +70,8 @@ export function MapBoard({
 }: {
   churches: ChurchPin[];
   gatherings: GatheringPin[];
+  directoryChurches: Array<{ id: string; name: string; address: string }>;
+  directoryGatherings: Array<{ id: string; name: string; address: string }>;
   churchPinColor: string;
   gatheringPinColor: string;
   pickups: PickupPin[];
@@ -268,17 +272,17 @@ export function MapBoard({
     setError("");
     setNote("");
     setSelected(null);
-    const found = directoryHits(query, churchRows, gatherings);
+    const found = directoryHits(query, directoryChurches, directoryGatherings);
     setDirectory(found);
     const result = await searchPlacesAction(query);
     setPending(null);
     if (!result.ok) {
       setPlaces([]);
-      if (found.length === 0) setError(result.message);
+      if (found.length === 0) setNote(directoryEmptyNote);
       return;
     }
     setPlaces(result.data);
-    if (result.data.length === 0 && found.length === 0) setNote("식당이나 숙소로 찾은 결과가 없습니다.");
+    if (found.length === 0) setNote(directoryEmptyNote);
   }
 
   useEffect(() => {
@@ -916,14 +920,17 @@ export function MapBoard({
         ) : (
           <>
             <DirectoryResults hits={directory} followed={followed} subscribing={subscribing} onChoose={choose} onSubscribe={(hit) => void onSubscribe(hit)} />
+            {note ? (
+              <p role="status" data-testid="map-search-note" className="bg-[#ecfdf3] px-3 py-2 text-sm leading-relaxed">
+                {note}
+              </p>
+            ) : null}
             {places.length > 0 ? (
               <ul className="max-h-36 list-none overflow-y-auto border-b border-[#e5e7eb]">
                 {places.map((item) => (
                   <li key={item.id}>
                     <button type="button" className="grid w-full gap-0.5 px-3 py-2 text-left" onClick={() => choose({ type: "place", id: item.id })}>
-                      <span className="text-sm font-semibold">
-                        {PLACE_KIND_LABEL[item.kind]} · {item.name}
-                      </span>
+                      <span className="text-sm font-semibold">{item.name}</span>
                       <span className="break-words text-xs text-[#4b5563]">{item.address}</span>
                     </button>
                   </li>
@@ -1103,9 +1110,7 @@ function DesktopMapDetails({
           {places.map((item) => (
             <li key={item.id} className="border-b border-[#f3f4f6] last:border-b-0">
               <button type="button" className="grid w-full gap-1 px-3 py-2 text-left hover:bg-[#f8fafc]" onClick={() => onChoose({ type: "place", id: item.id })}>
-                <span className="font-semibold">
-                  {PLACE_KIND_LABEL[item.kind]} · {item.name}
-                </span>
+                <span className="font-semibold">{item.name}</span>
                 <span className="break-words text-sm text-[#4b5563]">{item.address}</span>
               </button>
             </li>
@@ -1248,7 +1253,7 @@ function DesktopMapDetails({
         </p>
       ) : null}
       {note ? (
-        <p role="status" className="bg-[#ecfdf3] px-4 py-3 leading-relaxed">
+        <p role="status" data-testid="map-search-note" className="bg-[#ecfdf3] px-4 py-3 leading-relaxed">
           {note}
         </p>
       ) : null}

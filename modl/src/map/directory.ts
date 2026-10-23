@@ -1,4 +1,6 @@
-/** 지도 검색에서 이미 있는 교회와 모들 이름만 고릅니다. 없는 장소는 만들지 않습니다. */
+/** 지도 검색에서 교회와 모들 이름만 고릅니다. 없는 장소는 만들지 않습니다. */
+
+export const directoryEmptyNote = "교회나 모들로 찾은 결과가 없습니다.";
 
 export type DirectoryHit = {
   kind: "church" | "gathering";
