@@ -15,7 +15,7 @@ export default async function MenuPlaceholderPage({
   const shell = await loadShellState();
   if (menu === "approval") {
     if (!shell.officer) return <AccessScreen />;
-    redirect("/approvals");
+    redirect("/account?tab=church");
   }
   if (menu === "newcomer") {
     if (!shell.officer) return <AccessScreen />;

@@ -19,3 +19,18 @@ export function showsPeopleSettings(role: MemberRole | null): boolean {
 export function showsOwnPickup(role: MemberRole | null): boolean {
   return role !== null;
 }
+
+/** 사이트 전체 설정은 사역자 계정에서만 엽니다. */
+export function showsSiteOperator(role: MemberRole | null): boolean {
+  return role === "PASTOR";
+}
+
+/** 교회 사람 설정은 사역자·임원이고, 그 교회의 태우리도 교회 관리자입니다. */
+export function showsChurchManager(input: { role: MemberRole | null; churchSteward: boolean }): boolean {
+  return input.role === "PASTOR" || input.role === "EXECUTIVE" || input.churchSteward;
+}
+
+/** 모임 편성은 사역자·임원이고, 그 모들의 태우리도 모들 관리자입니다. */
+export function showsGatheringManager(input: { role: MemberRole | null; gatheringSteward: boolean }): boolean {
+  return input.role === "PASTOR" || input.role === "EXECUTIVE" || input.gatheringSteward;
+}

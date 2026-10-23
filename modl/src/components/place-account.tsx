@@ -10,17 +10,30 @@ import {
   unsubscribeChurchAction,
   unsubscribeGatheringAction,
 } from "@/server/place/actions";
-import { loadPlaceAccount } from "@/server/place/service";
+import type { PlaceAccount as PlaceAccountData } from "@/server/place/service";
 
-export async function PlaceAccount({ churchQuery, gatheringQuery }: { churchQuery: string; gatheringQuery: string }) {
-  const place = await loadPlaceAccount(churchQuery, gatheringQuery);
-  if (!place) return null;
+export function PlaceAccount({
+  place,
+  part,
+  churchQuery,
+  gatheringQuery,
+}: {
+  place: PlaceAccountData;
+  part: "personal" | "church" | "gathering" | "site";
+  churchQuery: string;
+  gatheringQuery: string;
+}) {
+  const managedKind = part === "church" ? "church" : part === "gathering" ? "gathering" : null;
+  const managedMembers = managedKind ? place.members.filter((member) => member.kind === managedKind) : [];
+  const managedGrants = managedKind ? place.grants.filter((grant) => grant.kind === managedKind) : [];
 
   return (
     <div className="grid gap-6" data-testid="place-account">
+      {part === "personal" ? (
+      <>
       <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
         <h2 className="text-lg font-semibold leading-snug">교회</h2>
-        <p className="leading-relaxed text-[#5c5148]">여러 교회를 구독하고, 지금 말씀을 들을 교회를 고릅니다.</p>
+        <p className="leading-relaxed text-[#5c5148]">여러 교회를 구독하고, 지금 예배드릴 교회를 고릅니다.</p>
         <form action="/account" className="flex flex-wrap gap-2">
           <input
             name="church"
@@ -56,7 +69,7 @@ export async function PlaceAccount({ churchQuery, gatheringQuery }: { churchQuer
             <li key={church.id} className="grid gap-2 rounded-2xl bg-white px-3 py-3">
               <p className="font-semibold">
                 {church.name}
-                {church.current ? " · 지금 말씀을 들을 교회" : ""}
+                {church.current ? " · 지금 예배드릴 교회" : ""}
                 {church.steward ? " · 태우리" : ""}
               </p>
               <div className="flex flex-wrap gap-2">
@@ -64,7 +77,7 @@ export async function PlaceAccount({ churchQuery, gatheringQuery }: { churchQuer
                   <form action={setCurrentChurchAction}>
                     <input type="hidden" name="churchId" value={church.id} />
                     <button type="submit" className="rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 font-semibold">
-                      이 교회 말씀 듣기
+                      이 교회 예배드리기
                     </button>
                   </form>
                 )}
@@ -148,12 +161,14 @@ export async function PlaceAccount({ churchQuery, gatheringQuery }: { churchQuer
           ))}
         </ul>
       </section>
-      {place.members.length > 0 ? (
+      </>
+      ) : null}
+      {managedMembers.length > 0 || managedGrants.length > 0 ? (
         <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
           <h2 className="text-lg font-semibold leading-snug">수정 권한</h2>
           <p className="leading-relaxed text-[#5c5148]">태우리가 속한 사람에게 재정과 일정을 고칠 권한을 줍니다. 권한이 없으면 보기만 합니다.</p>
           <ul className="grid gap-2">
-            {place.members.map((member) => (
+            {managedMembers.map((member) => (
               <li key={`${member.kind}-${member.placeId}-${member.userId}`} className="flex flex-wrap items-center justify-between gap-2">
                 <span>
                   {member.placeName} · {member.name}
@@ -169,9 +184,9 @@ export async function PlaceAccount({ churchQuery, gatheringQuery }: { churchQuer
               </li>
             ))}
           </ul>
-          {place.grants.length > 0 ? (
+          {managedGrants.length > 0 ? (
             <ul className="grid gap-2">
-              {place.grants.map((grant) => (
+              {managedGrants.map((grant) => (
                 <li key={grant.id} className="flex flex-wrap items-center justify-between gap-2">
                   <span>
                     {grant.name} · {grant.person} · 수정 가능
@@ -188,10 +203,22 @@ export async function PlaceAccount({ churchQuery, gatheringQuery }: { churchQuer
           ) : null}
         </section>
       ) : null}
-      {place.isPastor ? (
+      {part === "site" && place.isPastor ? (
         <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
           <h2 className="text-lg font-semibold leading-snug">태우리 지정</h2>
           <p className="leading-relaxed text-[#5c5148]">만든 사람이 없는 교회는 사역자가 태우리를 지정합니다. 등급은 고르지 않습니다.</p>
+          <form action="/account" className="flex flex-wrap gap-2">
+            <input type="hidden" name="tab" value="site" />
+            <input
+              name="church"
+              defaultValue={churchQuery}
+              placeholder="교회 이름"
+              className="min-w-0 flex-1 rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-snug"
+            />
+            <button type="submit" className="rounded-xl bg-[#111827] px-3 py-2 font-semibold text-white">
+              찾기
+            </button>
+          </form>
           <ul className="grid gap-2">
             {place.unassigned.map((item) => (
               <li key={`${item.kind}-${item.id}`} className="grid gap-2 rounded-2xl bg-white px-3 py-3">

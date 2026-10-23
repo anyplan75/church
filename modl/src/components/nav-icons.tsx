@@ -27,7 +27,7 @@ const ICONS: Record<string, IconSpec> = {
   "/survey": { lines: ["M8 6h12", "M8 12h12", "M8 18h12", "M4 6h.01", "M4 12h.01", "M4 18h.01"] },
   "/minutes": { lines: ["M8 3h8v18l-4-2-4 2z", "M10 8h4", "M10 12h4"] },
   "/archive": { lines: ["M3 7h18v4H3z", "M5 11v8h14v-8", "M10 15h4"] },
-  "/quiz": { lines: ["M8 6h12", "M8 12h8", "M9 18l3-3 3 3"], circles: [[6, 6, 1.2], [6, 12, 1.2]] },
+  "/discussion": { lines: ["M4 5h16v9H8l-4 3z", "M7 9h10", "M7 12h6"] },
   "/leader": { lines: ["M12 3l2.4 4.8 5.3.8-3.8 3.7.9 5.2L12 15.8 7.2 17.5l.9-5.2L4.3 8.6l5.3-.8z"] },
   "/website": { lines: ["M3 12h18", "M12 3c2 2.5 3 5.6 3 9s-1 6.5-3 9c-2-2.5-3-5.6-3-9s1-6.5 3-9z"], circles: [[12, 12, 9]] },
   "/map": { lines: ["M12 21s6-5 6-10a6 6 0 1 0-12 0c0 5 6 10 6 10z"], circles: [[12, 10, 2]] },

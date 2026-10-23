@@ -28,13 +28,13 @@ export async function createSurveyAction(formData: FormData) {
       allowAnonymous: formData.get("allowAnonymous") === "yes",
       deadline: text(formData, "deadline"),
     });
-  if (!parsed.success) fail("/account?tab=survey", new SurveyFlowError(parsed.error.issues[0]?.message ?? "설문을 확인해 주세요."));
+  if (!parsed.success) fail("/account?tab=church", new SurveyFlowError(parsed.error.issues[0]?.message ?? "설문을 확인해 주세요."));
   try {
     await createSurvey(parsed.data);
   } catch (error) {
-    fail("/account?tab=survey", error);
+    fail("/account?tab=church", error);
   }
-  redirect("/account?tab=survey&ok=survey");
+  redirect("/account?tab=church&ok=survey");
 }
 
 export async function submitSurveyAction(formData: FormData) {

@@ -7,6 +7,6 @@ export const dynamic = "force-dynamic";
 
 export default async function SurveyPage() {
   const account = await loadAccountPage();
-  if (showsPeopleSettings(account.role)) redirect("/account?tab=survey");
+  if (showsPeopleSettings(account.role)) redirect("/account?tab=church");
   return <AccessScreen />;
 }

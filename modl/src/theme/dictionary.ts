@@ -51,10 +51,10 @@ export const TERM_DICTIONARY = {
       jeju_primary: "혼디 걸은 길",
       jeju_alt: "추억 고팡",
     },
-    quiz: {
-      standard: "퀴즈",
-      jeju_primary: "퀴즈",
-      jeju_alt: "퀴즈",
+    discussion: {
+      standard: "토론",
+      jeju_primary: "토론",
+      jeju_alt: "토론",
     },
     newcomer: {
       standard: "새가족 안내",
@@ -307,7 +307,7 @@ export const TERM_DICTIONARY = {
     qt_empty: { standard: "아직 등록된 말씀이 없습니다.", jeju: "아직 등록된 말씀이 없습니다." },
     notice_empty: { standard: "아직 내 묵상 이후에 올라온 다른 묵상이 없습니다.", jeju: "아직 내 묵상 이후에 올라온 다른 묵상이 없습니다." },
     prayer_empty: { standard: "아직 기도 글이 없습니다.", jeju: "아직 기도 글이 없습니다." },
-    archive_leaders_only: { standard: "행사와 퀴즈 등록은 사역자와 모들 테우리만 합니다.", jeju: "행사와 퀴즈 등록은 사역자와 모들 테우리만 합니다." },
+    archive_leaders_only: { standard: "행사 등록은 사역자와 모들 테우리만 합니다.", jeju: "행사 등록은 사역자와 모들 테우리만 합니다." },
     archive_empty: { standard: "아직 행사 기록이 없습니다.", jeju: "아직 행사 기록이 없습니다." },
     quiz_empty: { standard: "아직 퀴즈가 없습니다.", jeju: "아직 퀴즈가 없습니다." },
     letter_empty: { standard: "아직 기별이 없습니다.", jeju: "아직 기별이 없습니다." },

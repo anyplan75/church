@@ -32,7 +32,7 @@ const sql = readdirSync(migrationDir)
 describe("표 정의와 마이그레이션", () => {
   it("정의된 표가 실행 명령 안에 모두 있습니다", () => {
     const tables = Object.values(dbSchema);
-    assert.equal(tables.length, 40);
+    assert.equal(tables.length, 42);
     for (const table of tables) {
       const name = getTableName(table);
       assert.match(sql, new RegExp(`CREATE TABLE ${name}\\b`));

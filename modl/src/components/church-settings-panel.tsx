@@ -29,7 +29,7 @@ function TagFields({ tags }: { tags: readonly ChurchTag[] }) {
 }
 
 /** 통역 교회 목록처럼 이름과 주소를 먼저 보여 주고, 고칠 때만 칸을 엽니다. */
-export function ChurchSettingsPanel({ churches }: { churches: ChurchRecord[] }) {
+export function ChurchSettingsPanel({ churches, toolsOnly = false }: { churches: ChurchRecord[]; toolsOnly?: boolean }) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTags, setEditTags] = useState<ChurchTag[]>([]);
@@ -45,9 +45,14 @@ export function ChurchSettingsPanel({ churches }: { churches: ChurchRecord[] }) 
   return (
     <section className="grid gap-4" data-testid="church-settings">
       <div className="grid gap-3">
-        <h2 className="font-semibold leading-snug">교회 목록</h2>
-        <p className="leading-relaxed text-[#4b5563]">태그는 주소로 만들지 않고, 수정에서 직접 켜고 끕니다.</p>
+        <h2 className="font-semibold leading-snug">{toolsOnly ? "교회 추가와 삭제" : "교회 목록"}</h2>
+        {toolsOnly ? (
+          <p className="leading-relaxed text-[#4b5563]">검색, 필터, 교회 수정은 지도에 있습니다.</p>
+        ) : (
+          <p className="leading-relaxed text-[#4b5563]">태그는 주소로 만들지 않고, 수정에서 직접 켜고 끕니다.</p>
+        )}
         <p className="leading-relaxed">{shown.length}곳</p>
+        {toolsOnly ? null : (
         <ChurchTagFilters
           selected={selected}
           onToggle={(tag) => {
@@ -59,6 +64,7 @@ export function ChurchSettingsPanel({ churches }: { churches: ChurchRecord[] }) 
             });
           }}
         />
+        )}
       </div>
       {shown.length === 0 ? (
         <p className="leading-relaxed">{churches.length === 0 ? "등록된 교회가 없습니다." : "조건에 맞는 교회가 없습니다."}</p>
@@ -82,14 +88,23 @@ export function ChurchSettingsPanel({ churches }: { churches: ChurchRecord[] }) 
                 {church.region ? <p className="text-sm leading-relaxed text-[#5c5148]">{church.region}</p> : null}
                 {church.tags.length > 0 ? <p className="text-sm leading-relaxed text-[#5c5148]">{church.tags.join(" · ")}</p> : null}
               </div>
-              <button type="button" className="rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-semibold" onClick={() => openEdit(church)}>
-                수정
-              </button>
+              {toolsOnly ? (
+                <form action={removeChurchAction}>
+                  <input type="hidden" name="churchId" value={church.id} />
+                  <button type="submit" className="rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-semibold">
+                    삭제
+                  </button>
+                </form>
+              ) : (
+                <button type="button" className="rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-semibold" onClick={() => openEdit(church)}>
+                  수정
+                </button>
+              )}
             </li>
           ))}
         </ul>
       )}
-      {editing ? (
+      {!toolsOnly && editing ? (
         <div className="grid gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm">
           <form action={saveChurchAction} className="grid gap-3">
             <input type="hidden" name="churchId" value={editing.id} />

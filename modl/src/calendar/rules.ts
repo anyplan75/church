@@ -421,6 +421,26 @@ export function churchSeasonMarks(year: number, month: number): Array<{ date: st
   return [...titles.entries()].flatMap(([date, names]) => names.map((title) => ({ date, title })));
 }
 
+/** 이미 계산된 절기 제목에만 아이콘 이름을 붙입니다. 없는 절기는 만들지 않습니다. */
+const SEASON_ICON_KEYS: Record<string, string> = {
+  "대림절 시작": "advent",
+  대림절: "advent",
+  성탄절: "christmas",
+  주현절: "epiphany",
+  "재의 수요일": "ash",
+  "사순절 시작": "lent",
+  사순절: "lent",
+  종려주일: "palm",
+  성금요일: "cross",
+  부활절: "easter",
+  승천일: "ascension",
+  성령강림절: "pentecost",
+};
+
+export function seasonIconKey(title: string): string | null {
+  return SEASON_ICON_KEYS[title] ?? null;
+}
+
 /** 저장된 일정, 읽어 온 구글 일정, 계산한 교회 절기만 날짜 칸에 놓습니다. 없는 모임은 만들지 않습니다. */
 export function monthDayMarks(
   year: number,

@@ -777,6 +777,53 @@ export const quizMonthPrizes = pgTable(
   (table) => [uniqueIndex("quiz_month_prizes_community_month_uidx").on(table.communityId, table.yearMonth)],
 );
 
+/** 토론 글입니다. 지금 예배드리는 교회 또는 지금 가는 모들 중 한곳에만 붙습니다. */
+export const discussionPosts = pgTable(
+  "discussion_posts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
+    authorUserId: uuid("author_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("discussion_posts_church_id_idx").on(table.churchId),
+    index("discussion_posts_group_id_idx").on(table.groupId),
+    index("discussion_posts_author_user_id_idx").on(table.authorUserId),
+    check("discussion_posts_one_place", sql`(${table.churchId} is not null) <> (${table.groupId} is not null)`),
+    check("discussion_posts_title_not_blank", sql`length(btrim(${table.title})) > 0`),
+    check("discussion_posts_body_not_blank", sql`length(btrim(${table.body})) > 0`),
+  ],
+);
+
+/** 토론 답글입니다. 승인 상태 없이 글 아래에 바로 붙습니다. */
+export const discussionReplies = pgTable(
+  "discussion_replies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => discussionPosts.id, { onDelete: "cascade" }),
+    authorUserId: uuid("author_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("discussion_replies_post_id_idx").on(table.postId),
+    index("discussion_replies_author_user_id_idx").on(table.authorUserId),
+    check("discussion_replies_body_not_blank", sql`length(btrim(${table.body})) > 0`),
+  ],
+);
+
 /** 공동체마다 하나인 열린 안뜨레 설정입니다. */
 export const websiteConfigs = pgTable(
   "website_configs",
@@ -1077,6 +1124,8 @@ export const dbSchema = {
   eventArchives,
   quizzes,
   quizMonthPrizes,
+  discussionPosts,
+  discussionReplies,
   websiteConfigs,
   websiteInquiries,
   groupMemberships,

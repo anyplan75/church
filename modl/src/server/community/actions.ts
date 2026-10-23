@@ -21,7 +21,8 @@ import { parseTermOverridesStrict } from "@/theme/resolve-term";
 import type { MemberRole } from "@/server/auth/actor";
 
 function fail(path: string, error: unknown): never {
-  redirect(`${path}?error=${encodeURIComponent(readableError(error))}`);
+  const join = path.includes("?") ? "&" : "?";
+  redirect(`${path}${join}error=${encodeURIComponent(readableError(error))}`);
 }
 
 function text(formData: FormData, key: string): string {
@@ -82,7 +83,7 @@ export async function loginAction(formData: FormData) {
   } catch (error) {
     fail("/account", error);
   }
-  redirect("/roster");
+  redirect("/account?tab=church");
 }
 
 export async function logoutAction() {
@@ -138,21 +139,21 @@ export async function createCommunityAction(formData: FormData) {
   } catch (error) {
     fail("/community/new", error);
   }
-  redirect("/roster?ok=community");
+  redirect("/account?tab=church&ok=community");
 }
 
 export async function issueInviteAction(formData: FormData) {
   const raw = text(formData, "maxUses");
   const maxUses = raw ? Number(raw) : null;
   if (raw && (!Number.isInteger(maxUses) || (maxUses ?? 0) < 1)) {
-    fail("/invite", new Error("쓸 수 있는 횟수는 1 이상의 정수로 적어 주세요."));
+    fail("/account?tab=church", new Error("쓸 수 있는 횟수는 1 이상의 정수로 적어 주세요."));
   }
   try {
     await issueInvite(maxUses);
   } catch (error) {
-    fail("/invite", error);
+    fail("/account?tab=church", error);
   }
-  redirect("/invite?ok=invite");
+  redirect("/account?tab=church&ok=invite");
 }
 
 export async function applyJoinAction(formData: FormData) {
@@ -184,9 +185,9 @@ export async function reviewApprovalAction(formData: FormData) {
   try {
     await reviewApproval(requestId, decision);
   } catch (error) {
-    fail("/approvals", error);
+    fail("/account?tab=church", error);
   }
-  redirect(decision === "APPROVED" ? "/roster?ok=approved" : "/approvals?ok=rejected");
+  redirect(decision === "APPROVED" ? "/account?tab=church&ok=approved" : "/account?tab=church&ok=rejected");
 }
 
 function rosterInput(formData: FormData) {
@@ -232,7 +233,7 @@ export async function createRosterAction(formData: FormData) {
   } catch (error) {
     fail("/roster/new", error);
   }
-  redirect("/roster?ok=roster");
+  redirect("/account?tab=church&ok=roster");
 }
 
 export async function updateRosterAction(formData: FormData) {
@@ -254,20 +255,20 @@ export async function updateRosterAction(formData: FormData) {
   } catch (error) {
     fail(`/roster/${memberId}`, error);
   }
-  redirect("/roster?ok=roster");
+  redirect("/account?tab=church&ok=roster");
 }
 
 export async function startSeasonAction(formData: FormData) {
   const year = Number(text(formData, "year"));
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-    fail("/group", new Error("시즌 연도는 2000년부터 2100년 사이로 적어 주세요."));
+    fail("/account?tab=gathering", new Error("시즌 연도는 2000년부터 2100년 사이로 적어 주세요."));
   }
   try {
     await startSeason(year);
   } catch (error) {
-    fail("/group", error);
+    fail("/account?tab=gathering", error);
   }
-  redirect(`/group?year=${year}&ok=season`);
+  redirect(`/account?tab=gathering&year=${year}&ok=season`);
 }
 
 export async function createGroupAction(formData: FormData) {
@@ -282,7 +283,7 @@ export async function createGroupAction(formData: FormData) {
       leaderMemberId: text(formData, "leaderMemberId"),
     });
   if (!Number.isInteger(year) || !parsed.success) {
-    fail("/group", new Error(parsed.success ? "시즌 연도를 확인해 주세요." : parsed.error.issues[0]?.message));
+    fail("/account?tab=gathering", new Error(parsed.success ? "시즌 연도를 확인해 주세요." : parsed.error.issues[0]?.message));
   }
   if (!parsed.success) return;
   try {
@@ -292,9 +293,9 @@ export async function createGroupAction(formData: FormData) {
       leaderMemberId: parsed.data.leaderMemberId || null,
     });
   } catch (error) {
-    fail(`/group?year=${year}`, error);
+    fail(`/account?tab=gathering&year=${year}`, error);
   }
-  redirect(`/group?year=${year}&ok=group`);
+  redirect(`/account?tab=gathering&year=${year}&ok=group`);
 }
 
 export async function assignGroupAction(formData: FormData) {
@@ -305,7 +306,7 @@ export async function assignGroupAction(formData: FormData) {
       memberId: text(formData, "memberId"),
     });
   } catch (error) {
-    fail(`/group?year=${year}`, error);
+    fail(`/account?tab=gathering&year=${year}`, error);
   }
-  redirect(`/group?year=${year}&ok=assign`);
+  redirect(`/account?tab=gathering&year=${year}&ok=assign`);
 }

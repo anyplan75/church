@@ -7,13 +7,12 @@ import { CATEGORY_LINKS } from "@/theme/categories";
  */
 
 const MEMBER_HREFS = [
-  "/attendance",
   "/bulletin",
   "/qt",
   "/prayer",
   "/calendar",
   "/archive",
-  "/quiz",
+  "/discussion",
   "/leader",
   "/map",
 ] as const;

@@ -197,7 +197,7 @@ export async function subscribeChurch(churchId: string) {
 export async function setCurrentChurch(churchId: string) {
   const userId = await requireUserId();
   const scope = await loadPlaceScope(userId);
-  if (!scope.churchIds.has(churchId)) throw new PlaceFlowError("구독한 교회만 지금 말씀을 들을 교회로 고를 수 있습니다.");
+  if (!scope.churchIds.has(churchId)) throw new PlaceFlowError("구독한 교회만 지금 예배드릴 교회로 고를 수 있습니다.");
   await getDb().update(users).set({ homeChurchId: churchId, updatedAt: new Date() }).where(eq(users.id, userId));
 }
 

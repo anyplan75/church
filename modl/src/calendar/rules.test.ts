@@ -14,6 +14,7 @@ import {
   googleEventCoversDate,
   googleEventRequest,
   churchSeasonMarks,
+  seasonIconKey,
   monthCells,
   monthDayMarks,
   westernAdventStart,
@@ -240,6 +241,13 @@ describe("교회 절기", () => {
     assert.deepEqual(titles(2026, 12, 24), ["대림절"]);
     assert.deepEqual(titles(2026, 12, 25), ["성탄절"]);
     assert.deepEqual(titles(2026, 12, 26), []);
+    assert.equal(seasonIconKey("대림절"), "advent");
+    assert.equal(seasonIconKey("성탄절"), "christmas");
+    assert.equal(seasonIconKey("사순절"), "lent");
+    assert.equal(seasonIconKey("성금요일"), "cross");
+    assert.equal(seasonIconKey("부활절"), "easter");
+    assert.equal(seasonIconKey("성령강림절"), "pentecost");
+    assert.equal(seasonIconKey("없는 절기"), null);
   });
 
   it("절기는 칸에만 보이고 저장된 일정을 지우지 않습니다", () => {
