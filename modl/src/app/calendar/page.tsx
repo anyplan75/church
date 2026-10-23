@@ -197,13 +197,14 @@ export default async function CalendarPage({
             </p>
           ) : null}
           {view === "week" ? (
-            <ol data-testid="week-board" className="grid list-none gap-2 md:grid-cols-7">
+            {/* 칸 높이는 이전 6rem의 네 배입니다. 좁은 화면은 일곱 요일을 세로로 쌓아 페이지가 스크롤됩니다. */}
+            <ol data-testid="week-board" className="grid list-none grid-cols-1 gap-2 lg:grid-cols-7">
               {weekCells.map((cell, index) => (
                 <li
                   key={cell.date ?? `week-${index}`}
                   data-testid="week-day"
                   data-date={cell.date ?? ""}
-                  className="flex min-h-24 flex-col gap-1 rounded-xl border border-[#e4d8c8] bg-[#fffaf3] p-2"
+                  className="flex h-96 shrink-0 flex-col gap-1 overflow-y-auto rounded-xl border border-[#e4d8c8] bg-[#fffaf3] p-2"
                 >
                   <span className="text-xs font-medium text-[#5c5148]">{WEEKDAY_LABELS[index]}</span>
                   <DayMarks cell={cell} />
