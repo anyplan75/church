@@ -22,6 +22,15 @@ export type BulletinReadResult =
 const EMPTY_NOTE = "파일을 저장했습니다. 글을 읽지 못해 칸은 비워 둡니다.";
 
 export async function readBulletinSourceAction(formData: FormData): Promise<BulletinReadResult> {
+  try {
+    return await readBulletinSource(formData);
+  } catch (error) {
+    if (error instanceof BannedWordError) return { ok: false, message: error.message };
+    return { ok: false, message: "주보를 읽지 못했습니다. 다시 눌러 주세요." };
+  }
+}
+
+async function readBulletinSource(formData: FormData): Promise<BulletinReadResult> {
   const actor = await loadActor();
   const communityId = await activeCommunityId(actor);
   if (!communityId || !canPublishBulletin(actor, communityId)) {
@@ -49,14 +58,7 @@ export async function readBulletinSourceAction(formData: FormData): Promise<Bull
     else unread = true;
   }
   const text = [pasted.trim(), extracted.trim()].filter(Boolean).join("\n");
-  if (text) {
-    try {
-      await assertTextsAllowed(text);
-    } catch (error) {
-      if (error instanceof BannedWordError) return { ok: false, message: error.message };
-      throw error;
-    }
-  }
+  if (text) await assertTextsAllowed(text);
   if (!text) {
     if (fileHref) return { ok: true, filled: false, note: EMPTY_NOTE, fileHref };
     return { ok: false, message: "주보 내용을 붙여 넣거나 파일을 선택해 주세요." };

@@ -24,6 +24,13 @@ const ACCEPT = [
   ".jpeg",
   ".png",
   ".webp",
+  ".heic",
+  ".heif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
 ];
 
 export function bulletinAccept(): string {
@@ -31,7 +38,7 @@ export function bulletinAccept(): string {
 }
 
 export function bulletinFormatNote(): string {
-  return "직접 적거나 붙여 넣은 글, 텍스트, 워드, 한글, PDF, RTF, ODT, HTML, 사진을 받습니다.";
+  return "직접 적거나 붙여 넣은 글, 텍스트, 워드, 한글, PDF, RTF, ODT, HTML, 사진을 받습니다. jpg, png, webp, heic와 확장자가 없는 사진도 받습니다.";
 }
 
 export type IntakeFields = {

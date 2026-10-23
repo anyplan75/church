@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { BULLETIN_UPLOAD_BYTES } from "@/bulletin/intake";
+import { imageExtension, sniffImage } from "@/server/bulletin/read/image-kind";
 
 const EXTENSIONS = new Set([
   ".txt",
@@ -33,8 +34,15 @@ export function bulletinExtension(name: string): string | null {
   return EXTENSIONS.has(ext) ? ext : null;
 }
 
+/** 사진이면 내용의 종류를 쓰고, 글 파일이면 허용된 확장자를 씁니다. */
+export function resolveBulletinExtension(name: string, bytes: Uint8Array): string | null {
+  const kind = sniffImage(bytes);
+  if (kind) return imageExtension(kind);
+  return bulletinExtension(name);
+}
+
 export async function saveBulletinFile(name: string, bytes: Buffer): Promise<string> {
-  const ext = bulletinExtension(name);
+  const ext = resolveBulletinExtension(name, bytes);
   if (!ext) throw new Error("텍스트, 워드, 한글, PDF, RTF, ODT, HTML, 사진만 올릴 수 있습니다.");
   if (bytes.length === 0) throw new Error("파일을 골라 주세요.");
   if (bytes.length > BULLETIN_UPLOAD_BYTES) throw new Error("파일은 16MB 이하로 올려 주세요.");

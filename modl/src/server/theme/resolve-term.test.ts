@@ -75,6 +75,11 @@ describe("말투 고르기", () => {
     assert.equal(waiting.primary, "기다리는 괸당");
   });
 
+  it("사전에 없는 말은 화면을 멈추지 않습니다", () => {
+    const term = resolveTerm("missing" as unknown as "bulletin", { languageMode: "STANDARD" });
+    assert.equal(term.primary, "");
+  });
+
   it("알 수 없는 말투 값은 함께 보기로 돌아갑니다", () => {
     assert.equal(resolveLanguageMode("NOPE"), "JEJU_DUAL");
     const term = resolveTerm("qt", { languageMode: "???" });

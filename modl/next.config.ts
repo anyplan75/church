@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
     "mammoth",
     "unpdf",
     "cfb",
+    "tesseract.js",
+    "heic-convert",
+    "heic-decode",
   ],
   outputFileTracingIncludes: {
     "/**": ["./src/server/db/migrations/**/*.sql"],

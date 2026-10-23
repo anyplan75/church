@@ -79,8 +79,11 @@ export function BulletinEditor({
           <p className="leading-relaxed text-[#5c5148]">한 번 읽은 예배 {week.length}개입니다. 글에 없는 순서는 넣지 않았습니다.</p>
           <ol className="grid gap-3">
             {week.map((service) => {
-              const order = service.blocks.find((block) => block.type === "order");
+              const blocks = Array.isArray(service.blocks) ? service.blocks : [];
+              const order = blocks.find((block) => block.type === "order");
               const labels = order?.type === "order" ? order.items.map((item) => item.label) : [];
+              const announcement = blocks.find((block) => block.type === "announcement");
+              const news = announcement?.type === "announcement" ? announcement.body : "";
               return (
                 <li key={`${service.label}-${service.worshipDate}-${service.time}`} className="grid gap-1 rounded-3xl bg-[#fffaf3] px-4 py-4">
                   <p className="font-semibold leading-snug">
@@ -89,6 +92,7 @@ export function BulletinEditor({
                   <p className="leading-relaxed text-[#5c5148]">{service.worshipDate || "날짜를 읽지 못했습니다."}</p>
                   {service.sermonTitle ? <p className="leading-relaxed">{service.sermonTitle}</p> : null}
                   {labels.length > 0 ? <p className="leading-relaxed">{labels.join(" · ")}</p> : null}
+                  {news ? <p className="whitespace-pre-wrap leading-relaxed">{news}</p> : null}
                 </li>
               );
             })}
@@ -135,11 +139,14 @@ export function BulletinEditor({
         ))}
       </div>
       <ol className="grid gap-3">
-        {items.map((block, index) => (
+        {(Array.isArray(items) ? items : []).map((block, index) => {
+          const termKey = BLOCK_TERM[block.type];
+          if (!termKey) return null;
+          return (
           <li key={block.id} data-testid="editor-block" data-block-type={block.type} className="grid gap-3 rounded-3xl bg-[#fffaf3] px-4 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="break-words text-[clamp(1.1rem,1rem+0.3vw,1.35rem)] font-semibold leading-snug">
-                <TermText termKey={BLOCK_TERM[block.type]} />
+                <TermText termKey={termKey} />
               </h2>
               <div className="flex flex-wrap gap-2">
                 <SmallButton termKey="move_up" testId="move-up" onClick={() => setItems((current) => moveBlock(current, index, -1))} />
@@ -153,7 +160,8 @@ export function BulletinEditor({
             </div>
             <BlockFields block={block} onChange={(next) => update(index, next)} />
           </li>
-        ))}
+          );
+        })}
       </ol>
       <div className="flex flex-wrap gap-2">
         <IntentButton termKey="bulletin_save" intent="save" primary={false} />

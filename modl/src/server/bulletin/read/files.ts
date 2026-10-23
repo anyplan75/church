@@ -11,15 +11,20 @@ import { extractOdt } from "@/server/bulletin/read/extract-odt";
 import { extractPdf } from "@/server/bulletin/read/extract-pdf";
 import { extractRtf } from "@/server/bulletin/read/extract-rtf";
 import JSZip from "jszip";
-
-const IMAGE = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+import { sniffImage, type ImageKind } from "@/server/bulletin/read/image-kind";
 
 export type FileRead = { kind: "text"; text: string } | { kind: "empty" };
 
-export async function readBulletinFile(name: string, data: Buffer, imageText: (bytes: Buffer, ext: string) => Promise<string>): Promise<FileRead> {
+export async function readBulletinFile(
+  name: string,
+  data: Buffer,
+  imageText: (bytes: Buffer, kind: ImageKind) => Promise<string>,
+): Promise<FileRead> {
   const lower = name.toLowerCase();
   const ext = lower.includes(".") ? lower.slice(lower.lastIndexOf(".")) : "";
+  const image = sniffImage(data);
   try {
+    if (image) return textOrEmpty(await imageText(data, image));
     if (ext === ".txt" || ext === ".text" || ext === ".md") return textOrEmpty(data.toString("utf8"));
     if (ext === ".docx") return textOrEmpty(await extractDocx(data));
     if (ext === ".doc") return textOrEmpty(await extractLegacyDoc(data));
@@ -29,7 +34,6 @@ export async function readBulletinFile(name: string, data: Buffer, imageText: (b
     if (ext === ".rtf") return textOrEmpty(extractRtf(data));
     if (ext === ".odt") return textOrEmpty(await extractOdt(data));
     if (ext === ".html" || ext === ".htm") return textOrEmpty(extractHtml(data));
-    if (IMAGE.has(ext)) return textOrEmpty(await imageText(data, ext));
   } catch {
     return { kind: "empty" };
   }

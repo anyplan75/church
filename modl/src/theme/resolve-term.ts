@@ -155,6 +155,7 @@ export function resolveTerm(
   const languageMode = resolveLanguageMode(options.languageMode);
   const overrides = parseTermOverrides(options.overrides);
   const entry = FLAT_TERMS[key];
+  if (!entry) return { primary: "" };
   const override = overrides[key];
 
   if (override && "text" in override) {

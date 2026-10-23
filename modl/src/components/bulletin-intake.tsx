@@ -14,14 +14,19 @@ export function BulletinIntake({ onApply }: { onApply: (services: BulletinServic
     setPending(true);
     setError("");
     setNote("");
-    const result = await readBulletinSourceAction(formData);
-    setPending(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const result = await readBulletinSourceAction(formData);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setNote(result.note);
+      if (result.filled) onApply(result.services);
+    } catch {
+      setError("주보를 읽지 못했습니다. 다시 눌러 주세요.");
+    } finally {
+      setPending(false);
     }
-    setNote(result.note);
-    if (result.filled) onApply(result.services);
   }
 
   return (
