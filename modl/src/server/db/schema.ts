@@ -777,7 +777,7 @@ export const quizMonthPrizes = pgTable(
   (table) => [uniqueIndex("quiz_month_prizes_community_month_uidx").on(table.communityId, table.yearMonth)],
 );
 
-/** 토론 글입니다. 지금 예배드리는 교회 또는 지금 가는 모들 중 한곳에만 붙습니다. */
+/** 토론 글입니다. 교회나 모들, 또는 제주 전체에 붙습니다. 제주 전체는 익명을 고를 수 있습니다. */
 export const discussionPosts = pgTable(
   "discussion_posts",
   {
@@ -787,6 +787,8 @@ export const discussionPosts = pgTable(
     authorUserId: uuid("author_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    isJeju: boolean("is_jeju").notNull().default(false),
+    anonymous: boolean("anonymous").notNull().default(false),
     title: text("title").notNull(),
     body: text("body").notNull(),
     createdAt: createdAt(),
@@ -796,7 +798,10 @@ export const discussionPosts = pgTable(
     index("discussion_posts_church_id_idx").on(table.churchId),
     index("discussion_posts_group_id_idx").on(table.groupId),
     index("discussion_posts_author_user_id_idx").on(table.authorUserId),
-    check("discussion_posts_one_place", sql`(${table.churchId} is not null) <> (${table.groupId} is not null)`),
+    check(
+      "discussion_posts_one_place",
+      sql`((${table.isJeju} = true and ${table.churchId} is null and ${table.groupId} is null) or (${table.isJeju} = false and (${table.churchId} is not null) <> (${table.groupId} is not null)))`,
+    ),
     check("discussion_posts_title_not_blank", sql`length(btrim(${table.title})) > 0`),
     check("discussion_posts_body_not_blank", sql`length(btrim(${table.body})) > 0`),
   ],
@@ -813,6 +818,7 @@ export const discussionReplies = pgTable(
     authorUserId: uuid("author_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    anonymous: boolean("anonymous").notNull().default(false),
     body: text("body").notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

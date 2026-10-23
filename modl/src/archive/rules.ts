@@ -157,6 +157,56 @@ export function pickQuizKing(entries: readonly QuizKingEntry[]): QuizKingEntry |
   return winner;
 }
 
+export type ArchiveAudience = "church" | "gathering" | "both";
+
+/**
+ * 행사자료는 교회, 모들, 둘 다 중 하나를 골라야 붙습니다.
+ * 고르지 않으면 저장하지 않습니다. 속한 곳 목록은 지금 보는 한 곳으로 줄이지 않습니다.
+ */
+export function archiveTargets(input: {
+  audience: string;
+  churchId: string;
+  gatheringId: string;
+  churchIds: ReadonlySet<string>;
+  gatheringIds: ReadonlySet<string>;
+}): { ok: true; churchId: string | null; groupId: string | null } | { ok: false; message: string } {
+  if (input.audience !== "church" && input.audience !== "gathering" && input.audience !== "both") {
+    return { ok: false, message: "교회, 모들, 둘 다 중에서 골라 주세요." };
+  }
+  const churchId = input.churchId.trim();
+  const gatheringId = input.gatheringId.trim();
+  if ((input.audience === "church" || input.audience === "both") && !input.churchIds.has(churchId)) {
+    return { ok: false, message: "어느 교회인지 골라 주세요." };
+  }
+  if ((input.audience === "gathering" || input.audience === "both") && !input.gatheringIds.has(gatheringId)) {
+    return { ok: false, message: "어느 모들인지 골라 주세요." };
+  }
+  return {
+    ok: true,
+    churchId: input.audience === "gathering" ? null : churchId,
+    groupId: input.audience === "church" ? null : gatheringId,
+  };
+}
+
+/** 목록에 붙일 교회 이름과 모들 이름입니다. */
+export function archiveScopeLabel(input: { churchName: string | null; gatheringName: string | null }): string {
+  if (input.churchName && input.gatheringName) return `교회 · ${input.churchName} · 모들 · ${input.gatheringName}`;
+  if (input.churchName) return `교회 · ${input.churchName}`;
+  if (input.gatheringName) return `모들 · ${input.gatheringName}`;
+  return "";
+}
+
+/** 구독한 교회 자료와 구독한 모들 자료만 보입니다. 교회와 모들이 비어 있으면 전체에 보이지 않습니다. */
+export function canSeeArchive(
+  row: { churchId: string | null; groupId: string | null },
+  followedChurchIds: ReadonlySet<string>,
+  followedGroupIds: ReadonlySet<string>,
+): boolean {
+  if (row.churchId && followedChurchIds.has(row.churchId)) return true;
+  if (row.groupId && followedGroupIds.has(row.groupId)) return true;
+  return false;
+}
+
 /** 주소 칸에 한 줄씩 적은 값을 목록으로 만듭니다. */
 export function linkLines(raw: string): string[] {
   return raw

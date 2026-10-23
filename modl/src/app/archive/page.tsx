@@ -1,4 +1,5 @@
 import { AccessScreen } from "@/components/access-screen";
+import { ArchiveScope } from "@/components/archive-scope";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermArea, TermField } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
@@ -21,9 +22,10 @@ export default async function ArchivePage({
       <TermHeading termKey="archive" level={1} />
       <ErrorNote message={query.error} />
       <OkNote code={query.ok} />
-      <p className="leading-relaxed text-[#5c5148]">{page.communityName}</p>
+      {page.communityName ? <p className="leading-relaxed text-[#5c5148]">{page.communityName}</p> : null}
       {page.canUpload ? (
         <form action={createArchiveAction} id="archive-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
+          <ArchiveScope churches={page.churches} gatherings={page.gatherings} />
           <TermField termKey="field_archive_title" name="title" required />
           <TermField termKey="field_event_date" name="eventDate" type="date" required />
           <TermArea termKey="field_photo_urls" name="photoText" rows={3} />
@@ -41,6 +43,11 @@ export default async function ArchivePage({
                 {event.title}
               </span>
               <span className="text-[#5c5148]">{event.eventDate}</span>
+              {event.scopeLabel ? (
+                <span className="text-[#5c5148]" data-testid="archive-place">
+                  {event.scopeLabel}
+                </span>
+              ) : null}
               {event.materials.length === 0 ? null : (
                 <ul className="grid list-none gap-1">
                   {event.materials.map((material) => (

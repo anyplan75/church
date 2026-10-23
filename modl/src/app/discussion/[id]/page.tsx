@@ -92,6 +92,12 @@ export default async function DiscussionPostPage({
                 className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-relaxed"
               />
             </label>
+            {page.post.isJeju ? (
+              <label className="flex items-center gap-2 leading-snug">
+                <input type="checkbox" name="anonymous" value="1" data-testid="discussion-reply-anonymous" />
+                익명으로 답글 달기
+              </label>
+            ) : null}
             <button type="submit" data-testid="discussion-reply-submit" className="w-fit rounded-xl bg-[#111827] px-3 py-2 font-semibold text-white">
               답글 올리기
             </button>

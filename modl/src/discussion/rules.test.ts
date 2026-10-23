@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { canSeeDiscussionPost, discussionPlaceFromRef, discussionPlacesFor } from "@/discussion/rules";
+import { canSeeDiscussionPost, discussionPlaceFromRef, discussionPlacesFor, visibleAuthorName } from "@/discussion/rules";
 
 const church = "church-1";
 const otherChurch = "church-2";
@@ -42,5 +42,15 @@ describe("토론이 보이는 곳", () => {
     assert.deepEqual(discussionPlaceFromRef(`church:${church}`, places), { kind: "church", id: church });
     assert.equal(discussionPlaceFromRef(`gathering:${gathering}`, places), null);
     assert.equal(discussionPlaceFromRef("church", places), null);
+  });
+
+  it("제주 전체 글은 교회 글과 따로이고 익명이면 이름이 보이지 않습니다", () => {
+    const places = [{ kind: "jeju" as const, id: "jeju" }];
+    assert.equal(canSeeDiscussionPost({ churchId: null, groupId: null, isJeju: true }, []), true);
+    assert.equal(canSeeDiscussionPost({ churchId: church, groupId: null, isJeju: false }, places), false);
+    assert.deepEqual(discussionPlaceFromRef("jeju:jeju", places), { kind: "jeju", id: "jeju" });
+    assert.equal(visibleAuthorName({ anonymous: true, name: "김목사" }), "익명");
+    assert.equal(visibleAuthorName({ anonymous: true, name: "김목사" }).includes("김목사"), false);
+    assert.equal(visibleAuthorName({ anonymous: false, name: "김목사" }), "김목사");
   });
 });

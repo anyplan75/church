@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DiscussionComposer } from "@/components/discussion-composer";
 import { ErrorNote } from "@/components/form-note";
 import { LoginGuide } from "@/components/login-guide";
 import { TermHeading } from "@/components/term-heading";
@@ -42,20 +43,7 @@ export default async function DiscussionPage({
             <p className="leading-relaxed">내가 갈 교회나 내가 갈 모들을 고르면 글을 보고 쓸 수 있습니다.</p>
           ) : (
             <form action={createDiscussionPostAction} id="discussion-form" data-testid="discussion-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
-              {page.places.length === 1 ? (
-                <input type="hidden" name="placeRef" value={`${page.places[0].kind}:${page.places[0].id}`} />
-              ) : (
-                <label className="grid gap-1">
-                  <span className="font-semibold">올릴 곳</span>
-                  <select name="placeRef" required className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-snug">
-                    {page.places.map((place) => (
-                      <option key={`${place.kind}:${place.id}`} value={`${place.kind}:${place.id}`}>
-                        {place.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              <DiscussionComposer places={page.places} />
               <label className="grid gap-1">
                 <span className="font-semibold">제목</span>
                 <input
