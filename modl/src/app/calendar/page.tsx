@@ -197,8 +197,8 @@ export default async function CalendarPage({
             </p>
           ) : null}
           {view === "week" ? (
-            {/* 칸 높이는 이전 6rem의 네 배입니다. 좁은 화면은 일곱 요일을 세로로 쌓아 페이지가 스크롤됩니다. */}
             <ol data-testid="week-board" className="grid list-none grid-cols-1 gap-2 lg:grid-cols-7">
+              {/* 칸 높이는 이전 6rem의 네 배입니다. 좁은 화면은 일곱 요일을 세로로 쌓아 페이지가 스크롤됩니다. */}
               {weekCells.map((cell, index) => (
                 <li
                   key={cell.date ?? `week-${index}`}
