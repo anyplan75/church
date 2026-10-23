@@ -1,6 +1,8 @@
 /**
  * 주보 파일에서 글을 읽습니다.
  * 한글, 워드, PDF, 사진은 은혜로운 예배의 lib/extract-text.ts 와 같은 순서로 읽습니다.
+ * 이름이 .hwp 로 끝나면 .hwp.hwp 처럼 확장자가 두 번이어도 한글로 읽습니다.
+ * TalkFile_ 같은 앞부분은 거절하지 않습니다.
  * 확장자가 없어도 내용이 사진이면 그 사진 읽기를 탑니다.
  */
 
@@ -22,20 +24,19 @@ export async function readBulletinFile(
   imageText: (bytes: Buffer, kind: ImageKind) => Promise<string>,
 ): Promise<FileRead> {
   const lower = name.toLowerCase();
-  const ext = lower.includes(".") ? lower.slice(lower.lastIndexOf(".")) : "";
   const image = sniffImage(data);
   if (image === "jpg" || image === "png" || image === "webp") {
     return textOrEmpty(await imageText(data, image));
   }
-  if (ext === ".txt" || ext === ".text" || ext === ".md") return textOrEmpty(data.toString("utf8"));
-  if (ext === ".docx") return textOrEmpty(await extractDocx(data));
-  if (ext === ".doc") return textOrEmpty(await extractLegacyDoc(data));
-  if (ext === ".hwpx") return textOrEmpty(await extractHwpx(data));
-  if (ext === ".hwp") return textOrEmpty(data.length >= 2 && data[0] === 0x50 && data[1] === 0x4b ? await extractHwpx(data) : await extractHwp(data));
-  if (ext === ".pdf") return textOrEmpty(await extractPdf(data));
-  if (ext === ".rtf") return textOrEmpty(extractRtf(data));
-  if (ext === ".odt") return textOrEmpty(await extractOdt(data));
-  if (ext === ".html" || ext === ".htm") return textOrEmpty(extractHtml(data));
+  if (lower.endsWith(".txt") || lower.endsWith(".text") || lower.endsWith(".md")) return textOrEmpty(data.toString("utf8"));
+  if (lower.endsWith(".docx")) return textOrEmpty(await extractDocx(data));
+  if (lower.endsWith(".doc")) return textOrEmpty(await extractLegacyDoc(data));
+  if (lower.endsWith(".hwpx")) return textOrEmpty(await extractHwpx(data));
+  if (lower.endsWith(".hwp")) return textOrEmpty(data.length >= 2 && data[0] === 0x50 && data[1] === 0x4b ? await extractHwpx(data) : await extractHwp(data));
+  if (lower.endsWith(".pdf")) return textOrEmpty(await extractPdf(data));
+  if (lower.endsWith(".rtf")) return textOrEmpty(extractRtf(data));
+  if (lower.endsWith(".odt")) return textOrEmpty(await extractOdt(data));
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) return textOrEmpty(extractHtml(data));
   return { kind: "empty" };
 }
 

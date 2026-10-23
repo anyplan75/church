@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { bulletinAccept, bulletinFormatNote, type BulletinServiceDraft } from "@/bulletin/intake";
-import { readBulletinSourceAction } from "@/server/bulletin/read-source";
+import { bulletinAccept, bulletinFormatNote, BULLETIN_PART_BYTES, BULLETIN_UPLOAD_BYTES, type BulletinServiceDraft } from "@/bulletin/intake";
+import { finishBulletinUploadAction, readBulletinSourceAction, storeBulletinPartAction } from "@/server/bulletin/read-source";
 
 export function BulletinIntake({ onApply }: { onApply: (services: BulletinServiceDraft[]) => void }) {
   const [note, setNote] = useState("");
@@ -15,7 +15,12 @@ export function BulletinIntake({ onApply }: { onApply: (services: BulletinServic
     setError("");
     setNote("");
     try {
-      const result = await readBulletinSourceAction(formData);
+      const file = formData.get("file");
+      const text = typeof formData.get("text") === "string" ? String(formData.get("text")) : "";
+      const result =
+        file instanceof File && file.size > BULLETIN_PART_BYTES
+          ? await readLargeFile(file, text)
+          : await readBulletinSourceAction(formData);
       if (!result.ok) {
         setError(result.message);
         return;
@@ -46,7 +51,13 @@ export function BulletinIntake({ onApply }: { onApply: (services: BulletinServic
           {note}
         </p>
       ) : null}
-      <form action={onRead} className="grid gap-3">
+      <form
+        className="grid gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void onRead(new FormData(event.currentTarget));
+        }}
+      >
         <label className="grid gap-1">
           <span className="font-semibold">주보 글</span>
           <textarea
@@ -76,4 +87,29 @@ export function BulletinIntake({ onApply }: { onApply: (services: BulletinServic
       </form>
     </div>
   );
+}
+
+async function readLargeFile(file: File, text: string) {
+  if (file.size > BULLETIN_UPLOAD_BYTES) {
+    return { ok: false as const, message: "파일은 16MB 이하로 올려 주세요." };
+  }
+  const uploadId = crypto.randomUUID();
+  const count = Math.ceil(file.size / BULLETIN_PART_BYTES);
+  for (let index = 0; index < count; index += 1) {
+    const slice = file.slice(index * BULLETIN_PART_BYTES, Math.min(file.size, (index + 1) * BULLETIN_PART_BYTES));
+    const part = new FormData();
+    part.set("uploadId", uploadId);
+    part.set("index", String(index));
+    part.set("count", String(count));
+    part.set("name", file.name);
+    part.set("part", new File([slice], "part", { type: "application/octet-stream" }));
+    const stored = await storeBulletinPartAction(part);
+    if (!stored.ok) return stored;
+  }
+  const finish = new FormData();
+  finish.set("uploadId", uploadId);
+  finish.set("count", String(count));
+  finish.set("name", file.name);
+  finish.set("text", text);
+  return finishBulletinUploadAction(finish);
 }

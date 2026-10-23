@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import * as CFB from "cfb";
+import { servicesFromBulletinText } from "@/bulletin/intake";
 import { readBulletinFile } from "@/server/bulletin/read/files";
 import { sniffImage } from "@/server/bulletin/read/image-kind";
 import { resolveBulletinExtension, saveBulletinFile } from "@/server/bulletin/read/store";
@@ -69,4 +71,74 @@ describe("주보 파일 읽기", () => {
     assert.match(href, /^\/uploads\/\d+-[a-f0-9]+\.jpg$/);
     await unlink(path.join(process.cwd(), "public", href));
   });
+
+  it("TalkFile_ 접두와 .hwp.hwp 이름을 한글로 읽고 십일조는 뺍니다", async () => {
+    const name = "TalkFile_서귀포제일_주보_20261011_오순절 후 스무번째 주일.hwp.hwp";
+    const lines = [
+      "2026년 10월 11일",
+      "주일 2부 예배 오전 11:00",
+      "묵도",
+      "찬송 1장",
+      "기도",
+      "성경봉독",
+      "찬양",
+      "설교 선한 목자",
+      "광고",
+      "- 다음 주 구역 모임",
+      "- 십일조와 헌금은 넣지 않습니다",
+      "축도",
+    ];
+    const file = hwpFile(Buffer.concat(lines.map((line) => hwpParagraph(line))));
+    assert.equal(resolveBulletinExtension(name, file), ".hwp");
+    const read = await readBulletinFile(name, file, async () => "없는 문장");
+    assert.equal(read.kind, "text");
+    if (read.kind !== "text") return;
+    assert.match(read.text, /묵도/);
+    assert.match(read.text, /다음 주 구역 모임/);
+    let serial = 0;
+    const services = servicesFromBulletinText(read.text, () => `id-${serial++}`);
+    const packed = JSON.stringify(services);
+    assert.match(packed, /주일 2부 예배/);
+    assert.match(packed, /묵도/);
+    assert.match(packed, /다음 주 구역 모임/);
+    assert.equal(packed.includes("십일조"), false);
+    assert.equal(packed.includes("헌금"), false);
+    assert.equal(packed.includes("봉헌"), false);
+  });
+
+  it("글이 아닌 .hwp.hwp 는 한글 읽기 실패로 돌려줍니다", async () => {
+    await assert.rejects(
+      () => readBulletinFile("TalkFile_주보.hwp.hwp", Buffer.from("not-a-hwp-file"), async () => ""),
+      /한글 파일에서 글을 읽지 못했습니다/,
+    );
+  });
 });
+
+function hwpRecord(tag: number, payload: Buffer): Buffer {
+  const header = Buffer.alloc(4);
+  const stored = payload.length < 4095 ? payload.length : 4095;
+  header.writeUInt32LE((tag & 0x3ff) | (stored << 20), 0);
+  if (payload.length < 4095) return Buffer.concat([header, payload]);
+  const extra = Buffer.alloc(4);
+  extra.writeUInt32LE(payload.length, 0);
+  return Buffer.concat([header, extra, payload]);
+}
+
+function hwpParagraph(text: string): Buffer {
+  const body = Buffer.from(`${text}\r`, "utf16le");
+  const paraHeader = Buffer.alloc(8);
+  paraHeader.writeUInt32LE([...text].length + 1, 0);
+  return Buffer.concat([hwpRecord(0x42, paraHeader), hwpRecord(0x43, body)]);
+}
+
+function hwpFile(section: Buffer): Buffer {
+  const header = Buffer.alloc(256);
+  header.write("HWP Document File", 0, "ascii");
+  header.writeUInt32LE(0, 36);
+  const container = CFB.utils.cfb_new();
+  CFB.utils.cfb_add(container, "FileHeader", header);
+  CFB.utils.cfb_add(container, "DocInfo", Buffer.alloc(0));
+  CFB.utils.cfb_add(container, "BodyText/Section0", section);
+  CFB.utils.cfb_add(container, "BinData/BIN0001", Buffer.alloc(8192, 1));
+  return Buffer.from(CFB.write(container, { type: "buffer" }));
+}

@@ -7,6 +7,9 @@ import type { BulletinBlock } from "@/bulletin/blocks";
 
 export const BULLETIN_UPLOAD_BYTES = 16 * 1024 * 1024;
 
+/** 배포 서버가 한 요청으로 받는 한도보다 작게 나눕니다. */
+export const BULLETIN_PART_BYTES = 2 * 1024 * 1024;
+
 const ACCEPT = [
   ".txt",
   ".text",
