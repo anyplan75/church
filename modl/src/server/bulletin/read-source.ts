@@ -11,7 +11,7 @@ import { canPublishBulletin } from "@/server/bulletin/access";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { readBulletinImage } from "@/server/bulletin/read/image";
 import { readBulletinFile } from "@/server/bulletin/read/files";
-import { saveBulletinFile } from "@/server/bulletin/read/store";
+import { resolveBulletinExtension, saveBulletinFile } from "@/server/bulletin/read/store";
 import { assertTextsAllowed, BannedWordError } from "@/server/moderation/guard";
 
 export type BulletinReadResult =
@@ -46,10 +46,18 @@ async function readBulletinSource(formData: FormData): Promise<BulletinReadResul
       return { ok: false, message: "파일은 16MB 이하로 올려 주세요." };
     }
     const bytes = Buffer.from(await file.arrayBuffer());
+    const name = file.name || "bulletin";
+    if (!resolveBulletinExtension(name, bytes)) {
+      return { ok: false, message: "텍스트, 워드, 한글, PDF, RTF, ODT, HTML, 사진만 올릴 수 있습니다." };
+    }
     try {
-      fileHref = await saveBulletinFile(file.name || "bulletin", bytes);
+      fileHref = await saveBulletinFile(name, bytes);
     } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : "파일을 저장하지 못했습니다." };
+      const message = error instanceof Error ? error.message : "파일을 저장하지 못했습니다.";
+      if (message.includes("16MB") || message.includes("골라 주세요") || message.includes("올릴 수 있습니다")) {
+        return { ok: false, message };
+      }
+      fileHref = null;
     }
     const read = await readBulletinFile(file.name || "bulletin", bytes, (data, ext) =>
       readBulletinImage(data, ext, process.env.QT_OCR_API_KEY ?? ""),
