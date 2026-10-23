@@ -173,7 +173,7 @@ export default async function CalendarPage({
               <SubmitButton termKey="save_event" />
             </form>
           ) : (
-            <p className="leading-relaxed text-[#5c5148]">수정 권한이 없으면 일정은 보기만 합니다. 태우리나 권한을 받은 사람만 고칩니다.</p>
+            <p className="leading-relaxed text-[#5c5148]">수정 권한이 없으면 일정은 보기만 합니다. 모들장이나 권한을 받은 사람만 고칩니다.</p>
           )}
         </>
       )}

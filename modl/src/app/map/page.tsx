@@ -16,6 +16,9 @@ export default async function MapPage() {
       self={board.self}
       hasChurches={board.hasChurches}
       canEditChurches={board.canEditChurches}
+      signedIn={board.signedIn}
+      followedChurchIds={board.followedChurchIds}
+      followedGroupIds={board.followedGroupIds}
       mapboxToken={mapboxToken}
     />
   );

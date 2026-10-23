@@ -190,7 +190,7 @@ export async function createDiscussionPost(input: { title: string; body: string;
   const viewer = await viewerPlaces();
   if (!viewer.ok) throw new DiscussionFlowError("글을 쓰려면 먼저 들어가 주세요.");
   const place = discussionPlaceFromRef(input.placeRef, viewer.places);
-  if (!place) throw new DiscussionFlowError("지금 예배드리는 교회나 지금 가는 모들에만 글을 올릴 수 있습니다.");
+  if (!place) throw new DiscussionFlowError("내가 갈 교회나 내가 갈 모들에만 글을 올릴 수 있습니다.");
   await assertTextsAllowed(input.title, input.body);
   const [created] = await getDb()
     .insert(discussionPosts)
@@ -216,7 +216,7 @@ export async function createDiscussionReply(input: { postId: string; body: strin
     .where(eq(discussionPosts.id, input.postId))
     .limit(1);
   if (!row || !canSeeDiscussionPost(row, viewer.places)) {
-    throw new DiscussionFlowError("지금 예배드리는 교회나 지금 가는 모들의 글에만 답글을 달 수 있습니다.");
+    throw new DiscussionFlowError("내가 갈 교회나 내가 갈 모들의 글에만 답글을 달 수 있습니다.");
   }
   await assertTextsAllowed(input.body);
   await db.insert(discussionReplies).values({

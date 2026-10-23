@@ -19,6 +19,9 @@ export function MapScreen({
   self,
   hasChurches,
   canEditChurches,
+  signedIn,
+  followedChurchIds,
+  followedGroupIds,
   mapboxToken,
 }: {
   churches: ChurchPin[];
@@ -29,6 +32,9 @@ export function MapScreen({
   self: { address: string; consented: boolean } | null;
   hasChurches: boolean;
   canEditChurches: boolean;
+  signedIn: boolean;
+  followedChurchIds: string[];
+  followedGroupIds: string[];
   mapboxToken: string;
 }) {
   return (
@@ -41,6 +47,9 @@ export function MapScreen({
       self={self}
       hasChurches={hasChurches}
       canEditChurches={canEditChurches}
+      signedIn={signedIn}
+      followedChurchIds={followedChurchIds}
+      followedGroupIds={followedGroupIds}
       mapboxToken={mapboxToken}
     />
   );

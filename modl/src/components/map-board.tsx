@@ -7,9 +7,11 @@ import type { BusGuide } from "@/map/jeju-bus";
 import type { ChurchPin } from "@/map/church-sheet";
 import { churchMatchesTags, normalizeChurchTags, type ChurchTag } from "@/map/church-tags";
 import { ChurchTagFilters } from "@/components/church-tag-filters";
+import { directoryHits, type DirectoryHit } from "@/map/directory";
 import { PLACE_KIND_LABEL, type MapPoint, type PlaceHit, type RouteResult, type RouteSegment } from "@/map/rules";
 import { busGuideAction, busRouteLineAction, searchPlacesAction, travelAction } from "@/server/map/actions";
 import { saveMapChurchAction, saveMyAddressAction, setPickupConsentAction } from "@/server/map/church-actions";
+import { subscribePlaceOnMapAction } from "@/server/place/actions";
 
 type Pending = "search" | "route" | "bus" | "gps" | "address" | "consent" | "church" | null;
 type TravelMode = "car" | "walk" | "bus";
@@ -58,6 +60,9 @@ export function MapBoard({
   self,
   hasChurches,
   canEditChurches,
+  signedIn,
+  followedChurchIds,
+  followedGroupIds,
   mapboxToken,
 }: {
   churches: ChurchPin[];
@@ -68,10 +73,17 @@ export function MapBoard({
   self: MapSelf | null;
   hasChurches: boolean;
   canEditChurches: boolean;
+  signedIn: boolean;
+  followedChurchIds: string[];
+  followedGroupIds: string[];
   mapboxToken: string;
 }) {
   const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<PlaceHit[]>([]);
+  const [directory, setDirectory] = useState<DirectoryHit[]>([]);
+  const [followedChurches, setFollowedChurches] = useState(() => new Set(followedChurchIds));
+  const [followedGroups, setFollowedGroups] = useState(() => new Set(followedGroupIds));
+  const [subscribing, setSubscribing] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected | null>(null);
   const [guiding, setGuiding] = useState(false);
   const [travel, setTravel] = useState<TravelMode>("car");
@@ -226,20 +238,46 @@ export function MapBoard({
     if (result.data.length < 2) setNote("이 노선은 잇을 정류장 좌표가 없습니다.");
   }
 
+  function followed(hit: DirectoryHit): boolean {
+    return hit.kind === "church" ? followedChurches.has(hit.id) : followedGroups.has(hit.id);
+  }
+
+  async function onSubscribe(hit: DirectoryHit) {
+    if (followed(hit) || subscribing) return;
+    if (!signedIn) {
+      setNote("구독하려면 먼저 들어가 주세요.");
+      return;
+    }
+    setSubscribing(`${hit.kind}:${hit.id}`);
+    setError("");
+    const result = await subscribePlaceOnMapAction(hit.kind, hit.id);
+    setSubscribing(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    if (hit.kind === "church") setFollowedChurches((current) => new Set(current).add(hit.id));
+    else setFollowedGroups((current) => new Set(current).add(hit.id));
+    setNote(hit.kind === "church" ? "교회를 구독했습니다." : "모들을 구독했습니다.");
+  }
+
   async function onSearch(event: FormEvent) {
     event.preventDefault();
     setPending("search");
     setError("");
     setNote("");
+    setSelected(null);
+    const found = directoryHits(query, churchRows, gatherings);
+    setDirectory(found);
     const result = await searchPlacesAction(query);
     setPending(null);
     if (!result.ok) {
       setPlaces([]);
-      setError(result.message);
+      if (found.length === 0) setError(result.message);
       return;
     }
     setPlaces(result.data);
-    if (result.data.length === 0) setNote("식당이나 숙소로 찾은 결과가 없습니다.");
+    if (result.data.length === 0 && found.length === 0) setNote("식당이나 숙소로 찾은 결과가 없습니다.");
   }
 
   useEffect(() => {
@@ -502,12 +540,12 @@ export function MapBoard({
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <form onSubmit={onSearch} className="flex shrink-0 gap-2 border-b border-[#e5e7eb] p-2">
             <label className="min-w-0 flex-1">
-              <span className="sr-only">장소 검색</span>
+              <span className="sr-only">교회와 모들 검색</span>
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 className="w-full rounded-xl border border-[#e5e7eb] px-3 py-3 leading-snug outline-none"
-                placeholder="장소나 주소"
+                placeholder="교회, 모들, 장소"
               />
             </label>
             <button type="submit" disabled={pending === "search"} className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
@@ -515,6 +553,7 @@ export function MapBoard({
             </button>
           </form>
           <div className="min-h-0 flex-1 overflow-y-auto">
+          <DirectoryResults hits={directory} followed={followed} subscribing={subscribing} onChoose={choose} onSubscribe={(hit) => void onSubscribe(hit)} />
           {church ? null : (
           <div className="border-b border-[#e5e7eb] px-3 py-3">
             <ChurchTagFilters
@@ -562,6 +601,12 @@ export function MapBoard({
             following={following}
             error={error}
             note={note}
+            subscribed={church ? followedChurches.has(church.id) : gathering ? followedGroups.has(gathering.id) : false}
+            subscribing={Boolean(subscribing)}
+            onSubscribeSelected={() => {
+              if (church) void onSubscribe({ kind: "church", id: church.id, name: church.name, address: church.address });
+              else if (gathering) void onSubscribe({ kind: "gathering", id: gathering.id, name: gathering.name, address: gathering.address });
+            }}
             onChoose={choose}
             onClose={() => {
               setDraft(null);
@@ -869,6 +914,7 @@ export function MapBoard({
           </div>
         ) : (
           <>
+            <DirectoryResults hits={directory} followed={followed} subscribing={subscribing} onChoose={choose} onSubscribe={(hit) => void onSubscribe(hit)} />
             {places.length > 0 ? (
               <ul className="max-h-36 list-none overflow-y-auto border-b border-[#e5e7eb]">
                 {places.map((item) => (
@@ -895,12 +941,12 @@ export function MapBoard({
             </p>
             <form onSubmit={onSearch} data-testid="map-phone-search" className="flex items-center gap-2 border-t border-[#e5e7eb] bg-white p-2">
               <label className="min-w-0 flex-1">
-                <span className="sr-only">장소 검색</span>
+                <span className="sr-only">교회와 모들 검색</span>
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   className="w-full rounded-xl border border-[#e5e7eb] px-3 py-2 text-base leading-snug outline-none"
-                  placeholder="장소나 주소"
+                  placeholder="교회, 모들, 장소"
                 />
               </label>
               <button
@@ -922,6 +968,55 @@ export function MapBoard({
       </div>
       </div>
     </section>
+  );
+}
+
+function DirectoryResults({
+  hits,
+  followed,
+  subscribing,
+  onChoose,
+  onSubscribe,
+}: {
+  hits: DirectoryHit[];
+  followed: (hit: DirectoryHit) => boolean;
+  subscribing: string | null;
+  onChoose: (selected: Selected) => void;
+  onSubscribe: (hit: DirectoryHit) => void;
+}) {
+  if (hits.length === 0) return null;
+  return (
+    <ul data-testid="map-directory-results" className="list-none border-b border-[#e5e7eb]">
+      {hits.map((hit) => {
+        const ready = followed(hit);
+        return (
+          <li key={`${hit.kind}-${hit.id}`} data-testid="map-directory-hit" data-kind={hit.kind} className="flex items-center gap-2 border-b border-[#f3f4f6] px-3 py-2 last:border-b-0">
+            <button type="button" className="grid min-w-0 flex-1 gap-0.5 text-left" onClick={() => onChoose({ type: hit.kind, id: hit.id })}>
+              <span className="break-words font-semibold">
+                {hit.kind === "church" ? "교회" : "모들"} · {hit.name}
+              </span>
+              {hit.address ? <span className="break-words text-sm text-[#4b5563]">{hit.address}</span> : null}
+            </button>
+            <MapSubscribeButton subscribed={ready} pending={subscribing === `${hit.kind}:${hit.id}`} onSubscribe={() => onSubscribe(hit)} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function MapSubscribeButton({ subscribed, pending, onSubscribe }: { subscribed: boolean; pending: boolean; onSubscribe: () => void }) {
+  if (subscribed) return <span className="shrink-0 text-sm text-[#4b5563]">구독 중</span>;
+  return (
+    <button
+      type="button"
+      data-testid="map-subscribe"
+      disabled={pending}
+      className="shrink-0 rounded-xl bg-[#111827] px-3 py-2 text-sm font-semibold text-white disabled:bg-[#e5e7eb]"
+      onClick={onSubscribe}
+    >
+      구독
+    </button>
   );
 }
 
@@ -950,6 +1045,9 @@ function DesktopMapDetails({
   following,
   error,
   note,
+  subscribed,
+  subscribing,
+  onSubscribeSelected,
   onChoose,
   onClose,
   onEdit,
@@ -983,6 +1081,9 @@ function DesktopMapDetails({
   following: boolean;
   error: string;
   note: string;
+  subscribed: boolean;
+  subscribing: boolean;
+  onSubscribeSelected: () => void;
   onChoose: (selected: Selected) => void;
   onClose: () => void;
   onEdit: (item: ChurchPin) => void;
@@ -1041,13 +1142,17 @@ function DesktopMapDetails({
                     수정
                   </button>
                 ) : null}
+                <MapSubscribeButton subscribed={subscribed} pending={subscribing} onSubscribe={onSubscribeSelected} />
               </>
             ) : null}
             {gathering ? (
-              <dl className="grid gap-1 leading-relaxed">
-                <Detail label="모들" value={gathering.name} />
-                <Detail label="주소" value={gathering.address} />
-              </dl>
+              <>
+                <dl className="grid gap-1 leading-relaxed">
+                  <Detail label="모들" value={gathering.name} />
+                  <Detail label="주소" value={gathering.address} />
+                </dl>
+                <MapSubscribeButton subscribed={subscribed} pending={subscribing} onSubscribe={onSubscribeSelected} />
+              </>
             ) : null}
             {place ? (
               <dl className="grid gap-1 leading-relaxed">

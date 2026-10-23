@@ -39,7 +39,7 @@ export default async function DiscussionPage({
       ) : (
         <>
           {page.places.length === 0 ? (
-            <p className="leading-relaxed">지금 예배드릴 교회나 지금 갈 모임을 고르면 글을 보고 쓸 수 있습니다.</p>
+            <p className="leading-relaxed">내가 갈 교회나 내가 갈 모들을 고르면 글을 보고 쓸 수 있습니다.</p>
           ) : (
             <form action={createDiscussionPostAction} id="discussion-form" data-testid="discussion-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
               {page.places.length === 1 ? (

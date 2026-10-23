@@ -52,7 +52,7 @@ export async function loadFinanceHome() {
   }
   const scope = await loadPlaceScope(actor.userId);
   if (scope.churchIds.size === 0 && scope.groupIds.size === 0 && scope.formalCommunityIds.size === 0) {
-    return { ok: false as const, message: "속한 교회나 모임이 없습니다." };
+    return { ok: false as const, message: "속한 교회나 모들이 없습니다." };
   }
   const db = getDb();
   const categoryRows = await db.select().from(financeCategories);
@@ -68,7 +68,7 @@ export async function loadFinanceHome() {
   const names = new Map<string, string>([...churchRows.map((row) => [row.id, row.name] as const), ...groupRows.map((row) => [row.id, row.name] as const)]);
   const places = [
     ...[...scope.editChurchIds].map((id) => ({ id, name: names.get(id) ?? "교회", kind: "church" as const })),
-    ...[...scope.editGroupIds].map((id) => ({ id, name: names.get(id) ?? "모임", kind: "gathering" as const })),
+    ...[...scope.editGroupIds].map((id) => ({ id, name: names.get(id) ?? "모들", kind: "gathering" as const })),
   ];
   return {
     ok: true as const,
@@ -103,7 +103,7 @@ export async function createCategory(input: {
   if (actor.kind !== "user") throw new FinanceFlowError("살림을 고치려면 먼저 들어가 주세요.");
   const scope = await loadPlaceScope(actor.userId);
   const allowed = input.placeKind === "gathering" ? scope.editGroupIds.has(input.placeId) : scope.editChurchIds.has(input.placeId);
-  if (!allowed) throw new FinanceFlowError("이 재정은 태우리나 수정 권한이 있는 사람만 고칩니다.");
+  if (!allowed) throw new FinanceFlowError("이 재정은 모들장이나 수정 권한이 있는 사람만 고칩니다.");
   const budget = Number(input.budgetAmount);
   if (!Number.isInteger(budget) || budget < 0) throw new FinanceFlowError("예산은 0 이상의 정수로 적어 주세요.");
   await assertTextsAllowed(input.departmentOrEvent, input.name);
@@ -135,7 +135,7 @@ export async function createTransaction(input: {
   const [category] = await db.select().from(financeCategories).where(eq(financeCategories.id, input.categoryId)).limit(1);
   if (!category) throw new FinanceFlowError("분류를 찾지 못했습니다.");
   const allowed = category.groupId ? scope.editGroupIds.has(category.groupId) : category.churchId ? scope.editChurchIds.has(category.churchId) : false;
-  if (!allowed) throw new FinanceFlowError("이 재정은 태우리나 수정 권한이 있는 사람만 고칩니다.");
+  if (!allowed) throw new FinanceFlowError("이 재정은 모들장이나 수정 권한이 있는 사람만 고칩니다.");
   const membership = formalMembership(actor, category.communityId);
   const amount = Number(input.amount);
   if (!Number.isInteger(amount) || amount < 0) throw new FinanceFlowError("금액은 0 이상의 정수로 적어 주세요.");

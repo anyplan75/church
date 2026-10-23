@@ -29,7 +29,7 @@ export class PlaceFlowError extends Error {
 export function readablePlaceError(error: unknown): string {
   if (error instanceof PlaceFlowError) return error.message;
   if (error instanceof Error && /[\uac00-\ud7a3]/.test(error.message)) return error.message;
-  return "교회나 모임을 처리하지 못했습니다.";
+  return "교회나 모들을 처리하지 못했습니다.";
 }
 
 async function requireUserId(): Promise<string> {
@@ -43,7 +43,7 @@ async function storageCommunityId(): Promise<string> {
   const [named] = await db.select({ id: communities.id }).from(communities).where(eq(communities.slug, "modl")).limit(1);
   if (named) return named.id;
   const [any] = await db.select({ id: communities.id }).from(communities).limit(1);
-  if (!any) throw new PlaceFlowError("모임을 아직 만들 수 없습니다.");
+  if (!any) throw new PlaceFlowError("모들을 아직 만들 수 없습니다.");
   return any.id;
 }
 
@@ -160,7 +160,7 @@ async function churchCommunity(churchId: string): Promise<string> {
 
 async function groupCommunity(groupId: string): Promise<string> {
   const [row] = await getDb().select({ communityId: smallGroups.communityId }).from(smallGroups).where(eq(smallGroups.id, groupId)).limit(1);
-  if (!row) throw new PlaceFlowError("모임을 찾지 못했습니다.");
+  if (!row) throw new PlaceFlowError("모들을 찾지 못했습니다.");
   return row.communityId;
 }
 
@@ -180,7 +180,7 @@ export async function ensurePlaceSlug(kind: PlaceKind, id: string): Promise<stri
     return slug;
   }
   const [row] = await db.select({ slug: smallGroups.slug }).from(smallGroups).where(eq(smallGroups.id, id)).limit(1);
-  if (!row) throw new PlaceFlowError("모임을 찾지 못했습니다.");
+  if (!row) throw new PlaceFlowError("모들을 찾지 못했습니다.");
   if (row.slug) return row.slug;
   await db.update(smallGroups).set({ slug, updatedAt: new Date() }).where(eq(smallGroups.id, id));
   return slug;
@@ -197,7 +197,7 @@ export async function subscribeChurch(churchId: string) {
 export async function setCurrentChurch(churchId: string) {
   const userId = await requireUserId();
   const scope = await loadPlaceScope(userId);
-  if (!scope.churchIds.has(churchId)) throw new PlaceFlowError("구독한 교회만 지금 예배드릴 교회로 고를 수 있습니다.");
+  if (!scope.churchIds.has(churchId)) throw new PlaceFlowError("구독한 교회만 내가 갈 교회로 고를 수 있습니다.");
   await getDb().update(users).set({ homeChurchId: churchId, updatedAt: new Date() }).where(eq(users.id, userId));
 }
 
@@ -217,7 +217,7 @@ export async function createGathering(input: { name: string; address: string }) 
   await ensureDatabase();
   const name = input.name.trim();
   const address = input.address.trim();
-  if (!name) throw new PlaceFlowError("모임 이름을 적어 주세요.");
+  if (!name) throw new PlaceFlowError("모들 이름을 적어 주세요.");
   await assertTextsAllowed(name, address);
   const point = address ? await lookupAddressPoint(address) : null;
   if (address && !point) throw new PlaceFlowError("이 주소를 지도에서 찾지 못했습니다.");
@@ -234,7 +234,7 @@ export async function createGathering(input: { name: string; address: string }) 
       createdByUserId: userId,
     })
     .returning({ id: smallGroups.id });
-  if (!created) throw new PlaceFlowError("모임을 만들지 못했습니다.");
+  if (!created) throw new PlaceFlowError("모들을 만들지 못했습니다.");
   await db.insert(groupFollows).values({ userId, groupId: created.id }).onConflictDoNothing({
     target: [groupFollows.userId, groupFollows.groupId],
   });
@@ -246,7 +246,7 @@ export async function subscribeGathering(groupId: string) {
   const userId = await requireUserId();
   await ensureDatabase();
   const [group] = await getDb().select({ id: smallGroups.id }).from(smallGroups).where(eq(smallGroups.id, groupId)).limit(1);
-  if (!group) throw new PlaceFlowError("모임을 찾지 못했습니다.");
+  if (!group) throw new PlaceFlowError("모들을 찾지 못했습니다.");
   await getDb().insert(groupFollows).values({ userId, groupId }).onConflictDoNothing({
     target: [groupFollows.userId, groupFollows.groupId],
   });
@@ -255,7 +255,7 @@ export async function subscribeGathering(groupId: string) {
 export async function setCurrentGathering(groupId: string) {
   const userId = await requireUserId();
   const scope = await loadPlaceScope(userId);
-  if (!scope.groupIds.has(groupId)) throw new PlaceFlowError("고른 모임만 지금 갈 모임으로 둘 수 있습니다.");
+  if (!scope.groupIds.has(groupId)) throw new PlaceFlowError("구독한 모들만 내가 갈 모들로 둘 수 있습니다.");
   await getDb().update(users).set({ currentGroupId: groupId, updatedAt: new Date() }).where(eq(users.id, userId));
 }
 
@@ -273,11 +273,11 @@ export async function unsubscribeGathering(groupId: string) {
 async function assertSteward(userId: string, kind: PlaceKind, id: string) {
   if (kind === "church") {
     const [row] = await getDb().select({ createdByUserId: mapChurches.createdByUserId }).from(mapChurches).where(eq(mapChurches.id, id)).limit(1);
-    if (row?.createdByUserId !== userId) throw new PlaceFlowError("태우리만 수정 권한을 줄 수 있습니다.");
+    if (row?.createdByUserId !== userId) throw new PlaceFlowError("모들장만 수정 권한을 줄 수 있습니다.");
     return;
   }
   const [row] = await getDb().select({ createdByUserId: smallGroups.createdByUserId }).from(smallGroups).where(eq(smallGroups.id, id)).limit(1);
-  if (row?.createdByUserId !== userId) throw new PlaceFlowError("태우리만 수정 권한을 줄 수 있습니다.");
+  if (row?.createdByUserId !== userId) throw new PlaceFlowError("모들장만 수정 권한을 줄 수 있습니다.");
 }
 
 export async function grantPlaceEdit(kind: PlaceKind, placeId: string, memberUserId: string) {
@@ -305,7 +305,7 @@ export async function grantPlaceEdit(kind: PlaceKind, placeId: string, memberUse
     .from(groupFollows)
     .where(and(eq(groupFollows.userId, memberUserId), eq(groupFollows.groupId, placeId)))
     .limit(1);
-  if (!follow) throw new PlaceFlowError("그 모임에 속한 사람에게만 수정 권한을 줄 수 있습니다.");
+  if (!follow) throw new PlaceFlowError("그 모들에 속한 사람에게만 수정 권한을 줄 수 있습니다.");
   const [existing] = await db
     .select({ id: placeEditGrants.id })
     .from(placeEditGrants)
@@ -336,7 +336,7 @@ export async function assignSteward(kind: PlaceKind, placeId: string, email: str
     const [row] = await db.select({ createdByUserId: mapChurches.createdByUserId }).from(mapChurches).where(eq(mapChurches.id, placeId)).limit(1);
     if (!row) throw new PlaceFlowError("교회를 찾지 못했습니다.");
     if (!canAssignSteward({ hasSteward: Boolean(row.createdByUserId), isPastor: scope.isPastor })) {
-      throw new PlaceFlowError("만든 사람이 없는 교회만 사역자가 태우리를 지정합니다.");
+      throw new PlaceFlowError("만든 사람이 없는 교회만 사역자가 모들장을 지정합니다.");
     }
     await db.update(mapChurches).set({ createdByUserId: person.id, updatedAt: new Date() }).where(eq(mapChurches.id, placeId));
     await db.insert(churchFollows).values({ userId: person.id, churchId: placeId }).onConflictDoNothing({
@@ -345,9 +345,9 @@ export async function assignSteward(kind: PlaceKind, placeId: string, email: str
     return;
   }
   const [row] = await db.select({ createdByUserId: smallGroups.createdByUserId }).from(smallGroups).where(eq(smallGroups.id, placeId)).limit(1);
-  if (!row) throw new PlaceFlowError("모임을 찾지 못했습니다.");
+  if (!row) throw new PlaceFlowError("모들을 찾지 못했습니다.");
   if (!canAssignSteward({ hasSteward: Boolean(row.createdByUserId), isPastor: scope.isPastor })) {
-    throw new PlaceFlowError("만든 사람이 없는 모임만 사역자가 태우리를 지정합니다.");
+    throw new PlaceFlowError("만든 사람이 없는 모들만 사역자가 모들장을 지정합니다.");
   }
   await db.update(smallGroups).set({ createdByUserId: person.id, updatedAt: new Date() }).where(eq(smallGroups.id, placeId));
   await db.insert(groupFollows).values({ userId: person.id, groupId: placeId }).onConflictDoNothing({

@@ -120,7 +120,7 @@ export async function loadCalendarMonth(year: number, month: number) {
   }
   const scope = await loadPlaceScope(actor.userId);
   if (scope.churchIds.size === 0 && scope.groupIds.size === 0 && scope.formalCommunityIds.size === 0) {
-    return { ok: false as const, message: "속한 교회나 모임이 없습니다." };
+    return { ok: false as const, message: "속한 교회나 모들이 없습니다." };
   }
   const db = getDb();
   const communityId = (await activeCommunityId(actor)) ?? [...scope.formalCommunityIds][0] ?? null;
@@ -201,7 +201,7 @@ export async function loadCalendarMonth(year: number, month: number) {
   const groupPlaceNames = new Map(followedGroupRows.map((row) => [row.id, row.name]));
   const places = [
     ...[...scope.editChurchIds].map((id) => ({ id, name: churchPlaceNames.get(id) ?? "교회", kind: "church" as const })),
-    ...[...scope.editGroupIds].map((id) => ({ id, name: groupPlaceNames.get(id) ?? "모임", kind: "gathering" as const })),
+    ...[...scope.editGroupIds].map((id) => ({ id, name: groupPlaceNames.get(id) ?? "모들", kind: "gathering" as const })),
   ].sort((left, right) => left.name.localeCompare(right.name, "ko"));
   return {
     ok: true as const,
@@ -242,7 +242,7 @@ export async function loadCalendarEvent(eventId: string) {
   }
   const scope = await loadPlaceScope(actor.userId);
   if (scope.churchIds.size === 0 && scope.groupIds.size === 0 && scope.formalCommunityIds.size === 0) {
-    return { ok: false as const, message: "속한 교회나 모임이 없습니다." };
+    return { ok: false as const, message: "속한 교회나 모들이 없습니다." };
   }
   const db = getDb();
   const [event] = await db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId)).limit(1);
@@ -323,11 +323,11 @@ export async function saveCalendarEvent(input: {
   const targetGroup = input.groupId;
   const targetChurch = targetGroup ? null : input.churchId;
   if (targetGroup) {
-    if (!scope.editGroupIds.has(targetGroup)) throw new CalendarFlowError("이 모임의 일정을 고칠 권한이 없습니다.");
+    if (!scope.editGroupIds.has(targetGroup)) throw new CalendarFlowError("이 모들의 일정을 고칠 권한이 없습니다.");
   } else if (targetChurch) {
     if (!scope.editChurchIds.has(targetChurch)) throw new CalendarFlowError("이 교회의 일정을 고칠 권한이 없습니다.");
   } else {
-    throw new CalendarFlowError("일정을 둘 교회나 모임을 골라 주세요.");
+    throw new CalendarFlowError("일정을 둘 교회나 모들을 골라 주세요.");
   }
   const communityId = await placeCommunity(targetGroup ? "gathering" : "church", targetGroup ?? targetChurch ?? "");
   if (input.endAt.getTime() < input.startAt.getTime()) {

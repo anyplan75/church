@@ -17,6 +17,7 @@ import { CHURCH_PIN_COLOR, GATHERING_PIN_COLOR } from "@/place/rules";
 import { communities, mapChurches, members, smallGroups, users } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { lookupAddressPoint } from "@/server/map/address-lookup";
+import { loadPlaceScope } from "@/server/place/service";
 import { geocodeAddress } from "@/server/map/mapbox";
 import { MapServiceError } from "@/server/map/service";
 import { assertTextsAllowed } from "@/server/moderation/guard";
@@ -43,6 +44,9 @@ export type MapBoardData = {
   hasChurches: boolean;
   /** 계정 교회 목록을 고칠 수 있는 사역자만 참입니다. */
   canEditChurches: boolean;
+  signedIn: boolean;
+  followedChurchIds: string[];
+  followedGroupIds: string[];
 };
 
 export type SavedChurch = {
@@ -144,10 +148,30 @@ async function operatorCommunityId(): Promise<string | null> {
   return rows[0]?.id ?? null;
 }
 
+async function followState(): Promise<Pick<MapBoardData, "signedIn" | "followedChurchIds" | "followedGroupIds">> {
+  const actor = await loadActor();
+  if (actor.kind !== "user") return { signedIn: false, followedChurchIds: [], followedGroupIds: [] };
+  const scope = await loadPlaceScope(actor.userId);
+  return { signedIn: true, followedChurchIds: [...scope.churchIds], followedGroupIds: [...scope.groupIds] };
+}
+
 export async function loadMapBoard(): Promise<MapBoardData> {
+  const follows = await followState();
   const seen = await viewer();
   const communityId = seen?.communityId ?? (await operatorCommunityId());
-  if (!communityId) return { churches: [], gatherings: [], churchPinColor: CHURCH_PIN_COLOR, gatheringPinColor: GATHERING_PIN_COLOR, pickups: [], self: null, hasChurches: false, canEditChurches: false };
+  if (!communityId) {
+    return {
+      churches: [],
+      gatherings: [],
+      churchPinColor: CHURCH_PIN_COLOR,
+      gatheringPinColor: GATHERING_PIN_COLOR,
+      pickups: [],
+      self: null,
+      hasChurches: false,
+      canEditChurches: false,
+      ...follows,
+    };
+  }
   const db = getDb();
   const churchRows = await db.select().from(mapChurches).where(eq(mapChurches.communityId, communityId));
   const memberRows = seen
@@ -231,6 +255,7 @@ export async function loadMapBoard(): Promise<MapBoardData> {
     self: mine ? { address: mine.address ?? "", consented: mine.pickupConsentAt !== null } : null,
     hasChurches: churchRows.length > 0,
     canEditChurches: Boolean(seen && showsCommunitySettings(seen.membership.role)),
+    ...follows,
   };
 }
 

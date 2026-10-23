@@ -20,6 +20,20 @@ function fail(error: unknown): never {
   redirect(`/account?error=${encodeURIComponent(readablePlaceError(error))}`);
 }
 
+/** 지도 검색 결과에서 구독합니다. 계정 화면으로 보내지 않습니다. */
+export async function subscribePlaceOnMapAction(
+  kind: "church" | "gathering",
+  id: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    if (kind === "gathering") await subscribeGathering(id);
+    else await subscribeChurch(id);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: readablePlaceError(error) };
+  }
+}
+
 function text(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";

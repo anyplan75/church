@@ -25,7 +25,7 @@ export default async function FinancePage({
         <p className="leading-relaxed">{page.message}</p>
       ) : (
         <>
-          <p className="leading-relaxed text-[#5c5148]">속한 교회와 모들의 재정만 보입니다. 태우리나 수정 권한이 있는 사람만 고칩니다.</p>
+          <p className="leading-relaxed text-[#5c5148]">속한 교회와 모들의 재정만 보입니다. 모들장이나 수정 권한이 있는 사람만 고칩니다.</p>
           {page.transactions.length === 0 ? <p className="leading-relaxed">보이는 재정 기록이 없습니다.</p> : null}
           {page.transactions.length > 0 ? (
             <ul className="grid gap-2" data-testid="finance-rows">

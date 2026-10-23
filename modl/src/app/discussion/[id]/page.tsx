@@ -47,7 +47,7 @@ export default async function DiscussionPostPage({
       ) : null}
       {!page.ok && page.reason === "guest" ? <LoginGuide compact /> : null}
       {!page.ok && page.reason === "hidden" ? (
-        <p className="leading-relaxed">이 글은 지금 예배드리는 교회나 지금 가는 모들에 속한 사람만 봅니다.</p>
+        <p className="leading-relaxed">이 글은 내가 갈 교회나 내가 갈 모들에 속한 사람만 봅니다.</p>
       ) : null}
       {page.ok ? (
         <>

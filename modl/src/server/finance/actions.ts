@@ -31,7 +31,7 @@ export async function createCategoryAction(formData: FormData) {
   const placeRef = text(formData, "placeRef");
   const placeKind = placeRef.startsWith("gathering:") ? "gathering" : placeRef.startsWith("church:") ? "church" : null;
   const placeId = placeKind ? placeRef.slice(placeKind.length + 1) : "";
-  if (!placeKind || !placeId) fail("/finance", new FinanceFlowError("재정을 둘 교회나 모임을 골라 주세요."));
+  if (!placeKind || !placeId) fail("/finance", new FinanceFlowError("재정을 둘 교회나 모들을 골라 주세요."));
   try {
     await createCategory({ ...parsed.data, placeKind, placeId });
   } catch (error) {
