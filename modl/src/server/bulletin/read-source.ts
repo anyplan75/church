@@ -21,12 +21,20 @@ export type BulletinReadResult =
 
 const EMPTY_NOTE = "파일을 저장했습니다. 글을 읽지 못해 칸은 비워 둡니다.";
 
+function readFailureMessage(error: unknown): string {
+  const fallback = "주보를 읽지 못했습니다. 다시 눌러 주세요.";
+  if (!(error instanceof Error)) return fallback;
+  const message = error.message.trim();
+  if (!message || message.length > 180 || /[/\\]/.test(message)) return fallback;
+  return message;
+}
+
 export async function readBulletinSourceAction(formData: FormData): Promise<BulletinReadResult> {
   try {
     return await readBulletinSource(formData);
   } catch (error) {
     if (error instanceof BannedWordError) return { ok: false, message: error.message };
-    return { ok: false, message: "주보를 읽지 못했습니다. 다시 눌러 주세요." };
+    return { ok: false, message: readFailureMessage(error) };
   }
 }
 
@@ -59,9 +67,7 @@ async function readBulletinSource(formData: FormData): Promise<BulletinReadResul
       }
       fileHref = null;
     }
-    const read = await readBulletinFile(file.name || "bulletin", bytes, (data, ext) =>
-      readBulletinImage(data, ext, process.env.QT_OCR_API_KEY ?? ""),
-    );
+    const read = await readBulletinFile(file.name || "bulletin", bytes, (data) => readBulletinImage(data));
     if (read.kind === "text") extracted = read.text;
     else unread = true;
   }

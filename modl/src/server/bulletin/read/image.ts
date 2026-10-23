@@ -1,74 +1,98 @@
 /**
  * 사진 속 글을 읽습니다.
- * 열쇠가 있으면 그 열쇠로 읽고, 없거나 비면 이 서버에서 읽습니다.
- * 읽기에 실패하면 빈 글만 돌려줍니다. 문장을 만들지 않습니다.
+ * 은혜로운 예배의 lib/extract-image.ts 와 같이 tesseract 명령으로 한글을 읽습니다.
+ * 명령이 없거나 글을 못 읽으면 그 안내만 던집니다. 문장을 만들지 않습니다.
  */
 
-import type { ImageKind } from "@/server/bulletin/read/image-kind";
+import { spawn, spawnSync } from "node:child_process";
+import { chmodSync, copyFileSync, existsSync, mkdirSync } from "node:fs";
+import path from "node:path";
 
-export async function readBulletinImage(bytes: Buffer, kind: ImageKind, apiKey: string): Promise<string> {
-  if (bytes.length === 0) return "";
-  let prepared = bytes;
-  try {
-    if (kind === "heic") prepared = await heicToJpeg(bytes);
-  } catch {
-    return "";
-  }
-  if (prepared.length === 0) return "";
-  const key = apiKey.trim();
-  if (key) {
-    const cloud = await readWithVision(prepared, key);
-    if (cloud.trim()) return cloud;
-  }
-  return readLocally(prepared);
-}
+const IMAGE_MISS = "이 컴퓨터에서는 사진 속 한글을 읽지 못합니다. 텍스트나 문서로 올려 주세요.";
+const IMAGE_EMPTY = "사진에서 글을 읽지 못했습니다. 글자가 선명한 사진으로 올려 주세요.";
+const IMAGE_SLOW = "사진에서 글을 읽는 데 너무 오래 걸립니다.";
 
-async function heicToJpeg(bytes: Buffer): Promise<Buffer> {
-  const imported = await import("heic-convert");
-  const convert = imported.default;
-  const output = await convert({ buffer: bytes, format: "JPEG", quality: 0.9 });
-  return Buffer.from(output);
-}
+let koreanImages: boolean | null = null;
 
-async function readWithVision(bytes: Buffer, apiKey: string): Promise<string> {
-  let response: Response;
-  try {
-    response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: { content: bytes.toString("base64") },
-            features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
-          },
-        ],
-      }),
-    });
-  } catch {
-    return "";
-  }
-  if (!response.ok) return "";
-  const data = (await response.json()) as {
-    responses?: Array<{ fullTextAnnotation?: { text?: string } }>;
-  };
-  return data.responses?.[0]?.fullTextAnnotation?.text ?? "";
-}
-
-async function readLocally(bytes: Buffer): Promise<string> {
-  try {
-    const { createWorker } = await import("tesseract.js");
-    const worker = await createWorker("kor+eng", 1, {
-      cachePath: "/tmp/modl-tesseract",
-      errorHandler: () => undefined,
-    });
-    try {
-      const result = await worker.recognize(bytes);
-      return result.data.text ?? "";
-    } finally {
-      await worker.terminate();
+function vendorRoot(): string | null {
+  const bases = [process.cwd(), path.join(process.cwd(), "modl"), "/var/task"];
+  for (const base of bases) {
+    const root = path.join(base, "vendor", "tesseract");
+    if (existsSync(path.join(root, "tesseract")) && existsSync(path.join(root, "tessdata", "kor.traineddata"))) {
+      return root;
     }
-  } catch {
-    return "";
   }
+  return null;
+}
+
+function tesseractCommand(): { bin: string; args: string[] } {
+  const root = vendorRoot();
+  if (!root) return { bin: "tesseract", args: [] };
+  const dest = "/tmp/modl-tesseract";
+  const bin = path.join(dest, "tesseract");
+  const tessdata = path.join(dest, "tessdata");
+  if (!existsSync(bin)) {
+    mkdirSync(tessdata, { recursive: true });
+    copyFileSync(path.join(root, "tesseract"), bin);
+    chmodSync(bin, 0o755);
+    copyFileSync(path.join(root, "tessdata", "kor.traineddata"), path.join(tessdata, "kor.traineddata"));
+  }
+  return { bin, args: ["--tessdata-dir", tessdata] };
+}
+
+export function canReadKoreanImages(): boolean {
+  if (koreanImages !== null) return koreanImages;
+  try {
+    const command = tesseractCommand();
+    const result = spawnSync(command.bin, [...command.args, "--list-langs"], { encoding: "utf8", timeout: 4000 });
+    koreanImages = result.status === 0 && /(^|\n)kor(\n|$)/.test(result.stdout ?? "");
+  } catch {
+    koreanImages = false;
+  }
+  return koreanImages;
+}
+
+export async function readBulletinImage(bytes: Buffer): Promise<string> {
+  if (!canReadKoreanImages()) throw new Error(IMAGE_MISS);
+  const text = (await readWithTesseract(bytes)).replace(/\f/g, "\n").replace(/\r/g, "").trim();
+  if (!text) throw new Error(IMAGE_EMPTY);
+  return text;
+}
+
+function readWithTesseract(data: Buffer): Promise<string> {
+  const command = tesseractCommand();
+  return new Promise((resolve, reject) => {
+    const child = spawn(command.bin, [...command.args, "stdin", "stdout", "-l", "kor", "--psm", "6"], {
+      cwd: "/tmp",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const out: Buffer[] = [];
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const finish = (run: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      run();
+    };
+    timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish(() => reject(new Error(IMAGE_SLOW)));
+    }, 20000);
+    child.stdout.on("data", (chunk: Buffer) => out.push(chunk));
+    child.stderr.on("data", () => {});
+    child.stdin.on("error", () => finish(() => reject(new Error(IMAGE_MISS))));
+    child.on("error", () => finish(() => reject(new Error(IMAGE_MISS))));
+    child.on("close", (code) => {
+      finish(() => {
+        if (code !== 0) {
+          reject(new Error(IMAGE_EMPTY));
+          return;
+        }
+        resolve(Buffer.concat(out).toString("utf8"));
+      });
+    });
+    child.stdin.write(data);
+    child.stdin.end();
+  });
 }

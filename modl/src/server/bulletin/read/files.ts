@@ -1,6 +1,7 @@
 /**
  * 주보 파일에서 글을 읽습니다.
- * 사진 열쇠가 없거나 글을 못 읽으면 빈 글만 돌려주고, 문장을 만들지 않습니다.
+ * 한글, 워드, PDF, 사진은 은혜로운 예배의 lib/extract-text.ts 와 같은 순서로 읽습니다.
+ * 확장자가 없어도 내용이 사진이면 그 사진 읽기를 탑니다.
  */
 
 import { extractLegacyDoc } from "@/server/bulletin/read/extract-doc";
@@ -23,20 +24,18 @@ export async function readBulletinFile(
   const lower = name.toLowerCase();
   const ext = lower.includes(".") ? lower.slice(lower.lastIndexOf(".")) : "";
   const image = sniffImage(data);
-  try {
-    if (image) return textOrEmpty(await imageText(data, image));
-    if (ext === ".txt" || ext === ".text" || ext === ".md") return textOrEmpty(data.toString("utf8"));
-    if (ext === ".docx") return textOrEmpty(await extractDocx(data));
-    if (ext === ".doc") return textOrEmpty(await extractLegacyDoc(data));
-    if (ext === ".hwpx") return textOrEmpty(await extractHwpx(data));
-    if (ext === ".hwp") return textOrEmpty(data.length >= 2 && data[0] === 0x50 && data[1] === 0x4b ? await extractHwpx(data) : await extractHwp(data));
-    if (ext === ".pdf") return textOrEmpty(await extractPdf(data));
-    if (ext === ".rtf") return textOrEmpty(extractRtf(data));
-    if (ext === ".odt") return textOrEmpty(await extractOdt(data));
-    if (ext === ".html" || ext === ".htm") return textOrEmpty(extractHtml(data));
-  } catch {
-    return { kind: "empty" };
+  if (image === "jpg" || image === "png" || image === "webp") {
+    return textOrEmpty(await imageText(data, image));
   }
+  if (ext === ".txt" || ext === ".text" || ext === ".md") return textOrEmpty(data.toString("utf8"));
+  if (ext === ".docx") return textOrEmpty(await extractDocx(data));
+  if (ext === ".doc") return textOrEmpty(await extractLegacyDoc(data));
+  if (ext === ".hwpx") return textOrEmpty(await extractHwpx(data));
+  if (ext === ".hwp") return textOrEmpty(data.length >= 2 && data[0] === 0x50 && data[1] === 0x4b ? await extractHwpx(data) : await extractHwp(data));
+  if (ext === ".pdf") return textOrEmpty(await extractPdf(data));
+  if (ext === ".rtf") return textOrEmpty(extractRtf(data));
+  if (ext === ".odt") return textOrEmpty(await extractOdt(data));
+  if (ext === ".html" || ext === ".htm") return textOrEmpty(extractHtml(data));
   return { kind: "empty" };
 }
 
@@ -45,19 +44,27 @@ function textOrEmpty(value: string): FileRead {
   return text ? { kind: "text", text } : { kind: "empty" };
 }
 
+const HWPX_READ = "한글 파일에서 글을 읽지 못했습니다. HWPX가 맞는지 확인해 주세요.";
+
 async function extractHwpx(data: Buffer): Promise<string> {
-  if (data.length < 4 || data[0] !== 0x50 || data[1] !== 0x4b) return "";
-  const zip = await JSZip.loadAsync(data);
-  const names = Object.keys(zip.files)
-    .filter((file) => /section\d+\.xml$/i.test(file))
-    .sort();
-  const chunks: string[] = [];
-  for (const file of names) {
-    const xml = await zip.files[file].async("string");
-    const text = textFromHwpxXml(xml);
-    if (text) chunks.push(text);
+  if (data.length < 4 || data[0] !== 0x50 || data[1] !== 0x4b) throw new Error(HWPX_READ);
+  try {
+    const zip = await JSZip.loadAsync(data);
+    const names = Object.keys(zip.files)
+      .filter((file) => /section\d+\.xml$/i.test(file))
+      .sort();
+    const chunks: string[] = [];
+    for (const file of names) {
+      const xml = await zip.files[file].async("string");
+      const text = textFromHwpxXml(xml);
+      if (text) chunks.push(text);
+    }
+    if (chunks.length === 0) throw new Error(HWPX_READ);
+    return chunks.join("\n");
+  } catch (error) {
+    if (error instanceof Error && error.message === HWPX_READ) throw error;
+    throw new Error(HWPX_READ);
   }
-  return chunks.join("\n");
 }
 
 function textFromHwpxXml(xml: string): string {

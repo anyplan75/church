@@ -378,11 +378,11 @@ function isDateLine(line: string): boolean {
 }
 
 function isBullet(line: string): boolean {
-  return /^[-•·*–]\s*\S/.test(line);
+  return /^[-•·*–]\s*\S/.test(line) || /^\.\s+\S/.test(line);
 }
 
 function stripBullet(line: string): string {
-  return line.replace(/^[-•·*–]\s*/, "").trim();
+  return line.replace(/^(?:[-•·*–]\s*|\.\s+)/, "").trim();
 }
 
 function isPhoneLine(text: string): boolean {
