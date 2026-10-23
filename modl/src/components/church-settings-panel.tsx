@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChurchFileField } from "@/components/church-file-field";
 import { ChurchTagFilters } from "@/components/church-tag-filters";
+import { filterByName } from "@/map/church-search";
 import type { ChurchRecord } from "@/map/church-sheet";
 import { churchMatchesTags, normalizeChurchTags, type ChurchTag } from "@/map/church-tags";
 import type { JejuCity } from "@/map/region";
@@ -34,7 +35,9 @@ export function ChurchSettingsPanel({ churches, toolsOnly = false }: { churches:
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTags, setEditTags] = useState<ChurchTag[]>([]);
   const [addTags, setAddTags] = useState<ChurchTag[]>([]);
-  const shown = useMemo(() => churches.filter((church) => churchMatchesTags(church.tags, selected)), [churches, selected]);
+  const [nameQuery, setNameQuery] = useState("");
+  const tagged = useMemo(() => churches.filter((church) => churchMatchesTags(church.tags, selected)), [churches, selected]);
+  const shown = toolsOnly ? filterByName(churches, nameQuery) : tagged;
   const editing = churches.find((church) => church.id === editingId) ?? null;
 
   function openEdit(church: ChurchRecord) {
@@ -51,7 +54,20 @@ export function ChurchSettingsPanel({ churches, toolsOnly = false }: { churches:
         ) : (
           <p className="leading-relaxed text-[#4b5563]">태그는 주소로 만들지 않고, 수정에서 직접 켜고 끕니다.</p>
         )}
-        <p className="leading-relaxed">{shown.length}곳</p>
+        {toolsOnly ? (
+          <label className="grid gap-1">
+            <span className="font-semibold">교회 이름</span>
+            <input
+              value={nameQuery}
+              onChange={(event) => setNameQuery(event.target.value)}
+              placeholder="교회 이름"
+              aria-label="교회 이름 검색"
+              data-testid="church-tools-search"
+              className={FIELD}
+            />
+          </label>
+        ) : null}
+        <p className="leading-relaxed">{toolsOnly && !nameQuery.trim() ? "이름으로 찾습니다." : `${shown.length}곳`}</p>
         {toolsOnly ? null : (
         <ChurchTagFilters
           selected={selected}
@@ -67,7 +83,13 @@ export function ChurchSettingsPanel({ churches, toolsOnly = false }: { churches:
         )}
       </div>
       {shown.length === 0 ? (
-        <p className="leading-relaxed">{churches.length === 0 ? "등록된 교회가 없습니다." : "조건에 맞는 교회가 없습니다."}</p>
+        <p className="leading-relaxed">
+          {churches.length === 0
+            ? "등록된 교회가 없습니다."
+            : toolsOnly && !nameQuery.trim()
+              ? "교회 이름을 적으면 그 교회를 찾아 삭제할 수 있습니다. 추가는 아래 칸에 적습니다."
+              : "조건에 맞는 교회가 없습니다."}
+        </p>
       ) : (
         <ul data-testid="church-list" aria-label="교회 목록" className="grid max-h-[32rem] list-none gap-2 overflow-y-auto">
           {shown.map((church) => (

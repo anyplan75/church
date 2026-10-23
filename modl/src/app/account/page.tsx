@@ -36,7 +36,7 @@ function note(ok: string | undefined, count: string | undefined, missed: string 
   if (ok === "gathering-left") return "모들 구독을 뺐습니다.";
   if (ok === "grant") return "수정 권한을 주었습니다.";
   if (ok === "revoke") return "수정 권한을 뺐습니다.";
-  if (ok === "steward") return "모들장을 지정했습니다.";
+  if (ok === "steward") return "관리자를 지정했습니다.";
   if (ok === "address") return "내 주소를 저장했습니다.";
   if (ok === "pickup") return "데리러 가기 동의를 저장했습니다.";
   if (ok === "survey") return "설문을 저장했습니다.";

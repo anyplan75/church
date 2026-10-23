@@ -103,7 +103,7 @@ export async function createCategory(input: {
   if (actor.kind !== "user") throw new FinanceFlowError("살림을 고치려면 먼저 들어가 주세요.");
   const scope = await loadPlaceScope(actor.userId);
   const allowed = input.placeKind === "gathering" ? scope.editGroupIds.has(input.placeId) : scope.editChurchIds.has(input.placeId);
-  if (!allowed) throw new FinanceFlowError("이 재정은 모들장이나 수정 권한이 있는 사람만 고칩니다.");
+  if (!allowed) throw new FinanceFlowError("이 재정은 관리자나 수정 권한이 있는 사람만 고칩니다.");
   const budget = Number(input.budgetAmount);
   if (!Number.isInteger(budget) || budget < 0) throw new FinanceFlowError("예산은 0 이상의 정수로 적어 주세요.");
   await assertTextsAllowed(input.departmentOrEvent, input.name);
@@ -135,7 +135,7 @@ export async function createTransaction(input: {
   const [category] = await db.select().from(financeCategories).where(eq(financeCategories.id, input.categoryId)).limit(1);
   if (!category) throw new FinanceFlowError("분류를 찾지 못했습니다.");
   const allowed = category.groupId ? scope.editGroupIds.has(category.groupId) : category.churchId ? scope.editChurchIds.has(category.churchId) : false;
-  if (!allowed) throw new FinanceFlowError("이 재정은 모들장이나 수정 권한이 있는 사람만 고칩니다.");
+  if (!allowed) throw new FinanceFlowError("이 재정은 관리자나 수정 권한이 있는 사람만 고칩니다.");
   const membership = formalMembership(actor, category.communityId);
   const amount = Number(input.amount);
   if (!Number.isInteger(amount) || amount < 0) throw new FinanceFlowError("금액은 0 이상의 정수로 적어 주세요.");

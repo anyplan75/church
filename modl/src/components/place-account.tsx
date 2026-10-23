@@ -1,5 +1,5 @@
+import { ManagerAssign } from "@/components/manager-assign";
 import {
-  assignStewardAction,
   createGatheringAction,
   grantPlaceEditAction,
   revokePlaceEditAction,
@@ -70,7 +70,7 @@ export function PlaceAccount({
               <p className="font-semibold">
                 {church.name}
                 {church.current ? " · 내가 갈 교회" : ""}
-                {church.steward ? " · 모들장" : ""}
+                {church.steward ? " · 관리자" : ""}
               </p>
               <div className="flex flex-wrap gap-2">
                 {church.current ? null : (
@@ -139,7 +139,7 @@ export function PlaceAccount({
               <p className="font-semibold">
                 {group.name}
                 {group.current ? " · 내가 갈 모들" : ""}
-                {group.steward ? " · 모들장" : ""}
+                {group.steward ? " · 관리자" : ""}
               </p>
               <div className="flex flex-wrap gap-2">
                 {group.current ? null : (
@@ -166,7 +166,7 @@ export function PlaceAccount({
       {managedMembers.length > 0 || managedGrants.length > 0 ? (
         <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
           <h2 className="text-lg font-semibold leading-snug">수정 권한</h2>
-          <p className="leading-relaxed text-[#5c5148]">모들장이 속한 사람에게 재정과 일정을 고칠 권한을 줍니다. 권한이 없으면 보기만 합니다.</p>
+          <p className="leading-relaxed text-[#5c5148]">관리자가 속한 사람에게 재정과 일정을 고칠 권한을 줍니다. 권한이 없으면 보기만 합니다.</p>
           <ul className="grid gap-2">
             {managedMembers.map((member) => (
               <li key={`${member.kind}-${member.placeId}-${member.userId}`} className="flex flex-wrap items-center justify-between gap-2">
@@ -204,43 +204,7 @@ export function PlaceAccount({
         </section>
       ) : null}
       {part === "site" && place.isPastor ? (
-        <section className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
-          <h2 className="text-lg font-semibold leading-snug">모들장 지정</h2>
-          <p className="leading-relaxed text-[#5c5148]">만든 사람이 없는 교회나 모들은 사역자가 모들장을 지정합니다. 등급은 고르지 않습니다.</p>
-          <form action="/account" className="flex flex-wrap gap-2">
-            <input type="hidden" name="tab" value="site" />
-            <input
-              name="church"
-              defaultValue={churchQuery}
-              placeholder="교회 이름"
-              className="min-w-0 flex-1 rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-snug"
-            />
-            <button type="submit" className="rounded-xl bg-[#111827] px-3 py-2 font-semibold text-white">
-              찾기
-            </button>
-          </form>
-          <ul className="grid gap-2">
-            {place.unassigned.map((item) => (
-              <li key={`${item.kind}-${item.id}`} className="grid gap-2 rounded-2xl bg-white px-3 py-3">
-                <p className="font-semibold">{item.name}</p>
-                <form action={assignStewardAction} className="flex flex-wrap gap-2">
-                  <input type="hidden" name="kind" value={item.kind} />
-                  <input type="hidden" name="placeId" value={item.id} />
-                  <input
-                    name="email"
-                    type="email"
-                    required
-                    placeholder="모들장 이메일"
-                    className="min-w-0 flex-1 rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-snug"
-                  />
-                  <button type="submit" className="rounded-xl bg-[#111827] px-3 py-2 font-semibold text-white">
-                    모들장 지정
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <ManagerAssign churches={place.managerChurches} gatherings={place.managerGatherings} />
       ) : null}
     </div>
   );

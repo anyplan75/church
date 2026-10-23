@@ -20,10 +20,7 @@ export const CATEGORY_MENUS = [
   },
   {
     label: "연결",
-    items: [
-      { href: "/website", label: "웹사이트" },
-      { href: "/map", label: "지도" },
-    ],
+    items: [{ href: "/map", label: "지도" }],
   },
 ] as const;
 

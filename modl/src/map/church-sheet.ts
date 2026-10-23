@@ -19,6 +19,9 @@ export type ChurchPin = ChurchInput & {
   point: { lat: number; lon: number };
   region: "제주시" | "서귀포시" | null;
   tags: string[];
+  hasManager?: boolean;
+  promoIntro?: string;
+  canEditIntro?: boolean;
 };
 
 export type ChurchRecord = ChurchInput & {

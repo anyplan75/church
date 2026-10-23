@@ -23,9 +23,8 @@ describe("교회와 모들 권한", () => {
   });
 
   it("만든 사람이 없을 때만 사역자가 태우리를 지정합니다", () => {
-    assert.equal(canAssignSteward({ hasSteward: false, isPastor: true }), true);
-    assert.equal(canAssignSteward({ hasSteward: true, isPastor: true }), false);
-    assert.equal(canAssignSteward({ hasSteward: false, isPastor: false }), false);
+    assert.equal(canAssignSteward({ isPastor: true }), true);
+    assert.equal(canAssignSteward({ isPastor: false }), false);
   });
 
   it("그 교회나 그 모들에 속한 사람만 자료를 봅니다", () => {

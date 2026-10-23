@@ -29,7 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           languageModeFromCommunity={shell.languageMode}
           overridesJson={shell.overridesJson}
         >
-          <AppShell accountName={shell.accountName} menuHrefs={shell.menuHrefs}>{children}</AppShell>
+          <AppShell accountName={shell.accountName} menuHrefs={shell.menuHrefs} placeMenus={shell.placeMenus}>{children}</AppShell>
         </CommunityTermProvider>
       </body>
     </html>

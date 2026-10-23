@@ -14,6 +14,7 @@ import {
   googleEventCoversDate,
   googleEventRequest,
   churchSeasonMarks,
+  seasonGuide,
   seasonIconKey,
   monthCells,
   monthDayMarks,
@@ -248,6 +249,9 @@ describe("교회 절기", () => {
     assert.equal(seasonIconKey("부활절"), "easter");
     assert.equal(seasonIconKey("성령강림절"), "pentecost");
     assert.equal(seasonIconKey("없는 절기"), null);
+    assert.equal(seasonGuide("성탄절"), "성탄절은 예수님이 사람으로 태어나신 날입니다.");
+    assert.equal(seasonGuide("부활절")?.includes("다시 살아나신"), true);
+    assert.equal(seasonGuide("없는 절기"), null);
   });
 
   it("절기는 칸에만 보이고 저장된 일정을 지우지 않습니다", () => {

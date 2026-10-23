@@ -190,13 +190,14 @@ export async function saveBulletin(input: {
   await assertTextsAllowed(input.sermonTitle, input.scriptureText, input.preacher, parsed.blocks);
 
   const db = getDb();
+  const currentChurchId = actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null;
   if (!input.bulletinId) {
     const share = nextShareState({ isPublic: false, shareToken: null }, input.intent, makeShareToken);
     const [created] = await db
       .insert(bulletins)
       .values({
         communityId,
-        churchId: actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null,
+        churchId: currentChurchId,
         worshipDate: input.worshipDate,
         sermonTitle: input.sermonTitle,
         scriptureText: input.scriptureText,
@@ -212,6 +213,7 @@ export async function saveBulletin(input: {
       worshipDate: input.worshipDate,
       sermonTitle: input.sermonTitle,
       blocks: parsed.blocks,
+      churchId: currentChurchId,
     });
     return created.id;
   }
@@ -224,9 +226,11 @@ export async function saveBulletin(input: {
     input.intent,
     makeShareToken,
   );
+  const churchId = existing.churchId ?? currentChurchId;
   await db
     .update(bulletins)
     .set({
+      churchId,
       worshipDate: input.worshipDate,
       sermonTitle: input.sermonTitle,
       scriptureText: input.scriptureText,
@@ -243,6 +247,7 @@ export async function saveBulletin(input: {
     worshipDate: input.worshipDate,
     sermonTitle: input.sermonTitle,
     blocks: parsed.blocks,
+    churchId,
   });
   return existing.id;
 }
@@ -270,6 +275,7 @@ export async function saveBulletinWeek(
   });
   await assertTextsAllowed(ready);
   const db = getDb();
+  const churchId = actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null;
   const ids = await db.transaction(async (tx) => {
     const created: string[] = [];
     for (const service of ready) {
@@ -277,7 +283,7 @@ export async function saveBulletinWeek(
         .insert(bulletins)
         .values({
           communityId,
-          churchId: actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null,
+          churchId,
           worshipDate: service.worshipDate,
           serviceLabel: service.label,
           serviceTime: service.time,
@@ -299,6 +305,7 @@ export async function saveBulletinWeek(
           worshipDate: service.worshipDate,
           sermonTitle: service.sermonTitle,
           blocks: service.blocks,
+          churchId,
         },
         tx,
       );

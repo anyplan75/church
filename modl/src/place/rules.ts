@@ -17,9 +17,9 @@ export function canEditShared(input: { isSteward: boolean; granted: boolean }): 
   return input.isSteward || input.granted;
 }
 
-/** 만든 사람이 없을 때만 사역자가 태우리를 지정합니다. */
-export function canAssignSteward(input: { hasSteward: boolean; isPastor: boolean }): boolean {
-  return !input.hasSteward && input.isPastor;
+/** 사역자가 교회나 모들의 관리자를 지정합니다. 이미 있어도 다시 지정할 수 있습니다. */
+export function canAssignSteward(input: { isPastor: boolean }): boolean {
+  return input.isPastor;
 }
 
 export function sharedRowVisible(

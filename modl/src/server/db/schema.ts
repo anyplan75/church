@@ -1075,6 +1075,27 @@ export const groupFollows = pgTable(
   ],
 );
 
+/** 교회 또는 모들 하나의 홍보 페이지입니다. 일정과 재정은 두지 않습니다. */
+export const promoPages = pgTable(
+  "promo_pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
+    instagram: text("instagram").notNull().default(""),
+    intro: text("intro").notNull().default(""),
+    youtubeJson: jsonValue("youtube_json"),
+    tabsJson: jsonValue("tabs_json"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("promo_pages_church_uidx").on(table.churchId).where(sql`${table.churchId} is not null`),
+    uniqueIndex("promo_pages_group_uidx").on(table.groupId).where(sql`${table.groupId} is not null`),
+    check("promo_pages_one_place", sql`(${table.churchId} is not null) <> (${table.groupId} is not null)`),
+  ],
+);
+
 /** 태우리가 소속원에게 준 재정·일정 수정 권한입니다. */
 export const placeEditGrants = pgTable(
   "place_edit_grants",
@@ -1135,6 +1156,7 @@ export const dbSchema = {
   churchFollows,
   groupFollows,
   placeEditGrants,
+  promoPages,
   bannedWords,
   worshipCaptionLinks,
 };

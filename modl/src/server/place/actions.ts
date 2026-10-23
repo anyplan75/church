@@ -130,5 +130,5 @@ export async function assignStewardAction(formData: FormData) {
   } catch (error) {
     fail(error);
   }
-  redirect("/account?ok=steward");
+  redirect("/account?tab=site&ok=steward");
 }

@@ -17,7 +17,7 @@ describe("분류 메뉴", () => {
     assert.equal(found.get("행사자료"), "/archive");
     assert.equal(found.get("토론"), "/discussion");
     assert.equal(found.get("퀴즈"), undefined);
-    assert.equal(found.get("웹사이트"), "/website");
+    assert.equal(found.get("웹사이트"), undefined);
     assert.equal(found.get("지도"), "/map");
     assert.equal(found.get("리더"), undefined);
     assert.equal(found.get("교인"), undefined);
@@ -30,7 +30,7 @@ describe("분류 메뉴", () => {
       [
         ["예배", ["주보", "QT", "기도", "일정", "토론"]],
         ["운영", ["재정", "회의록", "행사자료"]],
-        ["연결", ["웹사이트", "지도"]],
+        ["연결", ["지도"]],
       ],
     );
   });
@@ -42,6 +42,7 @@ describe("분류 메뉴", () => {
     assert.equal(guest.includes("/attendance"), false);
     assert.equal(guest.includes("/calendar"), true);
     assert.equal(guest.includes("/finance"), true);
+    assert.equal(guest.includes("/website"), false);
     const member = sidebarHrefs({ formal: true, officer: false });
     assert.equal(member.includes("/discussion"), true);
     assert.equal(member.includes("/quiz"), false);
@@ -50,5 +51,6 @@ describe("분류 메뉴", () => {
     assert.equal(member.includes("/survey"), false);
     const officer = sidebarHrefs({ formal: true, officer: true });
     assert.equal(officer.includes("/finance"), true);
+    assert.equal(officer.includes("/website"), false);
   });
 });

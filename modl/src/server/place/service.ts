@@ -5,6 +5,7 @@
 
 import { and, asc, eq, ilike, inArray, isNull } from "drizzle-orm";
 import { canAssignSteward, canEditShared, canSeeSharedRow, placeSlug, type PlaceKind } from "@/place/rules";
+import { subscriptionMenus } from "@/promo/rules";
 import { loadActor } from "@/server/auth/session";
 import {
   churchFollows,
@@ -273,11 +274,11 @@ export async function unsubscribeGathering(groupId: string) {
 async function assertSteward(userId: string, kind: PlaceKind, id: string) {
   if (kind === "church") {
     const [row] = await getDb().select({ createdByUserId: mapChurches.createdByUserId }).from(mapChurches).where(eq(mapChurches.id, id)).limit(1);
-    if (row?.createdByUserId !== userId) throw new PlaceFlowError("모들장만 수정 권한을 줄 수 있습니다.");
+    if (row?.createdByUserId !== userId) throw new PlaceFlowError("관리자만 수정 권한을 줄 수 있습니다.");
     return;
   }
   const [row] = await getDb().select({ createdByUserId: smallGroups.createdByUserId }).from(smallGroups).where(eq(smallGroups.id, id)).limit(1);
-  if (row?.createdByUserId !== userId) throw new PlaceFlowError("모들장만 수정 권한을 줄 수 있습니다.");
+  if (row?.createdByUserId !== userId) throw new PlaceFlowError("관리자만 수정 권한을 줄 수 있습니다.");
 }
 
 export async function grantPlaceEdit(kind: PlaceKind, placeId: string, memberUserId: string) {
@@ -335,8 +336,8 @@ export async function assignSteward(kind: PlaceKind, placeId: string, email: str
   if (kind === "church") {
     const [row] = await db.select({ createdByUserId: mapChurches.createdByUserId }).from(mapChurches).where(eq(mapChurches.id, placeId)).limit(1);
     if (!row) throw new PlaceFlowError("교회를 찾지 못했습니다.");
-    if (!canAssignSteward({ hasSteward: Boolean(row.createdByUserId), isPastor: scope.isPastor })) {
-      throw new PlaceFlowError("만든 사람이 없는 교회만 사역자가 모들장을 지정합니다.");
+    if (!canAssignSteward({ isPastor: scope.isPastor })) {
+      throw new PlaceFlowError("사역자만 관리자를 지정합니다.");
     }
     await db.update(mapChurches).set({ createdByUserId: person.id, updatedAt: new Date() }).where(eq(mapChurches.id, placeId));
     await db.insert(churchFollows).values({ userId: person.id, churchId: placeId }).onConflictDoNothing({
@@ -346,8 +347,8 @@ export async function assignSteward(kind: PlaceKind, placeId: string, email: str
   }
   const [row] = await db.select({ createdByUserId: smallGroups.createdByUserId }).from(smallGroups).where(eq(smallGroups.id, placeId)).limit(1);
   if (!row) throw new PlaceFlowError("모들을 찾지 못했습니다.");
-  if (!canAssignSteward({ hasSteward: Boolean(row.createdByUserId), isPastor: scope.isPastor })) {
-    throw new PlaceFlowError("만든 사람이 없는 모들만 사역자가 모들장을 지정합니다.");
+  if (!canAssignSteward({ isPastor: scope.isPastor })) {
+    throw new PlaceFlowError("사역자만 관리자를 지정합니다.");
   }
   await db.update(smallGroups).set({ createdByUserId: person.id, updatedAt: new Date() }).where(eq(smallGroups.id, placeId));
   await db.insert(groupFollows).values({ userId: person.id, groupId: placeId }).onConflictDoNothing({
@@ -362,9 +363,30 @@ export type PlaceAccount = {
   foundGatherings: Array<{ id: string; name: string; subscribed: boolean }>;
   grants: Array<{ id: string; name: string; person: string; kind: PlaceKind }>;
   members: Array<{ userId: string; name: string; placeId: string; kind: PlaceKind; placeName: string }>;
-  unassigned: Array<{ id: string; name: string; kind: PlaceKind }>;
+  managerChurches: Array<{ id: string; name: string }>;
+  managerGatherings: Array<{ id: string; name: string }>;
   isPastor: boolean;
 };
+
+export async function loadSubscriptionMenus(userId: string) {
+  const scope = await loadPlaceScope(userId);
+  const db = getDb();
+  const churches = scope.churchIds.size
+    ? await db
+        .select({ id: mapChurches.id, name: mapChurches.name })
+        .from(mapChurches)
+        .where(inArray(mapChurches.id, [...scope.churchIds]))
+        .orderBy(asc(mapChurches.name))
+    : [];
+  const gatherings = scope.groupIds.size
+    ? await db
+        .select({ id: smallGroups.id, name: smallGroups.name })
+        .from(smallGroups)
+        .where(inArray(smallGroups.id, [...scope.groupIds]))
+        .orderBy(asc(smallGroups.name))
+    : [];
+  return subscriptionMenus(churches, gatherings);
+}
 
 export async function loadPlaceAccount(churchQuery: string, gatheringQuery: string): Promise<PlaceAccount | null> {
   const actor = await loadActor();
@@ -430,16 +452,16 @@ export async function loadPlaceAccount(churchQuery: string, gatheringQuery: stri
         .innerJoin(users, eq(users.id, groupFollows.userId))
         .where(inArray(groupFollows.groupId, stewardGroupIds))
     : [];
-  let unassigned: PlaceAccount["unassigned"] = [];
-  if (scope.isPastor && churchNeedle) {
-    const rows = await db
-      .select({ id: mapChurches.id, name: mapChurches.name })
-      .from(mapChurches)
-      .where(and(isNull(mapChurches.createdByUserId), ilike(mapChurches.name, `%${churchNeedle.replace(/[%_]/g, "")}%`)))
-      .orderBy(asc(mapChurches.name))
-      .limit(20);
-    unassigned = rows.map((row) => ({ id: row.id, name: row.name, kind: "church" as const }));
-  }
+  const managerChurches = scope.isPastor
+    ? await db.select({ id: mapChurches.id, name: mapChurches.name }).from(mapChurches).orderBy(asc(mapChurches.name))
+    : [];
+  const managerGatherings = scope.isPastor
+    ? await db
+        .select({ id: smallGroups.id, name: smallGroups.name })
+        .from(smallGroups)
+        .where(eq(smallGroups.isArchived, false))
+        .orderBy(asc(smallGroups.name))
+    : [];
   return {
     churches: churches.map((row) => ({
       id: row.id,
@@ -481,7 +503,8 @@ export async function loadPlaceAccount(churchQuery: string, gatheringQuery: stri
           placeName: groupNames.get(row.groupId) ?? "",
         })),
     ],
-    unassigned,
+    managerChurches,
+    managerGatherings,
     isPastor: scope.isPastor,
   };
 }

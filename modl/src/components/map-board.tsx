@@ -12,6 +12,7 @@ import { PLACE_KIND_LABEL, type MapPoint, type PlaceHit, type RouteResult, type 
 import { busGuideAction, busRouteLineAction, searchPlacesAction, travelAction } from "@/server/map/actions";
 import { saveMapChurchAction, saveMyAddressAction, setPickupConsentAction } from "@/server/map/church-actions";
 import { subscribePlaceOnMapAction } from "@/server/place/actions";
+import { saveChurchIntroAction } from "@/server/promo/actions";
 
 type Pending = "search" | "route" | "bus" | "gps" | "address" | "consent" | "church" | null;
 type TravelMode = "car" | "walk" | "bus";
@@ -1132,6 +1133,7 @@ function DesktopMapDetails({
                   <Detail label="메모" value={church.memo} />
                   {church.tags.length > 0 ? <Detail label="태그" value={church.tags.join(" · ")} /> : null}
                 </dl>
+                <ChurchPromoIntro church={church} />
                 {canEditChurches ? (
                   <button
                     type="button"
@@ -1250,6 +1252,55 @@ function DesktopMapDetails({
           {note}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function ChurchPromoIntro({ church }: { church: ChurchPin }) {
+  const [text, setText] = useState(church.promoIntro ?? "");
+  const [saved, setSaved] = useState(church.promoIntro ?? "");
+  const [note, setNote] = useState("");
+  const [pending, setPending] = useState(false);
+  if (!church.hasManager) return null;
+  return (
+    <div className="grid gap-2" data-testid="church-promo">
+      {saved ? <p data-testid="church-promo-intro" className="leading-relaxed">{saved}</p> : <p className="leading-relaxed text-[#4b5563]">소개가 아직 없습니다.</p>}
+      <a href={`/promo/church/${church.id}`} className="w-fit font-semibold underline">
+        홍보 페이지
+      </a>
+      {church.canEditIntro ? (
+        <form
+          className="grid gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setPending(true);
+            void saveChurchIntroAction(church.id, text).then((result) => {
+              if (result.ok) {
+                setSaved(text.trim());
+                setNote("소개를 저장했습니다.");
+              } else {
+                setNote(result.message);
+              }
+              setPending(false);
+            });
+          }}
+        >
+          <label className="grid gap-1">
+            <span className="font-semibold">소개</span>
+            <textarea
+              value={text}
+              data-testid="church-promo-intro-input"
+              rows={3}
+              className="w-full rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 leading-snug"
+              onChange={(event) => setText(event.target.value)}
+            />
+          </label>
+          <button type="submit" disabled={pending} className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 font-semibold">
+            소개 저장
+          </button>
+        </form>
+      ) : null}
+      {note ? <p className="leading-relaxed">{note}</p> : null}
     </div>
   );
 }

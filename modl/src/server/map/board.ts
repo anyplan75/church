@@ -14,7 +14,7 @@ import type { MapPoint } from "@/map/rules";
 import { formalMembership } from "@/server/auth/membership";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { CHURCH_PIN_COLOR, GATHERING_PIN_COLOR } from "@/place/rules";
-import { communities, mapChurches, members, smallGroups, users } from "@/server/db/schema";
+import { communities, mapChurches, members, promoPages, smallGroups, users } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { lookupAddressPoint } from "@/server/map/address-lookup";
 import { loadPlaceScope } from "@/server/place/service";
@@ -188,6 +188,10 @@ export async function loadMapBoard(): Promise<MapBoardData> {
         .from(members)
         .where(eq(members.communityId, seen.communityId))
     : [];
+  const promoRows = await db.select({ churchId: promoPages.churchId, intro: promoPages.intro }).from(promoPages);
+  const introByChurch = new Map(promoRows.flatMap((row) => (row.churchId ? [[row.churchId, row.intro] as const] : [])));
+  const mapActor = await loadActor();
+  const viewerId = mapActor.kind === "user" ? mapActor.userId : null;
   const churches = churchRows.flatMap((row) => {
     if (!row.address.trim()) return [];
     const point = finitePoint(row.lat, row.lon);
@@ -204,6 +208,9 @@ export async function loadMapBoard(): Promise<MapBoardData> {
         point,
         region: cityFromStored(row.sido, row.district, row.regionId),
         tags: normalizeChurchTags(row.tags),
+        hasManager: Boolean(row.createdByUserId),
+        promoIntro: introByChurch.get(row.id) ?? "",
+        canEditIntro: Boolean(viewerId && row.createdByUserId === viewerId),
       },
     ];
   });

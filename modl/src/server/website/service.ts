@@ -173,7 +173,7 @@ export async function loadWebsiteEditor(origin: string) {
       ? "gathering"
       : null;
   if (!ownerKind) {
-    return { ok: false as const, message: "내가 갈 교회나 내가 갈 모들의 모들장이거나, 수정 권한이 있어야 소개 페이지를 고칩니다." };
+    return { ok: false as const, message: "내가 갈 교회나 내가 갈 모들의 관리자이거나, 수정 권한이 있어야 소개 페이지를 고칩니다." };
   }
   const ownerId = ownerKind === "church" ? scope.currentChurchId : scope.currentGroupId;
   if (!ownerId) return { ok: false as const, message: "소개 페이지를 둘 교회나 모들을 계정에서 골라 주세요." };
@@ -248,7 +248,7 @@ export async function saveWebsite(input: { blocks: WebsiteBlock[]; theme: Websit
       ? "gathering"
       : null;
   const ownerId = ownerKind === "church" ? scope.currentChurchId : ownerKind === "gathering" ? scope.currentGroupId : null;
-  if (!ownerKind || !ownerId) throw new WebsiteFlowError("내가 갈 교회나 내가 갈 모들의 모들장이거나, 수정 권한이 있어야 소개 페이지를 고칩니다.");
+  if (!ownerKind || !ownerId) throw new WebsiteFlowError("내가 갈 교회나 내가 갈 모들의 관리자이거나, 수정 권한이 있어야 소개 페이지를 고칩니다.");
   const db = getDb();
   const slug = await ensurePlaceSlug(ownerKind, ownerId);
   const communityId = ownerKind === "church"

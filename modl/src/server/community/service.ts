@@ -21,6 +21,8 @@ import {
   users,
 } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import type { PlaceMenuItem } from "@/promo/rules";
+import { loadSubscriptionMenus } from "@/server/place/service";
 import { sidebarHrefs } from "@/theme/menu-access";
 import type { CustomTermOverrides, LanguageMode } from "@/theme/types";
 import { denominationsMatch, explainJoinBlock, groupIdsToArchive, planApproval } from "@/server/community/rules";
@@ -486,6 +488,7 @@ export type ShellState = {
   overridesJson: string;
   menuHrefs: string[];
   officer: boolean;
+  placeMenus: PlaceMenuItem[];
 };
 
 function shellBase(formal: boolean, officer: boolean): Pick<ShellState, "menuHrefs" | "officer"> {
@@ -497,27 +500,29 @@ export async function loadShellState(): Promise<ShellState> {
     await ensureDatabase();
     const actor = await loadActor();
     if (actor.kind !== "user") {
-      return { accountName: null, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+      return { accountName: null, languageMode: null, overridesJson: "{}", placeMenus: [], ...shellBase(false, false) };
     }
+    const placeMenus = await loadSubscriptionMenus(actor.userId).catch(() => []);
     const accountName = await currentUserName(actor.userId);
     const communityId = await activeCommunityId(actor);
     if (!communityId) {
-      return { accountName, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+      return { accountName, languageMode: null, overridesJson: "{}", placeMenus, ...shellBase(false, false) };
     }
     const membership = formalMembership(actor, communityId);
     const officer = membership?.role === "PASTOR" || membership?.role === "EXECUTIVE";
     const [community] = await getDb().select().from(communities).where(eq(communities.id, communityId)).limit(1);
     if (!community) {
-      return { accountName, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+      return { accountName, languageMode: null, overridesJson: "{}", placeMenus, ...shellBase(false, false) };
     }
     return {
       accountName,
       languageMode: community.languageMode,
       overridesJson: JSON.stringify(community.customTermOverrides ?? {}),
+      placeMenus,
       ...shellBase(membership !== null, officer),
     };
   } catch {
-    return { accountName: null, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+    return { accountName: null, languageMode: null, overridesJson: "{}", placeMenus: [], ...shellBase(false, false) };
   }
 }
 

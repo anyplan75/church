@@ -17,7 +17,7 @@ const MEMBER_HREFS = [
   "/map",
 ] as const;
 
-const OFFICER_HREFS = ["/finance", "/minutes", "/website"] as const;
+const OFFICER_HREFS = ["/finance", "/minutes"] as const;
 
 export function sidebarHrefs(input: { formal: boolean; officer: boolean }): string[] {
   if (!input.formal) return CATEGORY_LINKS.map((item) => item.href);

@@ -31,6 +31,8 @@ const ICONS: Record<string, IconSpec> = {
   "/leader": { lines: ["M12 3l2.4 4.8 5.3.8-3.8 3.7.9 5.2L12 15.8 7.2 17.5l.9-5.2L4.3 8.6l5.3-.8z"] },
   "/website": { lines: ["M3 12h18", "M12 3c2 2.5 3 5.6 3 9s-1 6.5-3 9c-2-2.5-3-5.6-3-9s1-6.5 3-9z"], circles: [[12, 12, 9]] },
   "/map": { lines: ["M12 21s6-5 6-10a6 6 0 1 0-12 0c0 5 6 10 6 10z"], circles: [[12, 10, 2]] },
+  "church-menu": { lines: ["M4 20V9l8-5 8 5v11", "M10 20v-6h4v6"] },
+  "gathering-menu": { lines: ["M17 21v-2a3 3 0 0 0-3-3h-2", "M8 21v-2a4 4 0 0 1 4-4"], circles: [[9, 7, 3.2], [17, 8, 2.4]] },
   account: { lines: ["M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"], circles: [[12, 7, 4]] },
 };
 
