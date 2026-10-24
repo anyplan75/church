@@ -1,6 +1,7 @@
 "use client";
 
 import { InstagramEmbed } from "@/components/instagram-embed";
+import { InstagramLogo, YoutubeLogo } from "@/components/sns-logos";
 import { YoutubeMagazine } from "@/components/youtube-magazine";
 import type { InstagramFeed as InstagramFeedState } from "@/server/promo/instagram-feed";
 import type { YoutubeFeed } from "@/server/promo/youtube-feed";
@@ -37,7 +38,10 @@ export function PromoSns({ headingLevel = "h2", instagramAccount, instagram, you
         data-instagram-feed={instagram?.status}
         data-instagram-reason={instagramReason}
       >
-        <Heading className="font-semibold">인스타그램</Heading>
+        <Heading className="flex items-center gap-2 font-semibold">
+          <InstagramLogo className="h-5 w-5 shrink-0" />
+          <span>인스타그램</span>
+        </Heading>
         {loading ? (
           <p className="leading-relaxed text-[#5c5148]">인스타그램을 읽고 있습니다.</p>
         ) : !instagramAccount.trim() || instagram?.status === "hidden" ? (
@@ -56,7 +60,10 @@ export function PromoSns({ headingLevel = "h2", instagramAccount, instagram, you
         data-youtube-feed={youtube?.status}
         data-youtube-reason={youtube?.status === "unavailable" ? youtube.reason : undefined}
       >
-        <Heading className="font-semibold">유튜브</Heading>
+        <Heading className="flex items-center gap-2 font-semibold">
+          <YoutubeLogo className="h-5 w-5 shrink-0" />
+          <span>유튜브</span>
+        </Heading>
         {loading ? (
           <p className="leading-relaxed text-[#5c5148]">유튜브를 읽고 있습니다.</p>
         ) : youtube?.status === "ready" ? (
