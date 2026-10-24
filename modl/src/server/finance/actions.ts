@@ -5,7 +5,8 @@ import { z } from "zod";
 import { createCategory, createTransaction, FinanceFlowError, readableFinanceError, syncFinanceToSheets } from "@/server/finance/service";
 
 function fail(path: string, error: unknown): never {
-  redirect(`${path}?error=${encodeURIComponent(readableFinanceError(error))}`);
+  const joiner = path.includes("?") ? "&" : "?";
+  redirect(`${path}${joiner}error=${encodeURIComponent(readableFinanceError(error))}`);
 }
 
 function text(formData: FormData, key: string): string {
@@ -28,12 +29,16 @@ export async function createCategoryAction(formData: FormData) {
       budgetAmount: text(formData, "budgetAmount"),
     });
   if (!parsed.success) fail("/finance", new FinanceFlowError(parsed.error.issues[0]?.message ?? "분류를 확인해 주세요."));
+  const placeRef = text(formData, "placeRef");
+  const placeKind = placeRef.startsWith("gathering:") ? "gathering" : placeRef.startsWith("church:") ? "church" : null;
+  const placeId = placeKind ? placeRef.slice(placeKind.length + 1) : "";
+  if (!placeKind || !placeId) fail("/finance", new FinanceFlowError("재정을 둘 교회나 모들을 골라 주세요."));
   try {
-    await createCategory(parsed.data);
+    await createCategory({ ...parsed.data, placeKind, placeId });
   } catch (error) {
-    fail("/finance", error);
+    fail(`/finance?place=${encodeURIComponent(placeRef)}`, error);
   }
-  redirect("/finance?ok=category");
+  redirect(`/finance?place=${encodeURIComponent(placeRef)}&ok=category`);
 }
 
 export async function createTransactionAction(formData: FormData) {

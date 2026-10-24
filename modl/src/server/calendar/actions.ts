@@ -53,7 +53,8 @@ export async function saveCalendarEventAction(formData: FormData) {
       endAt,
       category: parsed.data.category,
       isLeaderOnly: text(formData, "isLeaderOnly") === "yes",
-      groupId: text(formData, "groupId") || null,
+      groupId: text(formData, "placeRef").startsWith("gathering:") ? text(formData, "placeRef").slice("gathering:".length) : null,
+      churchId: text(formData, "placeRef").startsWith("church:") ? text(formData, "placeRef").slice("church:".length) : null,
     });
   } catch (error) {
     fail(back, error);

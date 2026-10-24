@@ -3,14 +3,16 @@
  * 권한은 assertCan 만 쓰고, 다른 공동체 줄은 섞지 않습니다.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { isHttpUrl, receiptsInRange, textLines } from "@/finance/rules";
 import { FINANCE_HEADERS, financeRows } from "@/export/xlsx";
 import type { Actor } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
 import { assertApprovedMember, assertCan, assertSameCommunity, can, formalMembership } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { communities, financeCategories, transactions } from "@/server/db/schema";
+import { canSeeSharedRow } from "@/place/rules";
+import { loadPlaceScope, placeCommunity } from "@/server/place/service";
+import { communities, financeCategories, mapChurches, smallGroups, transactions } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { assertTextsAllowed } from "@/server/moderation/guard";
 import { appendFinanceRows, readFinanceSheet, sheetsReady } from "@/server/finance/sheets";
@@ -48,25 +50,49 @@ export async function loadFinanceHome() {
   if (actor.kind !== "user") {
     return { ok: false as const, message: "살림을 보려면 먼저 들어가 주세요." };
   }
-  const communityId = await activeCommunityId(actor);
-  if (!communityId) {
-    return { ok: false as const, message: "먼저 공동체를 만들거나, 가입 승인을 받아 주세요." };
-  }
-  const membership = formalMembership(actor, communityId);
-  if (!membership) {
-    return { ok: false as const, message: "승인 대기 중이거나 이 공동체 구성원이 아니어서 살림을 볼 수 없습니다." };
-  }
-  if (!can(actor, { type: "manage_finance", communityId })) {
-    return { ok: false as const, message: "살림은 사역자와 임원만 봅니다." };
+  const scope = await loadPlaceScope(actor.userId);
+  if (scope.churchIds.size === 0 && scope.groupIds.size === 0 && scope.formalCommunityIds.size === 0) {
+    return { ok: false as const, message: "속한 교회나 모들이 없습니다." };
   }
   const db = getDb();
-  const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
-  if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
-  const sheet = await readFinanceSheet();
+  const categoryRows = await db.select().from(financeCategories);
+  const visibleCategories = categoryRows.filter((row) => canSeeSharedRow(row, scope.churchIds, scope.groupIds, scope.formalCommunityIds));
+  const transactionRows = await db.select().from(transactions);
+  const visibleTransactions = transactionRows.filter((row) => canSeeSharedRow(row, scope.churchIds, scope.groupIds, scope.formalCommunityIds));
+  const churchRows = scope.churchIds.size
+    ? await db.select({ id: mapChurches.id, name: mapChurches.name }).from(mapChurches).where(inArray(mapChurches.id, [...scope.churchIds]))
+    : [];
+  const groupRows = scope.groupIds.size
+    ? await db.select({ id: smallGroups.id, name: smallGroups.name }).from(smallGroups).where(inArray(smallGroups.id, [...scope.groupIds]))
+    : [];
+  const names = new Map<string, string>([...churchRows.map((row) => [row.id, row.name] as const), ...groupRows.map((row) => [row.id, row.name] as const)]);
+  const places = [
+    ...churchRows.map((row) => ({ id: row.id, name: row.name, kind: "church" as const, canEdit: scope.editChurchIds.has(row.id) })),
+    ...groupRows.map((row) => ({ id: row.id, name: row.name, kind: "gathering" as const, canEdit: scope.editGroupIds.has(row.id) })),
+  ].sort((left, right) => {
+    if (left.kind !== right.kind) return left.kind === "church" ? -1 : 1;
+    return left.name.localeCompare(right.name, "ko");
+  });
   return {
     ok: true as const,
-    communityName: community.name,
-    sheet,
+    places,
+    categories: visibleCategories.map((row) => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      placeId: row.groupId ?? row.churchId ?? "",
+      placeKind: row.groupId ? ("gathering" as const) : ("church" as const),
+      place: row.groupId ? names.get(row.groupId) ?? "모들" : row.churchId ? names.get(row.churchId) ?? "교회" : "기록",
+    })),
+    transactions: visibleTransactions.map((row) => ({
+      id: row.id,
+      date: String(row.transactionDate),
+      amount: row.amount,
+      description: row.description,
+      placeId: row.groupId ?? row.churchId ?? "",
+      placeKind: row.groupId ? ("gathering" as const) : ("church" as const),
+      place: row.groupId ? names.get(row.groupId) ?? "모들" : row.churchId ? names.get(row.churchId) ?? "교회" : "기록",
+    })),
   };
 }
 
@@ -75,18 +101,24 @@ export async function createCategory(input: {
   type: "INCOME" | "EXPENSE";
   name: string;
   budgetAmount: string;
+  placeKind: "church" | "gathering";
+  placeId: string;
 }): Promise<void> {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await activeCommunityId(actor);
-  if (!communityId) throw new FinanceFlowError("먼저 공동체를 만들거나, 가입 승인을 받아 주세요.");
-  await requireOfficer(actor, communityId);
+  if (actor.kind !== "user") throw new FinanceFlowError("살림을 고치려면 먼저 들어가 주세요.");
+  const scope = await loadPlaceScope(actor.userId);
+  const allowed = input.placeKind === "gathering" ? scope.editGroupIds.has(input.placeId) : scope.editChurchIds.has(input.placeId);
+  if (!allowed) throw new FinanceFlowError("이 재정은 관리자나 수정 권한이 있는 사람만 고칩니다.");
   const budget = Number(input.budgetAmount);
   if (!Number.isInteger(budget) || budget < 0) throw new FinanceFlowError("예산은 0 이상의 정수로 적어 주세요.");
   await assertTextsAllowed(input.departmentOrEvent, input.name);
+  const communityId = await placeCommunity(input.placeKind, input.placeId);
   const db = getDb();
   await db.insert(financeCategories).values({
     communityId,
+    churchId: input.placeKind === "church" ? input.placeId : null,
+    groupId: input.placeKind === "gathering" ? input.placeId : null,
     departmentOrEvent: input.departmentOrEvent.trim(),
     type: input.type,
     name: input.name.trim(),
@@ -103,13 +135,14 @@ export async function createTransaction(input: {
 }): Promise<void> {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await activeCommunityId(actor);
-  if (!communityId) throw new FinanceFlowError("먼저 공동체를 만들거나, 가입 승인을 받아 주세요.");
-  const membership = await requireOfficer(actor, communityId);
+  if (actor.kind !== "user") throw new FinanceFlowError("살림을 고치려면 먼저 들어가 주세요.");
+  const scope = await loadPlaceScope(actor.userId);
   const db = getDb();
   const [category] = await db.select().from(financeCategories).where(eq(financeCategories.id, input.categoryId)).limit(1);
   if (!category) throw new FinanceFlowError("분류를 찾지 못했습니다.");
-  assertSameCommunity(category.communityId, communityId);
+  const allowed = category.groupId ? scope.editGroupIds.has(category.groupId) : category.churchId ? scope.editChurchIds.has(category.churchId) : false;
+  if (!allowed) throw new FinanceFlowError("이 재정은 관리자나 수정 권한이 있는 사람만 고칩니다.");
+  const membership = formalMembership(actor, category.communityId);
   const amount = Number(input.amount);
   if (!Number.isInteger(amount) || amount < 0) throw new FinanceFlowError("금액은 0 이상의 정수로 적어 주세요.");
   const receiptImageUrls = textLines(input.receiptText);
@@ -120,14 +153,16 @@ export async function createTransaction(input: {
   }
   await assertTextsAllowed(input.description, receiptImageUrls);
   await db.insert(transactions).values({
-    communityId,
+    communityId: category.communityId,
+    churchId: category.churchId,
+    groupId: category.groupId,
     categoryId: category.id,
     transactionDate: input.transactionDate,
     type: category.type,
     amount: String(amount),
     description: input.description.trim(),
     receiptImageUrls,
-    recordedBy: membership.memberId,
+    recordedBy: membership?.memberId ?? null,
   });
 }
 

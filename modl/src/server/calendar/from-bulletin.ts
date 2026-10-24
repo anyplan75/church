@@ -5,7 +5,7 @@
 
 import { eq } from "drizzle-orm";
 import type { BulletinBlock } from "@/bulletin/blocks";
-import { schedulesFromBulletin } from "@/calendar/bulletin-schedule";
+import { attachBulletinEvents, schedulesFromBulletin } from "@/calendar/bulletin-schedule";
 import { calendarEvents } from "@/server/db/schema";
 import { getDb } from "@/server/db/runtime";
 
@@ -20,6 +20,7 @@ export async function replaceBulletinSchedule(
     worshipDate: string;
     sermonTitle: string;
     blocks: readonly BulletinBlock[];
+    churchId: string | null;
   },
   writer?: ScheduleWriter,
 ) {
@@ -27,18 +28,23 @@ export async function replaceBulletinSchedule(
   const announcements = source.blocks
     .flatMap((block) => (block.type === "announcement" ? [block.body] : []))
     .join("\n");
-  const drafts = schedulesFromBulletin({
-    label: source.label,
-    time: source.time,
-    worshipDate: source.worshipDate,
-    sermonTitle: source.sermonTitle,
-    announcements,
-  });
+  const drafts = attachBulletinEvents(
+    source.churchId,
+    schedulesFromBulletin({
+      label: source.label,
+      time: source.time,
+      worshipDate: source.worshipDate,
+      sermonTitle: source.sermonTitle,
+      announcements,
+    }),
+  );
   await db.delete(calendarEvents).where(eq(calendarEvents.bulletinId, bulletinId));
   if (drafts.length === 0) return;
   await db.insert(calendarEvents).values(
     drafts.map((draft) => ({
       communityId,
+      churchId: draft.churchId,
+      groupId: draft.groupId,
       bulletinId,
       sourceKey: draft.sourceKey,
       title: draft.title,

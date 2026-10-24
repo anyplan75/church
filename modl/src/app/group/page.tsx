@@ -1,28 +1,14 @@
-import { BlockedScreen } from "@/components/blocked-screen";
-import { ErrorNote, OkNote } from "@/components/form-note";
-import { GroupWork, seasonYear } from "@/components/account-work";
-import { TermHeading } from "@/components/term-heading";
-import { loadGroupPage } from "@/server/community/service";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
+/** 모임 편성은 모들 관리자 탭 한곳에 둡니다. */
 export default async function GroupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; ok?: string; year?: string }>;
+  searchParams: Promise<{ year?: string }>;
 }) {
   const query = await searchParams;
-  const page = await loadGroupPage();
-  if (!page.ok) return <BlockedScreen />;
-  const year = seasonYear(query.year);
-
-  return (
-    <section className="grid gap-6">
-      <TermHeading termKey="group" level={1} />
-      <p className="leading-relaxed text-[#5c5148]">해가 바뀌면 이전 모들은 보관만 하고 지우지 않습니다. 지난 편성과 연결 기록도 그대로 남습니다.</p>
-      <ErrorNote message={query.error} />
-      <OkNote code={query.ok} />
-      <GroupWork year={year} scope="page" />
-    </section>
-  );
+  const year = query.year && /^\d{4}$/.test(query.year) ? `&year=${query.year}` : "";
+  redirect(`/account?tab=gathering${year}`);
 }

@@ -7,7 +7,7 @@ import { and, desc, eq } from "drizzle-orm";
 import type { Actor } from "@/server/auth/actor";
 import { assertCan, assertSameCommunity, formalMembership } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { members, questionReplies, questions } from "@/server/db/schema";
+import { communities, members, questionReplies, questions } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { assertTextsAllowed } from "@/server/moderation/guard";
 import { readableError } from "@/server/community/service";
@@ -47,15 +47,28 @@ async function communityForActor(actor: Actor): Promise<string> {
   return communityId;
 }
 
+/** 질문이 저장될 공동체입니다. 정식 소속이 없으면 운영 공동체를 씁니다. */
+async function communityForAsking(actor: Actor): Promise<string | null> {
+  const communityId = await activeCommunityId(actor);
+  if (communityId && formalMembership(actor, communityId)) return communityId;
+  if (actor.kind !== "user") return null;
+  const rows = await getDb()
+    .select({ id: communities.id })
+    .from(communities)
+    .where(eq(communities.slug, "modl"))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
 export async function loadQuestionHome() {
   await ensureDatabase();
   const actor = await loadActor();
   if (actor.kind !== "user") {
-    return { canAsk: false as const, pastors: [], questions: [] as QuestionCard[] };
+    return { canAsk: false as const, signedIn: false as const, pastors: [], questions: [] as QuestionCard[] };
   }
-  const communityId = await activeCommunityId(actor);
-  if (!communityId || !formalMembership(actor, communityId)) {
-    return { canAsk: false as const, pastors: [], questions: [] as QuestionCard[] };
+  const communityId = await communityForAsking(actor);
+  if (!communityId) {
+    return { canAsk: true as const, signedIn: true as const, pastors: [], questions: [] as QuestionCard[] };
   }
   const viewer = viewerFrom(actor, communityId);
   const db = getDb();
@@ -102,7 +115,7 @@ export async function loadQuestionHome() {
       answerState: !own ? "hidden" : mine.some((reply) => reply.status === "APPROVED") ? "arrived" : mine.length > 0 ? "waiting" : "none",
     });
   }
-  return { canAsk: true as const, pastors, questions: cards };
+  return { canAsk: true as const, signedIn: true as const, pastors, questions: cards };
 }
 
 export type QuestionCard = {
@@ -120,12 +133,13 @@ export async function askQuestion(input: {
 }) {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await communityForActor(actor);
+  if (actor.kind !== "user") throw new QuestionFlowError("로그인 후 질문할 수 있습니다.");
+  const communityId = await communityForAsking(actor);
+  if (!communityId) throw new QuestionFlowError("먼저 공동체에 들어가 주세요.");
   assertCan(actor, { type: "ask_question", communityId });
   const body = input.body.trim();
   if (!body) throw new QuestionFlowError("질문을 적어 주세요.");
   if (body.length > 2000) throw new QuestionFlowError("질문은 2000자 안으로 적어 주세요.");
-  if (actor.kind !== "user") throw new QuestionFlowError("로그인 후 질문할 수 있습니다.");
   if (input.pastorMemberId) {
     const [pastor] = await getDb()
       .select()
@@ -154,7 +168,7 @@ export async function askQuestion(input: {
 export async function loadQuestionDetail(questionId: string) {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await activeCommunityId(actor);
+  const communityId = (await communityForAsking(actor)) ?? (await activeCommunityId(actor));
   if (!communityId) return { ok: false as const, message: "먼저 공동체에 들어가 주세요." };
   const [row] = await getDb()
     .select({

@@ -22,6 +22,9 @@ apple/Config/Signing.local.xcconfig
 apple/build/
 *.p8
 
+# 배포할 때 받는 tesseract 명령입니다. 저장소에 넣지 않습니다.
+vendor/tesseract/
+
 # 올린 사진과 문서는 저장소에 넣지 않습니다.
 public/uploads/*
 !public/uploads/.gitkeep

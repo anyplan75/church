@@ -14,6 +14,9 @@ export const JEJU_VIEW = {
   north: 33.57,
 } as const;
 
+/** 손님이고 위치를 모를 때 여는 한 점입니다. 제주도 전체 범위가 아닙니다. */
+export const SERVICE_FOCUS = { lat: 33.4996, lon: 126.5312 } as const;
+
 /** 내 위치를 가운데 두고 보이게 할 반경입니다. 단위는 미터입니다. */
 export const HERE_RADIUS_METERS = 10000;
 

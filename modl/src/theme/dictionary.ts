@@ -7,7 +7,7 @@
 export const TERM_DICTIONARY = {
   menus: {
     bulletin: {
-      standard: "모바일 주보",
+      standard: "안내",
       jeju_primary: "주일 기별",
       jeju_alt: "하영 기별",
     },
@@ -42,7 +42,7 @@ export const TERM_DICTIONARY = {
       jeju_alt: "모심 쪽지",
     },
     calendar: {
-      standard: "공동체 일정",
+      standard: "일정",
       jeju_primary: "혼디 날짜",
       jeju_alt: "모이는 날",
     },
@@ -51,10 +51,10 @@ export const TERM_DICTIONARY = {
       jeju_primary: "혼디 걸은 길",
       jeju_alt: "추억 고팡",
     },
-    quiz: {
-      standard: "퀴즈",
-      jeju_primary: "퀴즈",
-      jeju_alt: "퀴즈",
+    discussion: {
+      standard: "토론",
+      jeju_primary: "토론",
+      jeju_alt: "토론",
     },
     newcomer: {
       standard: "새가족 안내",
@@ -63,7 +63,7 @@ export const TERM_DICTIONARY = {
     },
     finance: {
       standard: "재정·회계 관리",
-      jeju_primary: "공동체 살림",
+      jeju_primary: "살림",
       jeju_alt: "고팡 지킴",
     },
     website: {
@@ -199,10 +199,10 @@ export const TERM_DICTIONARY = {
     mode_standard: { standard: "표준어 이름", jeju: "표준어만" },
     no_group: { standard: "소속 없음", jeju: "아직 없음" },
     bulletin_new: { standard: "주보 만들기", jeju: "기별 적기" },
-    bulletin_save: { standard: "주보 저장하기", jeju: "기별 담기" },
+    bulletin_save: { standard: "안내 저장하기", jeju: "안내 저장하기" },
     bulletin_publish: { standard: "발행하기", jeju: "기별 내보내기" },
     bulletin_unpublish: { standard: "비공개로 두기", jeju: "기별 거두기" },
-    bulletin_archive: { standard: "지난 주보", jeju: "지난 기별" },
+    bulletin_archive: { standard: "지난 안내", jeju: "지난 기별" },
     block_order: { standard: "예배 순서", jeju: "예배 차례" },
     block_sermon: { standard: "설교", jeju: "말씀" },
     block_officers: { standard: "임사자 명단", jeju: "섬기는 사람" },
@@ -307,7 +307,7 @@ export const TERM_DICTIONARY = {
     qt_empty: { standard: "아직 등록된 말씀이 없습니다.", jeju: "아직 등록된 말씀이 없습니다." },
     notice_empty: { standard: "아직 내 묵상 이후에 올라온 다른 묵상이 없습니다.", jeju: "아직 내 묵상 이후에 올라온 다른 묵상이 없습니다." },
     prayer_empty: { standard: "아직 기도 글이 없습니다.", jeju: "아직 기도 글이 없습니다." },
-    archive_leaders_only: { standard: "행사와 퀴즈 등록은 사역자와 모들 테우리만 합니다.", jeju: "행사와 퀴즈 등록은 사역자와 모들 테우리만 합니다." },
+    archive_leaders_only: { standard: "행사 등록은 사역자와 모들 테우리만 합니다.", jeju: "행사 등록은 사역자와 모들 테우리만 합니다." },
     archive_empty: { standard: "아직 행사 기록이 없습니다.", jeju: "아직 행사 기록이 없습니다." },
     quiz_empty: { standard: "아직 퀴즈가 없습니다.", jeju: "아직 퀴즈가 없습니다." },
     letter_empty: { standard: "아직 기별이 없습니다.", jeju: "아직 기별이 없습니다." },

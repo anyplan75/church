@@ -255,6 +255,9 @@ export type CalendarDayEvent = {
   startAt: string;
   endAt: string;
   isLeaderOnly: boolean;
+  placeName?: string | null;
+  placeKind?: "church" | "gathering" | null;
+  placeId?: string | null;
 };
 
 export type GoogleEventView = {
@@ -268,10 +271,62 @@ export type GoogleEventView = {
 export type DayMark = {
   key: string;
   title: string;
+  /** 주간 칸에만 보이는 짧은 줄입니다. 월별 칸에는 제목만 둡니다. */
+  summary: string | null;
   kind: "event" | "birthday" | "google" | "season";
   href: string | null;
   leaderOnly: boolean;
+  placeName: string | null;
+  placeKind: "church" | "gathering" | null;
+  placeId: string | null;
+  placeColor: string | null;
 };
+
+const CHURCH_SWATCHES = ["#1e3a8a", "#1e40af", "#1d4ed8", "#2563eb", "#1d4f91", "#1a56c4", "#2451b8", "#0f3d91", "#163e86", "#1c4ed8", "#1347b8", "#1e4b9c"] as const;
+const GATHERING_SWATCHES = ["#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#6b21a8", "#581c87", "#7e22ce", "#5521a8", "#6d28b8", "#4a1d96", "#6928c4", "#5b1d9a"] as const;
+
+function swatchIndex(id: string, size: number): number {
+  let hash = 2166136261;
+  for (let index = 0; index < id.length; index += 1) {
+    hash ^= id.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % size;
+}
+
+/** 같은 교회·모들은 항상 같은 색입니다. 교회는 파란 계열, 모들은 보라 계열입니다. */
+export function schedulePlaceColor(kind: "church" | "gathering", id: string): string {
+  const palette = kind === "church" ? CHURCH_SWATCHES : GATHERING_SWATCHES;
+  return palette[swatchIndex(id, palette.length)] ?? palette[0];
+}
+
+const NO_PLACE = { placeName: null, placeKind: null, placeId: null, placeColor: null } as const;
+
+function placeOf(event: CalendarDayEvent): { placeName: string | null; placeKind: "church" | "gathering" | null; placeId: string | null; placeColor: string | null } {
+  const placeName = event.placeName?.trim() || null;
+  const placeKind = event.placeKind === "church" || event.placeKind === "gathering" ? event.placeKind : null;
+  const placeId = event.placeId?.trim() || null;
+  if (!placeName || !placeKind || !placeId) return NO_PLACE;
+  return { placeName, placeKind, placeId, placeColor: schedulePlaceColor(placeKind, placeId) };
+}
+
+/** 일요일로 시작하는 그 주의 일곱 날짜입니다. 없는 날짜는 만들지 않습니다. */
+export function weekDateKeys(anchor: string): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) return [];
+  const [year, month, day] = anchor.split("-").map(Number);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return [];
+  const check = new Date(Date.UTC(year, month - 1, day));
+  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return [];
+  const start = addCivilDays({ year, month, day }, -check.getUTCDay());
+  return Array.from({ length: 7 }, (_, index) => civilKey(addCivilDays(start, index)));
+}
+
+export function shiftDateKey(date: string, days: number): string {
+  const keys = weekDateKeys(date);
+  if (keys.length !== 7) return date;
+  const [year, month, day] = date.split("-").map(Number);
+  return civilKey(addCivilDays({ year, month, day }, days));
+}
 
 export type MonthDayCell = {
   date: string | null;
@@ -421,6 +476,65 @@ export function churchSeasonMarks(year: number, month: number): Array<{ date: st
   return [...titles.entries()].flatMap(([date, names]) => names.map((title) => ({ date, title })));
 }
 
+/** 이미 계산된 절기 제목에만 아이콘 이름을 붙입니다. 없는 절기는 만들지 않습니다. */
+const SEASON_ICON_KEYS: Record<string, string> = {
+  "대림절 시작": "advent",
+  대림절: "advent",
+  성탄절: "christmas",
+  주현절: "epiphany",
+  "재의 수요일": "ash",
+  "사순절 시작": "lent",
+  사순절: "lent",
+  종려주일: "palm",
+  성금요일: "cross",
+  부활절: "easter",
+  승천일: "ascension",
+  성령강림절: "pentecost",
+};
+
+export function seasonIconKey(title: string): string | null {
+  return SEASON_ICON_KEYS[title] ?? null;
+}
+
+/** 이미 있는 절기 제목에만 짧은 안내를 붙입니다. 새 절기 문장은 만들지 않습니다. */
+const SEASON_GUIDES: Record<string, string> = {
+  "대림절 시작": "대림절은 성탄을 기다리며 준비하는 네 주간입니다. 이 날은 그 기간이 시작되는 날입니다.",
+  대림절: "대림절은 성탄을 기다리며 준비하는 네 주간입니다. 교회는 이 기간에 오실 주님을 기억합니다.",
+  성탄절: "성탄절은 예수님이 사람으로 태어나신 날입니다.",
+  주현절: "주현절은 아기 예수님이 동방 박사에게 나타나신 날입니다.",
+  "재의 수요일": "재의 수요일은 사순절이 시작되는 날입니다. 회개하며 재를 얹는 전통이 있습니다.",
+  "사순절 시작": "사순절은 부활절을 앞두고 사십 일 동안 금식하고 회개하는 기간입니다. 이 날은 그 기간이 시작되는 날입니다.",
+  사순절: "사순절은 부활절을 앞두고 사십 일 동안 금식하고 회개하는 기간입니다.",
+  종려주일: "종려주일은 예수님이 예루살렘에 들어가실 때 무리가 종려나무 가지를 흔든 날입니다.",
+  성금요일: "성금요일은 예수님이 십자가에 못 박혀 돌아가신 날입니다.",
+  부활절: "부활절은 예수님이 죽은 자 가운데서 다시 살아나신 날입니다.",
+  승천일: "승천일은 부활하신 예수님이 하늘로 올라가신 날입니다.",
+  성령강림절: "성령강림절은 성령이 제자들에게 내리신 날입니다.",
+};
+
+export function seasonGuide(title: string): string | null {
+  return SEASON_GUIDES[title] ?? null;
+}
+
+/** 주간 칸의 짧은 줄입니다. 장소와 시각만 남기고 본문은 넣지 않습니다. */
+export function eventSummary(event: CalendarDayEvent): string | null {
+  const parts: string[] = [];
+  const place = event.placeName?.trim();
+  if (place) parts.push(place);
+  const clock = seoulClock(event.startAt);
+  if (clock) parts.push(clock);
+  if (parts.length === 0) return null;
+  const text = parts.join(" · ");
+  return text.length > 40 ? `${text.slice(0, 37)}...` : text;
+}
+
+function rememberMark(marks: DayMark[], seen: Set<string>, date: string, placeKey: string, mark: DayMark) {
+  const identity = `${date}\n${placeKey}\n${mark.title}`;
+  if (seen.has(identity)) return;
+  seen.add(identity);
+  marks.push(mark);
+}
+
 /** 저장된 일정, 읽어 온 구글 일정, 계산한 교회 절기만 날짜 칸에 놓습니다. 없는 모임은 만들지 않습니다. */
 export function monthDayMarks(
   year: number,
@@ -433,49 +547,60 @@ export function monthDayMarks(
   return monthCells(year, month).map((cell) => {
     if (!cell.date || cell.day === null) return { date: null, day: null, marks: [] };
     const marks: DayMark[] = [];
+    const seen = new Set<string>();
+    const date = cell.date;
     for (const event of events) {
-      if (!eventCoversLocalDate(event, cell.date)) continue;
-      marks.push({
+      if (!eventCoversLocalDate(event, date)) continue;
+      const place = placeOf(event);
+      rememberMark(marks, seen, date, `${place.placeKind ?? ""}:${event.placeId?.trim() || place.placeName || ""}`, {
         key: `event-${event.id}`,
         title: event.title,
+        summary: eventSummary(event),
         kind: "event",
         href: `/calendar/${event.id}`,
         leaderOnly: event.isLeaderOnly,
+        ...place,
       });
     }
     for (const event of googleEvents) {
-      if (!googleEventCoversDate(event, cell.date)) continue;
+      if (!googleEventCoversDate(event, date)) continue;
       const title = event.title || (event.allDay ? "종일" : seoulClock(event.startAt));
       if (!title) continue;
-      marks.push({
+      rememberMark(marks, seen, date, "google:", {
         key: `google-${event.id}`,
         title,
+        summary: event.allDay ? null : seoulClock(event.startAt) || null,
         kind: "google",
         href: null,
         leaderOnly: false,
+        ...NO_PLACE,
       });
     }
     for (const season of seasons) {
-      if (season.date !== cell.date) continue;
-      marks.push({
+      if (season.date !== date) continue;
+      rememberMark(marks, seen, date, "season:", {
         key: `season-${season.date}-${season.title}`,
         title: season.title,
+        summary: null,
         kind: "season",
         href: null,
         leaderOnly: false,
+        ...NO_PLACE,
       });
     }
     for (const birthday of birthdays) {
-      if (birthday.date !== cell.date) continue;
-      marks.push({
+      if (birthday.date !== date) continue;
+      rememberMark(marks, seen, date, `birthday:${birthday.memberId}`, {
         key: `birthday-${birthday.memberId}`,
         title: birthday.name,
+        summary: null,
         kind: "birthday",
         href: null,
         leaderOnly: false,
+        ...NO_PLACE,
       });
     }
-    return { date: cell.date, day: cell.day, marks };
+    return { date, day: cell.day, marks };
   });
 }
 
