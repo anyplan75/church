@@ -1,81 +1,47 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
-
-type Instgrm = { Embeds: { process: () => void } };
-
-declare global {
-  interface Window {
-    instgrm?: Instgrm;
-  }
-}
-
-function loadEmbedScript(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  if (window.instgrm?.Embeds) return Promise.resolve();
-  const existing = document.querySelector<HTMLScriptElement>('script[data-modl-instagram-embed="1"]');
-  if (existing) {
-    return new Promise((resolve) => {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      if (window.instgrm?.Embeds) resolve();
-    });
-  }
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.async = true;
-    script.src = "https://www.instagram.com/embed.js";
-    script.dataset.modlInstagramEmbed = "1";
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("인스타그램 화면을 불러오지 못했습니다."));
-    document.body.appendChild(script);
-  });
-}
+import { instagramFrameSrc } from "@/promo/instagram";
 
 /**
- * 인스타그램 공개 주소를 이 페이지 안에 보여 줍니다.
- * Meta 열쇠 없이 embed.js 로 프로필·게시물을 그립니다. 바깥 링크로만 보내지 않습니다.
+ * 인스타그램을 폰 화면처럼 긴 틀 안에 보여 줍니다.
+ * 프로필·게시물 주소는 Instagram 공식 /embed 칸으로 열어, 그 틀 안에서 스크롤·탐색합니다.
+ * Meta 열쇠 없이 공개 주소만 씁니다. 바깥 새 탭으로만 보내지 않습니다.
  */
 export function InstagramEmbed({ href }: { href: string }) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const captionId = useId();
+  const src = instagramFrameSrc(href);
 
-  useEffect(() => {
-    let cancelled = false;
-    void loadEmbedScript()
-      .then(() => {
-        if (cancelled) return;
-        window.instgrm?.Embeds.process();
-      })
-      .catch(() => {
-        /* 막히면 아래 안내 문구만 남깁니다. */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [href]);
+  if (!src) {
+    return (
+      <p className="leading-relaxed text-[#5c5148]" data-testid="instagram-embed-missing">
+        인스타그램 주소를 읽지 못했습니다.
+      </p>
+    );
+  }
 
   return (
-    <div ref={rootRef} className="min-w-0" data-testid="instagram-embed" data-instagram-href={href}>
-      <blockquote
-        className="instagram-media"
-        data-instgrm-permalink={href}
-        data-instgrm-version="14"
-        style={{
-          background: "#FFF",
-          border: 0,
-          borderRadius: "3px",
-          boxShadow: "none",
-          margin: "0 auto",
-          maxWidth: "540px",
-          minWidth: "260px",
-          padding: 0,
-          width: "100%",
-        }}
-      >
-        <p id={captionId} className="px-2 py-3 text-center text-sm leading-relaxed text-[#5c5148]">
-          인스타그램 화면을 이 자리에서 불러오는 중입니다.
-        </p>
-      </blockquote>
+    <div
+      className="mx-auto w-full max-w-[320px]"
+      data-testid="instagram-embed"
+      data-instagram-href={href}
+      data-instagram-frame={src}
+    >
+      {/* 폰 화면 비율(대략 9:19.5). 틀은 유지하고 안에서만 스크롤합니다. */}
+      <div className="relative aspect-[9/19.5] overflow-hidden rounded-[1.75rem] border border-[#d6d3d1] bg-[#0f172a]">
+        <div className="absolute inset-[6px] overflow-hidden rounded-[1.35rem] bg-white">
+          <iframe
+            title="인스타그램"
+            src={src}
+            className="h-full w-full border-0"
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allow="clipboard-write; encrypted-media; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
+      </div>
+      <p className="mt-2 text-center text-sm leading-relaxed text-[#5c5148]">
+        이 틀 안에서 인스타그램을 스크롤해 보세요. 새 창으로 나가지 않습니다.
+      </p>
     </div>
   );
 }

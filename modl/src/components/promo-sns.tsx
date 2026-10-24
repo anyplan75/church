@@ -1,7 +1,6 @@
 "use client";
 
 import { InstagramEmbed } from "@/components/instagram-embed";
-import { InstagramFeed } from "@/components/instagram-feed";
 import { YoutubeMagazine } from "@/components/youtube-magazine";
 import type { InstagramFeed as InstagramFeedState } from "@/server/promo/instagram-feed";
 import type { YoutubeFeed } from "@/server/promo/youtube-feed";
@@ -45,11 +44,6 @@ export function PromoSns({ headingLevel = "h2", instagramAccount, instagram, you
           <p className="leading-relaxed text-[#5c5148]">인스타그램 계정이 없습니다.</p>
         ) : instagram?.status === "unavailable" ? (
           <p className="leading-relaxed text-[#5c5148]">{instagram.reason}</p>
-        ) : instagram?.status === "ready" ? (
-          <>
-            <InstagramEmbed href={instagram.href} />
-            <InstagramFeed posts={instagram.posts.slice(0, 3)} />
-          </>
         ) : instagramHref ? (
           <InstagramEmbed href={instagramHref} />
         ) : (

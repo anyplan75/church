@@ -12,6 +12,28 @@ export type InstagramPost = {
   caption: string;
 };
 
+/** 공개 주소를 폰 틀 안 iframe(/embed) 주소로 바꿉니다. */
+export function instagramFrameSrc(href: string): string | null {
+  try {
+    const url = new URL(href.trim());
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (host !== "instagram.com") return null;
+    const parts = url.pathname.split("/").filter((part) => part.length > 0);
+    if (parts.length === 0) return null;
+    if (parts[0] === "embed" || parts.includes("embed")) {
+      return `https://www.instagram.com${url.pathname}${url.search}`;
+    }
+    if ((parts[0] === "p" || parts[0] === "reel" || parts[0] === "tv") && parts[1]) {
+      return `https://www.instagram.com/${parts[0]}/${parts[1]}/embed/captioned/`;
+    }
+    const username = parts[0] ?? "";
+    if (!/^[A-Za-z0-9._]{1,30}$/.test(username)) return null;
+    return `https://www.instagram.com/${username}/embed/`;
+  } catch {
+    return null;
+  }
+}
+
 /** 홍보 페이지에 적은 계정에서 사용자 이름만 뽑습니다. */
 export function instagramUsername(account: string): string | null {
   const href = instagramHref(account);

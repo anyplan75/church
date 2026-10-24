@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { instagramUsername, readInstagramMedia } from "@/promo/instagram";
+import { instagramFrameSrc, instagramUsername, readInstagramMedia } from "@/promo/instagram";
 import { loadInstagramFeed } from "@/server/promo/instagram-feed";
 
 describe("인스타그램 최신 글", () => {
+  it("공개 주소를 폰 틀용 embed 주소로 바꿉니다", () => {
+    assert.equal(instagramFrameSrc("https://instagram.com/modl.jeju/"), "https://www.instagram.com/modl.jeju/embed/");
+    assert.equal(
+      instagramFrameSrc("https://www.instagram.com/p/AbCdEf12345/"),
+      "https://www.instagram.com/p/AbCdEf12345/embed/captioned/",
+    );
+    assert.equal(instagramFrameSrc("https://example.com/x"), null);
+  });
+
   it("계정에서 사용자 이름만 읽습니다", () => {
     assert.equal(instagramUsername("@modl.jeju"), "modl.jeju");
     assert.equal(instagramUsername("https://instagram.com/modl.jeju/"), "modl.jeju");
