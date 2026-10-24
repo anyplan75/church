@@ -83,27 +83,7 @@ export function BulletinEditor({
           {placeKind && placeId ? <input type="hidden" name="placeId" value={placeId} /> : null}
           <h2 className="font-semibold leading-snug">이번 주 예배</h2>
           <p className="leading-relaxed text-[#5c5148]">한 번 읽은 예배 {week.length}개입니다. 글에 없는 순서는 넣지 않았습니다.</p>
-          <ol className="grid gap-3">
-            {week.map((service) => {
-              const blocks = Array.isArray(service.blocks) ? service.blocks : [];
-              const order = blocks.find((block) => block.type === "order");
-              const labels = order?.type === "order" ? order.items.map((item) => [item.label, item.detail].filter(Boolean).join(" ")) : [];
-              const announcement = blocks.find((block) => block.type === "announcement");
-              const news = announcement?.type === "announcement" ? announcement.body : "";
-              return (
-                <li key={`${service.label}-${service.worshipDate}-${service.time}`} className="grid gap-1 rounded-3xl bg-[#fffaf3] px-4 py-4">
-                  <p className="font-semibold leading-snug">
-                    {service.label} {service.time}
-                  </p>
-                  <p className="leading-relaxed text-[#5c5148]">{service.worshipDate || "날짜를 읽지 못했습니다."}</p>
-                  {service.sermonTitle ? <p className="leading-relaxed">{service.sermonTitle}</p> : null}
-                  {service.scriptureText ? <p className="leading-relaxed">{service.scriptureText}</p> : null}
-                  {labels.length > 0 ? <p className="leading-relaxed">{labels.join(" · ")}</p> : null}
-                  {news ? <p className="whitespace-pre-wrap leading-relaxed">{news}</p> : null}
-                </li>
-              );
-            })}
-          </ol>
+          <WeekServices week={week} />
           <button type="submit" className="w-fit rounded-2xl bg-[#1d6b45] px-4 py-3 font-semibold leading-snug text-white">
             이번 주 저장
           </button>
@@ -180,6 +160,65 @@ export function BulletinEditor({
       )}
     </div>
   );
+}
+
+function WeekServices({ week }: { week: BulletinServiceDraft[] }) {
+  const news = weekNews(week);
+  return (
+    <>
+      <ol className="grid gap-3">
+        {week.map((service) => {
+          const blocks = Array.isArray(service.blocks) ? service.blocks : [];
+          const order = blocks.find((block) => block.type === "order");
+          const labels = order?.type === "order" ? order.items.map((item) => [item.label, item.detail].filter(Boolean).join(" ")) : [];
+          return (
+            <li
+              key={`${service.label}-${service.worshipDate}-${service.time}`}
+              data-testid="bulletin-service"
+              data-label={service.label}
+              className="grid gap-1 rounded-3xl bg-[#fffaf3] px-4 py-4"
+            >
+              <p className="font-semibold leading-snug">
+                {service.label} {service.time}
+              </p>
+              <p className="leading-relaxed text-[#5c5148]">{service.worshipDate || "날짜를 읽지 못했습니다."}</p>
+              {service.sermonTitle ? <p className="leading-relaxed">설교 {service.sermonTitle}</p> : null}
+              {service.scriptureText ? <p className="leading-relaxed">본문 {service.scriptureText}</p> : null}
+              {service.preacher ? <p className="leading-relaxed">설교자 {service.preacher}</p> : null}
+              {labels.length > 0 ? (
+                <ol className="grid gap-0.5 leading-relaxed">
+                  {labels.map((line, index) => (
+                    <li key={`${line}-${index}`}>{line}</li>
+                  ))}
+                </ol>
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+      {news ? (
+        <p className="whitespace-pre-wrap leading-relaxed" data-testid="bulletin-news">
+          {news}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function weekNews(week: readonly BulletinServiceDraft[]): string {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const service of week) {
+    const block = service.blocks.find((item) => item.type === "announcement");
+    if (block?.type !== "announcement") continue;
+    for (const line of block.body.split("\n")) {
+      const text = line.trim();
+      if (!text || seen.has(text)) continue;
+      seen.add(text);
+      lines.push(text);
+    }
+  }
+  return lines.join("\n");
 }
 
 function AddBlockButton({ type, onAdd }: { type: BlockType; onAdd: () => void }) {

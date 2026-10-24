@@ -7,7 +7,8 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { servicesFromBulletinText, BULLETIN_PART_BYTES, BULLETIN_UPLOAD_BYTES, type BulletinServiceDraft } from "@/bulletin/intake";
+import { BULLETIN_PART_BYTES, BULLETIN_UPLOAD_BYTES, type BulletinServiceDraft } from "@/bulletin/intake";
+import { arrangeBulletinServices } from "@/server/bulletin/arrange";
 import { canPublishBulletin } from "@/server/bulletin/access";
 import { canMakeGuide } from "@/server/bulletin/service";
 import type { Actor } from "@/server/auth/actor";
@@ -202,7 +203,7 @@ async function interpretBulletin(name: string, bytes: Buffer, pasted: string): P
     return { ok: false, message: "주보 내용을 붙여 넣거나 파일을 선택해 주세요." };
   }
   let serial = 0;
-  const services = servicesFromBulletinText(text, () => `read-${randomBytes(4).toString("hex")}-${serial++}`);
+  const services = await arrangeBulletinServices(text, () => `read-${randomBytes(4).toString("hex")}-${serial++}`);
   if (services.length === 0) {
     return {
       ok: true,
