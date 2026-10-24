@@ -29,7 +29,9 @@ import {
   removeGoogleEvent,
   type GoogleCalendarReadResult,
 } from "@/server/calendar/google";
-import { calendarEvents, communities, groupMemberships, members, smallGroups } from "@/server/db/schema";
+import { canSeeSharedRow } from "@/place/rules";
+import { loadPlaceScope, placeCommunity } from "@/server/place/service";
+import { calendarEvents, communities, groupMemberships, mapChurches, members, smallGroups } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { assertTextsAllowed } from "@/server/moderation/guard";
 
@@ -116,43 +118,64 @@ export async function loadCalendarMonth(year: number, month: number) {
   if (actor.kind !== "user") {
     return { ok: false as const, message: "일정을 보려면 먼저 들어가 주세요." };
   }
-  const communityId = await activeCommunityId(actor);
-  if (!communityId) {
-    return { ok: false as const, message: "먼저 공동체를 만들거나, 가입 승인을 받아 주세요." };
-  }
-  const membership = formalMembership(actor, communityId);
-  if (!membership) {
-    return { ok: false as const, message: "승인 대기 중이거나 이 공동체 구성원이 아니어서 일정을 볼 수 없습니다." };
+  const scope = await loadPlaceScope(actor.userId);
+  if (scope.churchIds.size === 0 && scope.groupIds.size === 0 && scope.formalCommunityIds.size === 0) {
+    return { ok: false as const, message: "속한 교회나 모들이 없습니다." };
   }
   const db = getDb();
-  const churchIds = [...new Set(actor.memberships.map((item) => item.communityId))];
-  const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
-  if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
+  const communityId = (await activeCommunityId(actor)) ?? [...scope.formalCommunityIds][0] ?? null;
+  const [community] = communityId
+    ? await db.select().from(communities).where(eq(communities.id, communityId)).limit(1)
+    : [undefined];
   const window = monthWindow(year, month);
   const groups = await groupsForActor(actor);
-  const scopes = membershipScopes(actor, groups);
-  const rows = await db
-    .select()
-    .from(calendarEvents)
-    .where(
-      and(
-        inArray(calendarEvents.communityId, churchIds),
-        lt(calendarEvents.startAt, window.end),
-        gte(calendarEvents.endAt, window.start),
-      ),
-    )
-    .orderBy(asc(calendarEvents.startAt));
-  const visible = eventsForMemberships(rows, scopes);
-  const churchRows = await db
-    .select({ id: communities.id, name: communities.name })
-    .from(communities)
-    .where(inArray(communities.id, churchIds));
+  const placeCommunityIds = new Set(scope.formalCommunityIds);
+  if (scope.churchIds.size > 0) {
+    const owned = await db
+      .select({ communityId: mapChurches.communityId })
+      .from(mapChurches)
+      .where(inArray(mapChurches.id, [...scope.churchIds]));
+    for (const row of owned) placeCommunityIds.add(row.communityId);
+  }
+  if (scope.groupIds.size > 0) {
+    const owned = await db
+      .select({ communityId: smallGroups.communityId })
+      .from(smallGroups)
+      .where(inArray(smallGroups.id, [...scope.groupIds]));
+    for (const row of owned) placeCommunityIds.add(row.communityId);
+  }
+  const churchIds = [...placeCommunityIds];
+  const rows = churchIds.length
+    ? await db
+        .select()
+        .from(calendarEvents)
+        .where(
+          and(
+            inArray(calendarEvents.communityId, churchIds),
+            lt(calendarEvents.startAt, window.end),
+            gte(calendarEvents.endAt, window.start),
+          ),
+        )
+        .orderBy(asc(calendarEvents.startAt))
+    : [];
+  const visible = rows.filter((event) => {
+    if (!canSeeSharedRow(event, scope.churchIds, scope.groupIds, scope.formalCommunityIds)) return false;
+    if (!event.isLeaderOnly) return true;
+    if (event.groupId) return scope.editGroupIds.has(event.groupId);
+    if (event.churchId) return scope.editChurchIds.has(event.churchId);
+    return false;
+  });
+  const churchRows = churchIds.length
+    ? await db.select({ id: communities.id, name: communities.name }).from(communities).where(inArray(communities.id, churchIds))
+    : [];
   const churchNames = new Map(churchRows.map((row) => [row.id, row.name]));
   const groupNames = new Map(groups.map((group) => [group.id, group.name]));
-  const people = await db
-    .select({ id: members.id, name: members.name, birthDate: members.birthDate })
-    .from(members)
-    .where(inArray(members.communityId, churchIds));
+  const people = churchIds.length
+    ? await db
+        .select({ id: members.id, name: members.name, birthDate: members.birthDate })
+        .from(members)
+        .where(inArray(members.communityId, churchIds))
+    : [];
   const birthdays: BirthdayMark[] = birthdaysForActor(
     people.map((person) => ({ memberId: person.id, name: person.name, birthDate: person.birthDate })),
     year,
@@ -168,29 +191,63 @@ export async function loadCalendarMonth(year: number, month: number) {
   }
   const knownGoogleIds = new Set(visible.map((event) => event.googleEventId).filter((id): id is string => Boolean(id)));
   const googleEvents: GoogleEventView[] = google.items.filter((item) => !knownGoogleIds.has(item.id));
-  const leaderView = can(actor, { type: "view_leader_calendar", communityId });
+  const followedChurchRows = scope.churchIds.size
+    ? await db
+        .select({ id: mapChurches.id, name: mapChurches.name, communityId: mapChurches.communityId })
+        .from(mapChurches)
+        .where(inArray(mapChurches.id, [...scope.churchIds]))
+    : [];
+  const churchByCommunity = new Map(followedChurchRows.map((row) => [row.communityId, row.id]));
+  const followedGroupRows = scope.groupIds.size
+    ? await db.select({ id: smallGroups.id, name: smallGroups.name }).from(smallGroups).where(inArray(smallGroups.id, [...scope.groupIds]))
+    : [];
+  const churchPlaceNames = new Map(followedChurchRows.map((row) => [row.id, row.name]));
+  const groupPlaceNames = new Map(followedGroupRows.map((row) => [row.id, row.name]));
+  const places = [
+    ...[...scope.editChurchIds].map((id) => ({ id, name: churchPlaceNames.get(id) ?? "교회", kind: "church" as const })),
+    ...[...scope.editGroupIds].map((id) => ({ id, name: groupPlaceNames.get(id) ?? "모들", kind: "gathering" as const })),
+  ].sort((left, right) => left.name.localeCompare(right.name, "ko"));
+  const memberships = [
+    ...followedChurchRows.map((row) => ({ id: row.id, name: row.name, kind: "church" as const })),
+    ...followedGroupRows.map((row) => ({ id: row.id, name: row.name, kind: "gathering" as const })),
+  ].sort((left, right) => {
+    if (left.kind !== right.kind) return left.kind === "church" ? -1 : 1;
+    return left.name.localeCompare(right.name, "ko");
+  });
   return {
     ok: true as const,
-    communityName: community.name,
-    canEdit: leaderView,
-    myGroups: groups
-      .filter((group) => group.communityId === communityId)
-      .map((group) => ({ id: group.id, name: group.name }))
-      .sort((left, right) => left.name.localeCompare(right.name, "ko")),
+    communityName: community?.name ?? "",
+    canEdit: places.length > 0,
+    places,
+    memberships,
+    myGroups: places.filter((place) => place.kind === "gathering").map((place) => ({ id: place.id, name: place.name })),
     googleCanWrite: readGoogleCalendarCanWrite(),
     googleNeedsCalendar: readGoogleCalendarWait() === "needs_calendar",
     googleHasId: readGoogleCalendarHasId(),
     googleRead: google.status,
     events: visible.map((event) => {
-      const scope = event.groupId ? groupNames.get(event.groupId) ?? "모들" : churchNames.get(event.communityId) ?? "교회";
+      const place = event.groupId
+        ? {
+            placeId: event.groupId,
+            placeKind: "gathering" as const,
+            placeName: groupPlaceNames.get(event.groupId) ?? groupNames.get(event.groupId) ?? "모들",
+          }
+        : {
+            placeId: event.churchId ?? churchByCommunity.get(event.communityId) ?? event.communityId,
+            placeKind: "church" as const,
+            placeName: event.churchId
+              ? (churchPlaceNames.get(event.churchId) ?? "교회")
+              : (churchNames.get(event.communityId) ?? "교회"),
+          };
       return {
         id: event.id,
-        title: `${scope} · ${event.title}`,
+        title: event.title,
         startAt: formatLocalDateTime(event.startAt),
         endAt: formatLocalDateTime(event.endAt),
         category: event.category,
         isLeaderOnly: event.isLeaderOnly,
         googleEventId: event.googleEventId,
+        ...place,
       };
     }),
     birthdays,
@@ -204,28 +261,31 @@ export async function loadCalendarEvent(eventId: string) {
   if (actor.kind !== "user") {
     return { ok: false as const, message: "일정을 보려면 먼저 들어가 주세요." };
   }
-  const communityId = await activeCommunityId(actor);
-  if (!communityId) {
-    return { ok: false as const, message: "먼저 공동체를 만들거나, 가입 승인을 받아 주세요." };
-  }
-  const membership = formalMembership(actor, communityId);
-  if (!membership) {
-    return { ok: false as const, message: "승인 대기 중이거나 이 공동체 구성원이 아니어서 일정을 볼 수 없습니다." };
+  const scope = await loadPlaceScope(actor.userId);
+  if (scope.churchIds.size === 0 && scope.groupIds.size === 0 && scope.formalCommunityIds.size === 0) {
+    return { ok: false as const, message: "속한 교회나 모들이 없습니다." };
   }
   const db = getDb();
   const [event] = await db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId)).limit(1);
   if (!event) return { ok: false as const, message: "일정을 찾지 못했습니다." };
-  const groups = await groupsForActor(actor);
-  const visible = eventsForMemberships([event], membershipScopes(actor, groups));
-  if (visible.length === 0) return { ok: false as const, message: "이 일정은 볼 수 없습니다." };
-  const leaderView = event.communityId === communityId && can(actor, { type: "view_leader_calendar", communityId: event.communityId });
+  if (!canSeeSharedRow(event, scope.churchIds, scope.groupIds, scope.formalCommunityIds)) {
+    return { ok: false as const, message: "이 일정은 볼 수 없습니다." };
+  }
+  const canEdit = event.groupId ? scope.editGroupIds.has(event.groupId) : event.churchId ? scope.editChurchIds.has(event.churchId) : false;
+  const churchRows = scope.editChurchIds.size
+    ? await db.select({ id: mapChurches.id, name: mapChurches.name }).from(mapChurches).where(inArray(mapChurches.id, [...scope.editChurchIds]))
+    : [];
+  const groupRows = scope.editGroupIds.size
+    ? await db.select({ id: smallGroups.id, name: smallGroups.name }).from(smallGroups).where(inArray(smallGroups.id, [...scope.editGroupIds]))
+    : [];
+  const places = [
+    ...churchRows.map((row) => ({ id: row.id, name: row.name, kind: "church" as const })),
+    ...groupRows.map((row) => ({ id: row.id, name: row.name, kind: "gathering" as const })),
+  ];
   return {
     ok: true as const,
-    canEdit: leaderView,
-    myGroups: groups
-      .filter((group) => group.communityId === event.communityId)
-      .map((group) => ({ id: group.id, name: group.name }))
-      .sort((left, right) => left.name.localeCompare(right.name, "ko")),
+    canEdit,
+    places,
     googleCanWrite: readGoogleCalendarCanWrite(),
     googleNeedsCalendar: readGoogleCalendarWait() === "needs_calendar",
     googleHasId: readGoogleCalendarHasId(),
@@ -237,6 +297,7 @@ export async function loadCalendarEvent(eventId: string) {
       category: event.category,
       isLeaderOnly: event.isLeaderOnly,
       groupId: event.groupId,
+      churchId: event.churchId,
       googleEventId: event.googleEventId,
     },
   };
@@ -274,16 +335,26 @@ export async function saveCalendarEvent(input: {
   category: CalendarCategory;
   isLeaderOnly: boolean;
   groupId: string | null;
+  churchId: string | null;
 }): Promise<{ id: string; google: "skipped" | "synced" | "failed" }> {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await requireCommunity(actor);
-  assertCan(actor, { type: "view_leader_calendar", communityId });
+  if (actor.kind !== "user") throw new CalendarFlowError("일정을 고치려면 먼저 들어가 주세요.");
+  const scope = await loadPlaceScope(actor.userId);
+  const targetGroup = input.groupId;
+  const targetChurch = targetGroup ? null : input.churchId;
+  if (targetGroup) {
+    if (!scope.editGroupIds.has(targetGroup)) throw new CalendarFlowError("이 모들의 일정을 고칠 권한이 없습니다.");
+  } else if (targetChurch) {
+    if (!scope.editChurchIds.has(targetChurch)) throw new CalendarFlowError("이 교회의 일정을 고칠 권한이 없습니다.");
+  } else {
+    throw new CalendarFlowError("일정을 둘 교회나 모들을 골라 주세요.");
+  }
+  const communityId = await placeCommunity(targetGroup ? "gathering" : "church", targetGroup ?? targetChurch ?? "");
   if (input.endAt.getTime() < input.startAt.getTime()) {
     throw new CalendarFlowError("끝나는 시각은 시작보다 빠를 수 없습니다.");
   }
   await assertTextsAllowed(input.title);
-  await assertOwnGroup(actor, communityId, input.groupId);
   const db = getDb();
   let eventId = input.eventId;
   if (!eventId) {
@@ -291,7 +362,8 @@ export async function saveCalendarEvent(input: {
       .insert(calendarEvents)
       .values({
         communityId,
-        groupId: input.groupId,
+        groupId: targetGroup,
+        churchId: targetChurch,
         title: input.title,
         startAt: input.startAt,
         endAt: input.endAt,
@@ -303,12 +375,15 @@ export async function saveCalendarEvent(input: {
   } else {
     const [existing] = await db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId)).limit(1);
     if (!existing) throw new CalendarFlowError("일정을 찾지 못했습니다.");
-    assertSameCommunity(communityId, existing.communityId);
-    await assertOwnGroup(actor, existing.communityId, input.groupId);
+    if (existing.groupId ? !scope.editGroupIds.has(existing.groupId) : existing.churchId ? !scope.editChurchIds.has(existing.churchId) : true) {
+      throw new CalendarFlowError("이 일정을 고칠 권한이 없습니다.");
+    }
     await db
       .update(calendarEvents)
       .set({
-        groupId: input.groupId,
+        communityId,
+        groupId: targetGroup,
+        churchId: targetChurch,
         title: input.title,
         startAt: input.startAt,
         endAt: input.endAt,
@@ -316,7 +391,7 @@ export async function saveCalendarEvent(input: {
         isLeaderOnly: input.isLeaderOnly,
         updatedAt: new Date(),
       })
-      .where(and(eq(calendarEvents.id, eventId), eq(calendarEvents.communityId, communityId)));
+      .where(eq(calendarEvents.id, eventId));
   }
   const google = await sendIfConfigured(communityId, eventId);
   return { id: eventId, google };
@@ -325,11 +400,13 @@ export async function saveCalendarEvent(input: {
 export async function syncCalendarEvent(eventId: string): Promise<"skipped" | "synced" | "failed"> {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await requireCommunity(actor);
-  assertCan(actor, { type: "view_leader_calendar", communityId });
+  if (actor.kind !== "user") throw new CalendarFlowError("일정을 고치려면 먼저 들어가 주세요.");
+  const scope = await loadPlaceScope(actor.userId);
   const [existing] = await getDb().select().from(calendarEvents).where(eq(calendarEvents.id, eventId)).limit(1);
   if (!existing) throw new CalendarFlowError("일정을 찾지 못했습니다.");
-  assertSameCommunity(communityId, existing.communityId);
+  const allowed = existing.groupId ? scope.editGroupIds.has(existing.groupId) : existing.churchId ? scope.editChurchIds.has(existing.churchId) : false;
+  if (!allowed) throw new CalendarFlowError("이 일정을 고칠 권한이 없습니다.");
+  const communityId = existing.communityId;
   const config = readGoogleCalendarConfig();
   if (!config?.clientId || !config.clientSecret || !config.refreshToken) {
     throw new CalendarFlowError("구글 달력 열쇠가 있어야 보낼 수 있습니다. 모들 달력은 그대로 씁니다.");
@@ -340,12 +417,14 @@ export async function syncCalendarEvent(eventId: string): Promise<"skipped" | "s
 export async function deleteCalendarEvent(eventId: string) {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await requireCommunity(actor);
-  assertCan(actor, { type: "view_leader_calendar", communityId });
+  if (actor.kind !== "user") throw new CalendarFlowError("일정을 고치려면 먼저 들어가 주세요.");
+  const scope = await loadPlaceScope(actor.userId);
   const db = getDb();
   const [existing] = await db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId)).limit(1);
   if (!existing) throw new CalendarFlowError("일정을 찾지 못했습니다.");
-  assertSameCommunity(communityId, existing.communityId);
+  const allowed = existing.groupId ? scope.editGroupIds.has(existing.groupId) : existing.churchId ? scope.editChurchIds.has(existing.churchId) : false;
+  if (!allowed) throw new CalendarFlowError("이 일정을 고칠 권한이 없습니다.");
+  const communityId = existing.communityId;
   const config = readGoogleCalendarConfig();
   if (config && existing.googleEventId) {
     try {

@@ -37,7 +37,10 @@ export function BulletinView({
         </p>
       </header>
       <ol className="grid gap-3">
-        {blocks.map((block) => (
+        {(Array.isArray(blocks) ? blocks : []).map((block) => {
+          const termKey = BLOCK_TERM[block.type];
+          if (!termKey) return null;
+          return (
           <li
             key={block.id}
             data-testid="rendered-block"
@@ -45,11 +48,12 @@ export function BulletinView({
             className="grid gap-2 rounded-3xl bg-[#fffaf3] px-4 py-4 leading-snug"
           >
             <h3 className="break-words text-[clamp(1.1rem,1rem+0.3vw,1.35rem)] font-semibold leading-snug">
-              <TermText termKey={BLOCK_TERM[block.type]} />
+              <TermText termKey={termKey} />
             </h3>
             <BlockBody block={block} />
           </li>
-        ))}
+          );
+        })}
       </ol>
     </article>
   );

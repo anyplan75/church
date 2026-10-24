@@ -121,7 +121,7 @@ export function can(actor: Actor, action: AppAction): boolean {
     case "review_question_reply":
       return roleIs(actor, action.communityId, ROSTER_ROLES);
     case "ask_question":
-      return formalMembership(actor, action.communityId) !== null;
+      return actor.kind === "user";
     case "create_community":
     case "apply_to_join":
       return actor.kind === "user";

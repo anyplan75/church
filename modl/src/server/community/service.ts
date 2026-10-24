@@ -15,11 +15,14 @@ import {
   communities,
   groupMemberships,
   inviteCodes,
+  mapChurches,
   members,
   smallGroups,
   users,
 } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
+import type { PlaceMenuItem } from "@/promo/rules";
+import { loadSubscriptionMenus } from "@/server/place/service";
 import { sidebarHrefs } from "@/theme/menu-access";
 import type { CustomTermOverrides, LanguageMode } from "@/theme/types";
 import { denominationsMatch, explainJoinBlock, groupIdsToArchive, planApproval } from "@/server/community/rules";
@@ -64,7 +67,13 @@ async function communityForActor(actor: Actor) {
   return communityId;
 }
 
-export async function signupAccount(input: { name: string; email: string; password: string }) {
+export async function signupAccount(input: {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  gender: "male" | "female";
+}) {
   await ensureDatabase();
   await assertTextsAllowed(input.name);
   try {
@@ -74,6 +83,8 @@ export async function signupAccount(input: { name: string; email: string; passwo
         name: input.name,
         email: input.email,
         passwordHash: hashPassword(input.password),
+        phone: input.phone,
+        gender: input.gender,
       })
       .returning();
     await openSession(user.id);
@@ -477,6 +488,7 @@ export type ShellState = {
   overridesJson: string;
   menuHrefs: string[];
   officer: boolean;
+  placeMenus: PlaceMenuItem[];
 };
 
 function shellBase(formal: boolean, officer: boolean): Pick<ShellState, "menuHrefs" | "officer"> {
@@ -488,27 +500,29 @@ export async function loadShellState(): Promise<ShellState> {
     await ensureDatabase();
     const actor = await loadActor();
     if (actor.kind !== "user") {
-      return { accountName: null, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+      return { accountName: null, languageMode: null, overridesJson: "{}", placeMenus: [], ...shellBase(false, false) };
     }
+    const placeMenus = await loadSubscriptionMenus(actor.userId).catch(() => []);
     const accountName = await currentUserName(actor.userId);
     const communityId = await activeCommunityId(actor);
     if (!communityId) {
-      return { accountName, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+      return { accountName, languageMode: null, overridesJson: "{}", placeMenus, ...shellBase(false, false) };
     }
     const membership = formalMembership(actor, communityId);
     const officer = membership?.role === "PASTOR" || membership?.role === "EXECUTIVE";
     const [community] = await getDb().select().from(communities).where(eq(communities.id, communityId)).limit(1);
     if (!community) {
-      return { accountName, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+      return { accountName, languageMode: null, overridesJson: "{}", placeMenus, ...shellBase(false, false) };
     }
     return {
       accountName,
       languageMode: community.languageMode,
       overridesJson: JSON.stringify(community.customTermOverrides ?? {}),
+      placeMenus,
       ...shellBase(membership !== null, officer),
     };
   } catch {
-    return { accountName: null, languageMode: null, overridesJson: "{}", ...shellBase(false, false) };
+    return { accountName: null, languageMode: null, overridesJson: "{}", placeMenus: [], ...shellBase(false, false) };
   }
 }
 
@@ -584,6 +598,51 @@ export async function loadGroupPage() {
       .orderBy(asc(groupMemberships.assignedAt));
     return { groups, roster, history };
   });
+}
+
+export type SignupPersonRow = {
+  id: string;
+  name: string;
+  email: string;
+  gender: string;
+  phone: string;
+  churchName: string;
+};
+
+function genderLabel(value: string | null): string {
+  if (value === "male") return "남";
+  if (value === "female") return "여";
+  return "";
+}
+
+/** 사역자만 가입자 목록을 받습니다. 다른 역할은 빈 배열이 아니라 자료를 아예 읽지 않습니다. */
+export async function loadSignupPeople(): Promise<SignupPersonRow[]> {
+  await ensureDatabase();
+  const actor = await loadActor();
+  if (actor.kind !== "user") return [];
+  const communityId = await activeCommunityId(actor);
+  const membership = communityId ? formalMembership(actor, communityId) : null;
+  if (membership?.role !== "PASTOR") return [];
+  const rows = await getDb()
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      gender: users.gender,
+      phone: users.phone,
+      churchName: mapChurches.name,
+    })
+    .from(users)
+    .leftJoin(mapChurches, eq(users.homeChurchId, mapChurches.id))
+    .orderBy(asc(users.name));
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    gender: genderLabel(row.gender),
+    phone: row.phone ?? "",
+    churchName: row.churchName ?? "",
+  }));
 }
 
 export async function loadAccountPage() {

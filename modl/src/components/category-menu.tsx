@@ -4,27 +4,44 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
 import { NavIcon } from "@/components/nav-icons";
+import type { PlaceMenuItem } from "@/promo/rules";
 import { CATEGORY_MENUS } from "@/theme/categories";
 
 function active(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+type MenuLink = { href: string; label: string; icon: string };
+
+function menuGroups(menuHrefs: readonly string[], placeMenus: readonly PlaceMenuItem[]) {
+  const allowed = new Set(menuHrefs);
+  return CATEGORY_MENUS.map((group) => {
+    const items: MenuLink[] = group.items
+      .filter((item) => allowed.has(item.href))
+      .map((item) => ({ href: item.href, label: item.label, icon: item.href }));
+    if (group.label !== "연결") return { label: group.label, items };
+    const places = placeMenus.map((item) => ({
+      href: item.href,
+      label: item.label,
+      icon: item.kind === "church" ? "church-menu" : "gathering-menu",
+    }));
+    return { label: group.label, items: [...places, ...items] };
+  }).filter((group) => group.items.length > 0);
+}
+
 export function CategoryMenu({
   menuHrefs,
+  placeMenus = [],
   onNavigate,
   className = "",
 }: {
   menuHrefs: readonly string[];
+  placeMenus?: readonly PlaceMenuItem[];
   onNavigate?: () => void;
   className?: string;
 }) {
   const pathname = usePathname();
-  const allowed = new Set(menuHrefs);
-  const groups = CATEGORY_MENUS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => allowed.has(item.href)),
-  })).filter((group) => group.items.length > 0);
+  const groups = menuGroups(menuHrefs, placeMenus);
   return (
     <div className={`grid content-start gap-1 ${className}`}>
       {groups.map((group) => (
@@ -43,7 +60,7 @@ export function CategoryMenu({
                       current ? "bg-[#f1f5f9] text-[#1e293b]" : "text-[#475569] hover:bg-[#f8fafc]"
                     }`}
                   >
-                    <NavIcon name={item.href} />
+                    <NavIcon name={item.icon} />
                     <span className="min-w-0 truncate">{item.label}</span>
                   </Link>
                 </li>
@@ -95,13 +112,15 @@ function phoneTabClass(current: boolean) {
 }
 
 /** 폰 위쪽 두 줄입니다. 첫 줄은 구역, 둘째 줄은 그 구역의 메뉴입니다. 각 줄은 화면 너비를 칸 수로 나눕니다. */
-export function PhoneCategoryTabs({ menuHrefs }: { menuHrefs: readonly string[] }) {
+export function PhoneCategoryTabs({
+  menuHrefs,
+  placeMenus = [],
+}: {
+  menuHrefs: readonly string[];
+  placeMenus?: readonly PlaceMenuItem[];
+}) {
   const pathname = usePathname();
-  const allowed = new Set(menuHrefs);
-  const groups = CATEGORY_MENUS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => allowed.has(item.href)),
-  })).filter((group) => group.items.length > 0);
+  const groups = menuGroups(menuHrefs, placeMenus);
   const pathGroup = groups.find((group) => group.items.some((item) => active(pathname, item.href)))?.label;
   const [override, setOverride] = useState<{ path: string; label: string } | null>(null);
   const selectedLabel = override?.path === pathname ? override.label : (pathGroup ?? groups[0]?.label ?? "");

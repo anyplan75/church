@@ -4,9 +4,12 @@
  * 퀴즈를 푸는 응답에는 정답 번호를 넣지 않습니다.
  */
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
+  archiveScopeLabel,
+  archiveTargets,
+  canSeeArchive,
   linkLines,
   monthKey,
   parseQuizLines,
@@ -23,9 +26,10 @@ import type { Actor } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
 import { assertApprovedMember, assertSameCommunity, formalMembership } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { communities, eventArchives, members, quizMonthPrizes, quizzes } from "@/server/db/schema";
+import { communities, eventArchives, mapChurches, members, quizMonthPrizes, quizzes, smallGroups } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { assertTextsAllowed } from "@/server/moderation/guard";
+import { loadPlaceScope } from "@/server/place/service";
 
 export class ArchiveFlowError extends Error {
   constructor(message: string) {
@@ -109,30 +113,68 @@ export async function loadArchiveHome() {
   if (actor.kind !== "user") {
     return { ok: false as const, message: "기록을 보려면 먼저 들어가 주세요." };
   }
-  const communityId = await activeCommunityId(actor);
-  if (!communityId) {
-    return { ok: false as const, message: "먼저 공동체를 만들거나, 가입 승인을 받아 주세요." };
-  }
-  const membership = formalMembership(actor, communityId);
-  if (!membership) {
-    return { ok: false as const, message: "승인 대기 중이거나 이 공동체 구성원이 아니어서 기록을 볼 수 없습니다." };
-  }
+  const scope = await loadPlaceScope(actor.userId);
   const db = getDb();
-  const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
-  if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
-  const events = await db
-    .select()
-    .from(eventArchives)
-    .where(eq(eventArchives.communityId, communityId))
-    .orderBy(sql`${eventArchives.eventDate} desc nulls last`, desc(eventArchives.createdAt));
+  const churchIdList = [...scope.churchIds];
+  const groupIdList = [...scope.groupIds];
+  const churchRows = churchIdList.length
+    ? await db.select({ id: mapChurches.id, name: mapChurches.name }).from(mapChurches).where(inArray(mapChurches.id, churchIdList)).orderBy(asc(mapChurches.name))
+    : [];
+  const gatheringRows = groupIdList.length
+    ? await db
+        .select({ id: smallGroups.id, name: smallGroups.name })
+        .from(smallGroups)
+        .where(and(inArray(smallGroups.id, groupIdList), eq(smallGroups.isArchived, false)))
+        .orderBy(asc(smallGroups.name))
+    : [];
+  const churches = [...churchRows].sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  const gatherings = [...gatheringRows].sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  const filters = [
+    churchIdList.length > 0 ? inArray(eventArchives.churchId, churchIdList) : undefined,
+    groupIdList.length > 0 ? inArray(eventArchives.groupId, groupIdList) : undefined,
+  ].filter((item) => item !== undefined);
+  const where = filters.length === 0 ? undefined : filters.length === 1 ? filters[0] : or(...filters);
+  const rows = where
+    ? await db
+        .select()
+        .from(eventArchives)
+        .where(where)
+        .orderBy(sql`${eventArchives.eventDate} desc nulls last`, desc(eventArchives.createdAt))
+    : [];
+  const visible = rows.filter((row) => canSeeArchive(row, scope.churchIds, scope.groupIds));
+  const nameChurchIds = [...new Set(visible.flatMap((row) => (row.churchId ? [row.churchId] : [])))];
+  const nameGroupIds = [...new Set(visible.flatMap((row) => (row.groupId ? [row.groupId] : [])))];
+  const namedChurches = nameChurchIds.length
+    ? await db.select({ id: mapChurches.id, name: mapChurches.name }).from(mapChurches).where(inArray(mapChurches.id, nameChurchIds))
+    : [];
+  const namedGroups = nameGroupIds.length
+    ? await db.select({ id: smallGroups.id, name: smallGroups.name }).from(smallGroups).where(inArray(smallGroups.id, nameGroupIds))
+    : [];
+  const churchNames = new Map(namedChurches.map((row) => [row.id, row.name]));
+  const groupNames = new Map(namedGroups.map((row) => [row.id, row.name]));
+  let canUpload = false;
+  let communityName: string | null = null;
+  const communityId = await activeCommunityId(actor);
+  if (communityId) {
+    const membership = formalMembership(actor, communityId);
+    canUpload = membership?.role === "PASTOR";
+    const [community] = await db.select({ name: communities.name }).from(communities).where(eq(communities.id, communityId)).limit(1);
+    communityName = community?.name ?? null;
+  }
   return {
     ok: true as const,
-    communityName: community.name,
-    canUpload: membership.role === "PASTOR",
-    events: events.map((event) => ({
+    communityName,
+    canUpload,
+    churches,
+    gatherings,
+    events: visible.map((event) => ({
       id: event.id,
       title: event.title,
       eventDate: event.eventDate ?? "",
+      scopeLabel: archiveScopeLabel({
+        churchName: event.churchId ? churchNames.get(event.churchId) ?? null : null,
+        gatheringName: event.groupId ? groupNames.get(event.groupId) ?? null : null,
+      }),
       materials: materialLinks(event.photoUrls, event.youtubeUrls),
     })),
   };
@@ -165,12 +207,32 @@ export async function createArchive(input: {
   eventDate: string;
   photoText: string;
   youtubeText: string;
+  churchIds: string[];
+  gatheringIds: string[];
 }): Promise<string> {
   await ensureDatabase();
   const actor = await loadActor();
+  if (actor.kind !== "user") throw new ArchiveFlowError("기록을 보려면 먼저 들어가 주세요.");
   const communityId = await requireCommunity(actor);
   await requireMember(actor, communityId);
   assertPastor(actor, communityId);
+  const scope = await loadPlaceScope(actor.userId);
+  const target = archiveTargets({
+    churchIds: input.churchIds,
+    gatheringIds: input.gatheringIds,
+    allowedChurchIds: scope.churchIds,
+    allowedGatheringIds: new Set(
+      scope.groupIds.size
+        ? (
+            await getDb()
+              .select({ id: smallGroups.id })
+              .from(smallGroups)
+              .where(and(inArray(smallGroups.id, [...scope.groupIds]), eq(smallGroups.isArchived, false)))
+          ).map((row) => row.id)
+        : [],
+    ),
+  });
+  if (!target.ok) throw new ArchiveFlowError(target.message);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.eventDate)) {
     throw new ArchiveFlowError("행사 날짜를 확인해 주세요.");
   }
@@ -184,18 +246,23 @@ export async function createArchive(input: {
   }
   await assertTextsAllowed(input.title, input.photoText, input.youtubeText);
   const db = getDb();
-  const [created] = await db
+  const created = await db
     .insert(eventArchives)
-    .values({
-      communityId,
-      title: input.title.trim(),
-      eventDate: input.eventDate,
-      photoUrls,
-      youtubeUrls,
-    })
+    .values(
+      target.places.map((place) => ({
+        communityId,
+        churchId: place.churchId,
+        groupId: place.groupId,
+        title: input.title.trim(),
+        eventDate: input.eventDate,
+        photoUrls,
+        youtubeUrls,
+      })),
+    )
     .returning({ id: eventArchives.id });
-  if (!created) throw new ArchiveFlowError("행사 기록을 저장하지 못했습니다.");
-  return created.id;
+  const first = created[0];
+  if (!first) throw new ArchiveFlowError("행사 기록을 저장하지 못했습니다.");
+  return first.id;
 }
 
 export async function loadArchiveDetail(archiveId: string) {
@@ -204,18 +271,13 @@ export async function loadArchiveDetail(archiveId: string) {
   if (actor.kind !== "user") {
     return { ok: false as const, message: "기록을 보려면 먼저 들어가 주세요." };
   }
-  const communityId = await activeCommunityId(actor);
-  if (!communityId) {
-    return { ok: false as const, message: "먼저 공동체를 만들거나, 가입 승인을 받아 주세요." };
-  }
-  const membership = formalMembership(actor, communityId);
-  if (!membership) {
-    return { ok: false as const, message: "승인 대기 중이거나 이 공동체 구성원이 아니어서 기록을 볼 수 없습니다." };
-  }
+  const scope = await loadPlaceScope(actor.userId);
   const db = getDb();
   const [row] = await db.select().from(eventArchives).where(eq(eventArchives.id, archiveId)).limit(1);
   if (!row) return { ok: false as const, message: "행사 기록을 찾지 못했습니다." };
-  assertSameCommunity(row.communityId, communityId);
+  if (!canSeeArchive(row, scope.churchIds, scope.groupIds)) {
+    return { ok: false as const, message: "구독한 교회나 모들의 행사자료만 봅니다." };
+  }
   const photos = Array.isArray(row.photoUrls) ? row.photoUrls.filter((item) => typeof item === "string" && httpUrl(item)) : [];
   const videos = Array.isArray(row.youtubeUrls)
     ? row.youtubeUrls

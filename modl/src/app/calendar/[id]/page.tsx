@@ -34,7 +34,7 @@ export default async function CalendarEventPage({
             <TermField termKey="field_event_end" name="endAt" type="datetime-local" required defaultValue={page.event.endAt} />
             <CategoryField defaultValue={page.event.category} />
             <LeaderOnlyField defaultChecked={page.event.isLeaderOnly} />
-            <GroupChoice groups={page.myGroups} selected={page.event.groupId} />
+            <PlaceChoice places={page.places} selected={page.event.groupId ? `gathering:${page.event.groupId}` : page.event.churchId ? `church:${page.event.churchId}` : ""} />
             <SubmitButton termKey="save_event" />
           </form>
           {page.googleCanWrite ? (
@@ -70,16 +70,26 @@ export default async function CalendarEventPage({
   );
 }
 
-function GroupChoice({ groups, selected = "" }: { groups: readonly { id: string; name: string }[]; selected?: string | null }) {
-  if (groups.length === 0) return <input type="hidden" name="groupId" value="" />;
+function PlaceChoice({
+  places,
+  selected = "",
+}: {
+  places: readonly { id: string; name: string; kind: "church" | "gathering" }[];
+  selected?: string | null;
+}) {
+  const current = places.find((place) => `${place.kind}:${place.id}` === selected) ?? places[0];
+  if (!current) return null;
   return (
     <label className="grid gap-1">
-      <span className="font-semibold">모들</span>
-      <select name="groupId" defaultValue={selected ?? ""} className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-6">
-        <option value="">교회 일정</option>
-        {groups.map((group) => (
-          <option key={group.id} value={group.id}>
-            {group.name}
+      <span className="font-semibold">교회 또는 모들</span>
+      <select
+        name="placeRef"
+        defaultValue={`${current.kind}:${current.id}`}
+        className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-6"
+      >
+        {places.map((place) => (
+          <option key={`${place.kind}:${place.id}`} value={`${place.kind}:${place.id}`}>
+            {place.kind === "church" ? "교회" : "모들"} · {place.name}
           </option>
         ))}
       </select>

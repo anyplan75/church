@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermHeading } from "@/components/term-heading";
 import { TermText } from "@/components/term-text";
@@ -16,7 +16,7 @@ export default async function WebsitePage({
 }) {
   const query = await searchParams;
   const page = await loadWebsiteEditor(await requestOrigin());
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) return <AccessScreen />;
 
   return (
     <section className="grid min-w-0 gap-4">

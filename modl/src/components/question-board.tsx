@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { GUEST_HOME_NOTICE } from "@/components/guest-notice";
+import { SocialLoginButtons } from "@/components/social-login";
 import { askQuestionAction } from "@/server/questions/actions";
 import { AUDIENCE_LABEL, type QuestionAudience } from "@/questions/rules";
 import type { QuestionCard } from "@/server/questions/service";
@@ -23,16 +25,17 @@ function SendMark() {
 }
 
 export function QuestionComposer({
-  canAsk,
+  signedIn,
   pastors,
 }: {
-  canAsk: boolean;
+  signedIn: boolean;
   pastors: { id: string; name: string }[];
 }) {
-  if (!canAsk) {
+  if (!signedIn) {
     return (
       <div className="grid justify-items-center gap-8">
         <Wordmark />
+        <p className="max-w-xl text-center text-base leading-7 text-[#334155]">{GUEST_HOME_NOTICE}</p>
         <div className="relative w-full rounded-2xl border border-[#cbd5e1] bg-white">
           <p className="min-h-32 px-4 pb-14 pt-4 text-base leading-6 text-[#94a3b8]">로그인하면 질문할 수 있습니다.</p>
           <Link
@@ -42,6 +45,7 @@ export function QuestionComposer({
             로그인
           </Link>
         </div>
+        <SocialLoginButtons />
       </div>
     );
   }
@@ -95,7 +99,6 @@ export function QuestionComposer({
             </label>
           ))}
         </div>
-        <p className="text-sm leading-5 text-[#64748b]">답은 목사가 씁니다. 승인 후에 질문한 사람에게만 보입니다.</p>
       </div>
     </form>
   );

@@ -2,20 +2,27 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { followWindowMeters, distanceToLineMeters, HERE_RADIUS_METERS, JEJU_VIEW, lineLengthMeters, nearestSegmentIndex, OFF_ROUTE_METERS, radiusView } from "@/map/follow";
+import { followWindowMeters, distanceToLineMeters, HERE_RADIUS_METERS, lineLengthMeters, nearestSegmentIndex, OFF_ROUTE_METERS, radiusView } from "@/map/follow";
+import type { MapOpeningSource } from "@/map/opening";
+import { boundsSpanKm, pinsForView, pointInside, type ViewBounds } from "@/map/viewport";
 import type { BusGuide } from "@/map/jeju-bus";
 import type { ChurchPin } from "@/map/church-sheet";
 import { churchMatchesTags, normalizeChurchTags, type ChurchTag } from "@/map/church-tags";
 import { ChurchTagFilters } from "@/components/church-tag-filters";
-import { PLACE_KIND_LABEL, type MapPoint, type PlaceHit, type RouteResult, type RouteSegment } from "@/map/rules";
+import { MapPlacePage } from "@/components/map-place-page";
+import { directoryEmptyNote, directoryHits, type DirectoryHit } from "@/map/directory";
+import { type MapPoint, type PlaceHit, type RouteResult, type RouteSegment } from "@/map/rules";
 import { busGuideAction, busRouteLineAction, searchPlacesAction, travelAction } from "@/server/map/actions";
 import { saveMapChurchAction, saveMyAddressAction, setPickupConsentAction } from "@/server/map/church-actions";
+import { subscribePlaceOnMapAction } from "@/server/place/actions";
 
 type Pending = "search" | "route" | "bus" | "gps" | "address" | "consent" | "church" | null;
 type TravelMode = "car" | "walk" | "bus";
 type PickupPin = { id: string; name: string; point: MapPoint };
 type MapSelf = { address: string; consented: boolean };
-type Selected = { type: "church" | "place" | "pickup"; id: string };
+type Selected = { type: "church" | "gathering" | "place" | "pickup"; id: string };
+
+type GatheringPin = { id: string; name: string; address: string; point: MapPoint };
 type ChurchDraft = {
   id: string;
   name: string;
@@ -49,21 +56,45 @@ function arrivalLine(arrival: { label: string; minutes: number | null; stopsLeft
 
 export function MapBoard({
   churches,
+  gatherings,
+  directoryChurches,
+  directoryGatherings,
+  churchPinColor,
+  gatheringPinColor,
   pickups,
   self,
   hasChurches,
   canEditChurches,
+  signedIn,
+  followedChurchIds,
+  followedGroupIds,
+  openingPoint,
+  openingSource,
   mapboxToken,
 }: {
   churches: ChurchPin[];
+  gatherings: GatheringPin[];
+  directoryChurches: Array<{ id: string; name: string; address: string }>;
+  directoryGatherings: Array<{ id: string; name: string; address: string }>;
+  churchPinColor: string;
+  gatheringPinColor: string;
   pickups: PickupPin[];
   self: MapSelf | null;
   hasChurches: boolean;
   canEditChurches: boolean;
+  signedIn: boolean;
+  followedChurchIds: string[];
+  followedGroupIds: string[];
+  openingPoint: MapPoint;
+  openingSource: MapOpeningSource;
   mapboxToken: string;
 }) {
   const [query, setQuery] = useState("");
   const [places, setPlaces] = useState<PlaceHit[]>([]);
+  const [directory, setDirectory] = useState<DirectoryHit[]>([]);
+  const [followedChurches, setFollowedChurches] = useState(() => new Set(followedChurchIds));
+  const [followedGroups, setFollowedGroups] = useState(() => new Set(followedGroupIds));
+  const [subscribing, setSubscribing] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected | null>(null);
   const [guiding, setGuiding] = useState(false);
   const [travel, setTravel] = useState<TravelMode>("car");
@@ -88,8 +119,7 @@ export function MapBoard({
   const [address, setAddress] = useState(self?.address ?? "");
   const [consented, setConsented] = useState(self?.consented ?? false);
   const [selectedTags, setSelectedTags] = useState<ReadonlySet<string>>(new Set());
-  const [phoneFiltersOpen, setPhoneFiltersOpen] = useState(false);
-  const [phoneDraftTags, setPhoneDraftTags] = useState<ReadonlySet<string>>(new Set());
+  const [searchOpen, setSearchOpen] = useState(false);
   const [churchRows, setChurchRows] = useState(churches);
   const [draft, setDraft] = useState<ChurchDraft | null>(null);
   useEffect(() => {
@@ -105,10 +135,11 @@ export function MapBoard({
   );
 
   const church = selected?.type === "church" ? visibleChurches.find((item) => item.id === selected.id) ?? null : null;
+  const gathering = selected?.type === "gathering" ? gatherings.find((item) => item.id === selected.id) ?? null : null;
   const place = selected?.type === "place" ? places.find((item) => item.id === selected.id) ?? null : null;
   const pickup = selected?.type === "pickup" ? pickups.find((item) => item.id === selected.id) ?? null : null;
-  const target = church?.point ?? place?.point ?? pickup?.point ?? null;
-  const targetName = church?.name ?? place?.name ?? pickup?.name ?? "";
+  const target = church?.point ?? gathering?.point ?? place?.point ?? pickup?.point ?? null;
+  const targetName = church?.name ?? gathering?.name ?? place?.name ?? pickup?.name ?? "";
 
   const followSegments = useMemo<RouteSegment[]>(() => {
     if (travel === "bus") return busLine.length >= 2 ? [{ line: busLine, speedMps: null }] : [];
@@ -165,28 +196,9 @@ export function MapBoard({
     }
   }
 
-  function openPhoneFilters() {
-    setPhoneDraftTags(new Set(selectedTags));
-    setPhoneFiltersOpen(true);
-  }
-
-  function finishPhoneFilters() {
-    setSelectedTags(new Set(phoneDraftTags));
-    setPhoneFiltersOpen(false);
-  }
-
-  function togglePhoneDraft(tag: ChurchTag) {
-    setPhoneDraftTags((current) => {
-      const next = new Set(current);
-      if (next.has(tag)) next.delete(tag);
-      else next.add(tag);
-      return next;
-    });
-  }
-
   function choose(next: Selected) {
     setDraft(null);
-    setPhoneFiltersOpen(false);
+    setSearchOpen(false);
     setSelected(next);
     setGuiding(false);
     setRoute(null);
@@ -217,20 +229,46 @@ export function MapBoard({
     if (result.data.length < 2) setNote("이 노선은 잇을 정류장 좌표가 없습니다.");
   }
 
+  function followed(hit: DirectoryHit): boolean {
+    return hit.kind === "church" ? followedChurches.has(hit.id) : followedGroups.has(hit.id);
+  }
+
+  async function onSubscribe(hit: DirectoryHit) {
+    if (followed(hit) || subscribing) return;
+    if (!signedIn) {
+      setNote("구독하려면 먼저 들어가 주세요.");
+      return;
+    }
+    setSubscribing(`${hit.kind}:${hit.id}`);
+    setError("");
+    const result = await subscribePlaceOnMapAction(hit.kind, hit.id);
+    setSubscribing(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    if (hit.kind === "church") setFollowedChurches((current) => new Set(current).add(hit.id));
+    else setFollowedGroups((current) => new Set(current).add(hit.id));
+    setNote(hit.kind === "church" ? "교회를 구독했습니다." : "모들을 구독했습니다.");
+  }
+
   async function onSearch(event: FormEvent) {
     event.preventDefault();
     setPending("search");
     setError("");
     setNote("");
+    setSelected(null);
+    const found = directoryHits(query, directoryChurches, directoryGatherings);
+    setDirectory(found);
     const result = await searchPlacesAction(query);
     setPending(null);
     if (!result.ok) {
       setPlaces([]);
-      setError(result.message);
+      if (found.length === 0) setNote(directoryEmptyNote);
       return;
     }
     setPlaces(result.data);
-    if (result.data.length === 0) setNote("식당이나 숙소로 찾은 결과가 없습니다.");
+    if (found.length === 0) setNote(directoryEmptyNote);
   }
 
   useEffect(() => {
@@ -472,137 +510,158 @@ export function MapBoard({
     setNote(next ? "데리러 가기 주소를 지도에 올렸습니다." : "데리러 가기 핀을 지웠습니다.");
   }
 
+  function clearOverlay() {
+    setDraft(null);
+    setSearchOpen(false);
+    setSelected(null);
+    setGuiding(false);
+    setRoute(null);
+    setBus(null);
+    setBusLine([]);
+    setBusRouteId(null);
+    stopNavigation();
+  }
+
+  const promoKind = church ? "church" : gathering ? "gathering" : null;
+  const subscribedSelected = church ? followedChurches.has(church.id) : gathering ? followedGroups.has(gathering.id) : false;
+
   return (
-    <section className="map-stage flex flex-col">
-      <div className="relative min-h-0 flex-1">
-      <h1 className="page-title absolute left-3 top-3 z-20 rounded-xl bg-white px-3 py-2 text-[clamp(1.22rem,1rem+0.5vw,1.6rem)] leading-tight shadow-md">지도</h1>
-      <MapCanvas
-        places={places}
-        churches={visibleChurches}
-        pickups={pickups}
-        selected={selected}
-        line={drawnLine}
-        followSegments={followSegments}
-        following={following}
-        here={here}
-        speed={speed}
-        mapboxToken={mapboxToken}
-        onSelect={choose}
-        onClear={() => {
-          setDraft(null);
-          setPhoneFiltersOpen(false);
-          setSelected(null);
-          setGuiding(false);
-          setRoute(null);
-          setBus(null);
-          setBusLine([]);
-          setBusRouteId(null);
-          stopNavigation();
-        }}
-      />
-      <div data-testid="map-dock" className="absolute inset-x-2 bottom-2 z-20 hidden max-h-[calc(100%-5.5rem)] flex-col md:flex">
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-md">
-          {church ? null : (
-          <>
-          <form onSubmit={onSearch} className="flex shrink-0 gap-2 border-b border-[#e5e7eb] p-2">
-            <label className="min-w-0 flex-1">
-              <span className="sr-only">장소 검색</span>
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="w-full rounded-xl border border-[#e5e7eb] px-3 py-3 leading-snug outline-none"
-                placeholder="장소나 주소"
-              />
-            </label>
-            <button type="submit" disabled={pending === "search"} className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
-              검색
-            </button>
-          </form>
-          <div className="shrink-0 px-3 py-3">
-            <ChurchTagFilters
-              layout="board"
-              selected={selectedTags}
-              onToggle={(tag) => {
-                setSelectedTags((current) => {
-                  const next = new Set(current);
-                  if (next.has(tag)) next.delete(tag);
-                  else next.add(tag);
-                  return next;
-                });
-              }}
-            />
-            <p className="mt-3 text-sm leading-relaxed" data-testid="church-edit-request">
-              교회정보수정요청{" "}
-              <a className="underline" href="mailto:anyplan@me.com">
-                anyplan@me.com
-              </a>
-            </p>
-          </div>
-          </>
-          )}
-          {church || places.length > 0 || (!church && target) || visibleChurches.length === 0 || error || note ? (
-            <div className={`min-h-0 overflow-y-auto ${church ? "" : "border-t border-[#e5e7eb]"}`}>
-          {places.length > 0 && !selected ? (
-            <ul className="list-none">
-              {places.map((item) => (
-                <li key={item.id} className="border-b border-[#f3f4f6] last:border-b-0">
-                  <button type="button" className="grid w-full gap-1 px-3 py-2 text-left hover:bg-[#f8fafc]" onClick={() => choose({ type: "place", id: item.id })}>
-                    <span className="font-semibold">
-                      {PLACE_KIND_LABEL[item.kind]} · {item.name}
-                    </span>
-                    <span className="break-words text-sm text-[#4b5563]">{item.address}</span>
+    <section className="map-stage flex" data-search-open={searchOpen ? "true" : "false"} data-promo-open={promoKind ? "true" : "false"}>
+      <div className="relative min-h-0 min-w-0 flex-1">
+        <MapCanvas
+          places={places}
+          churches={visibleChurches}
+          gatherings={gatherings}
+          churchPinColor={churchPinColor}
+          gatheringPinColor={gatheringPinColor}
+          pickups={pickups}
+          selected={selected}
+          line={drawnLine}
+          followSegments={followSegments}
+          following={following}
+          here={here}
+          speed={speed}
+          openingPoint={openingPoint}
+          openingSource={openingSource}
+          mapboxToken={mapboxToken}
+          onSelect={choose}
+          onClear={clearOverlay}
+        />
+        <button
+          type="button"
+          data-testid="map-search-tab"
+          aria-expanded={searchOpen}
+          className={`absolute left-3 top-3 z-20 rounded-xl bg-white px-4 py-3 font-semibold shadow-md ${promoKind ? "max-lg:hidden" : ""}`}
+          onClick={() => setSearchOpen((open) => !open)}
+        >
+          검색·필터
+        </button>
+        {searchOpen ? (
+          <div
+            data-testid="map-search-panel"
+            className="absolute left-3 top-16 z-20 flex max-h-[min(32rem,calc(100%-5.5rem))] w-[min(22rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-2xl bg-white shadow-md"
+          >
+            <form onSubmit={onSearch} data-testid="map-search-form" className="flex shrink-0 gap-2 border-b border-[#e5e7eb] p-2">
+              <label className="min-w-0 flex-1">
+                <span className="sr-only">교회와 모들 검색</span>
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  className="w-full rounded-xl border border-[#e5e7eb] px-3 py-3 leading-snug outline-none"
+                  placeholder="교회, 모들, 장소"
+                />
+              </label>
+              <button type="submit" disabled={pending === "search"} className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
+                검색
+              </button>
+            </form>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <DirectoryResults hits={directory} followed={followed} subscribing={subscribing} onChoose={choose} onSubscribe={(hit) => void onSubscribe(hit)} />
+              {places.length > 0 && !selected ? (
+                <ul className="list-none border-b border-[#e5e7eb]">
+                  {places.map((item) => (
+                    <li key={item.id}>
+                      <button type="button" className="grid w-full gap-1 px-3 py-2 text-left hover:bg-[#f8fafc]" onClick={() => choose({ type: "place", id: item.id })}>
+                        <span className="font-semibold">{item.name}</span>
+                        <span className="break-words text-sm text-[#4b5563]">{item.address}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {note ? (
+                <p role="status" data-testid="map-search-note" className="bg-[#ecfdf3] px-3 py-2 leading-relaxed">
+                  {note}
+                </p>
+              ) : null}
+              {error ? (
+                <p role="alert" className="bg-[#fde8e2] px-3 py-2 leading-relaxed">
+                  {error}
+                </p>
+              ) : null}
+              <div className="border-b border-[#e5e7eb] px-3 py-3">
+                <ChurchTagFilters
+                  layout="stack"
+                  selected={selectedTags}
+                  onToggle={(tag) => {
+                    setSelectedTags((current) => {
+                      const next = new Set(current);
+                      if (next.has(tag)) next.delete(tag);
+                      else next.add(tag);
+                      return next;
+                    });
+                  }}
+                />
+                <p className="mt-3 text-sm leading-relaxed" data-testid="church-edit-request">
+                  교회정보수정요청{" "}
+                  <a className="underline" href="mailto:anyplan@me.com">
+                    anyplan@me.com
+                  </a>
+                </p>
+              </div>
+              <p
+                data-testid="pin-legend"
+                data-church-color={churchPinColor}
+                data-gathering-color={gatheringPinColor}
+                className="flex items-center gap-4 px-3 py-2 text-sm leading-snug"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-3 w-3 rounded-full" style={{ background: churchPinColor }} />
+                  교회
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-3 w-3 rounded-full" style={{ background: gatheringPinColor }} />
+                  모들
+                </span>
+              </p>
+              {visibleChurches.length === 0 ? (
+                <p className="px-3 pb-3 text-sm leading-relaxed">
+                  {churchRows.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
+                </p>
+              ) : null}
+              {self ? (
+                <div className="border-t border-[#e5e7eb] p-3">
+                  <button type="button" className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold" onClick={() => setAddressOpen((open) => !open)}>
+                    데리러 가기
                   </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {target && (church || place || pickup) ? (
-            <article data-testid={church ? "church-info" : undefined} className={church ? "" : "border-t border-[#e5e7eb]"}>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {(place || pickup) && !promoKind ? (
+          <div
+            data-testid="map-place-card"
+            className="absolute left-3 top-16 z-20 max-h-[min(24rem,calc(100%-5.5rem))] w-[min(22rem,calc(100%-1.5rem))] overflow-y-auto rounded-2xl bg-white shadow-md"
+          >
+            <article>
               <div className="flex items-start justify-between gap-2 border-b border-[#e5e7eb] px-3 py-3">
                 <h2 className="text-lg font-semibold leading-snug">{targetName}</h2>
-                <button
-                  type="button"
-                  className="rounded-xl px-3 py-2 text-[#4b5563]"
-                  onClick={() => {
-                    setDraft(null);
-                    setPhoneFiltersOpen(false);
-                    setSelected(null);
-                    setGuiding(false);
-                    setRoute(null);
-                    setBus(null);
-                    setBusLine([]);
-                    setBusRouteId(null);
-                    stopNavigation();
-                  }}
-                >
+                <button type="button" className="rounded-xl px-3 py-2 text-[#4b5563]" onClick={clearOverlay}>
                   닫기
                 </button>
               </div>
-              <section className="grid gap-2 border-b border-[#e5e7eb] px-3 py-3">
-                {church ? (
-                  <>
-                    <dl className="grid gap-1 leading-relaxed">
-                      <Detail label="교회이름" value={church.name} />
-                      <Detail label="담임목사" value={church.pastorName} />
-                      <Detail label="주소" value={church.address} />
-                      <Detail label="지역" value={church.region ?? ""} />
-                      <Detail label="전화번호" value={church.phone} />
-                      <Detail label="주일 예배시간" value={church.serviceTime} />
-                      <Detail label="메모" value={church.memo} />
-                      {church.tags.length > 0 ? <Detail label="태그" value={church.tags.join(" · ")} /> : null}
-                    </dl>
-                    {canEditChurches ? (
-                      <button
-                        type="button"
-                        data-testid="map-church-edit"
-                        className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold"
-                        onClick={() => openChurchEdit(church)}
-                      >
-                        수정
-                      </button>
-                    ) : null}
-                  </>
-                ) : null}
+              <section className="grid gap-2 px-3 py-3">
                 {place ? (
                   <dl className="grid gap-1 leading-relaxed">
                     <Detail label="이름" value={place.name} />
@@ -611,373 +670,348 @@ export function MapBoard({
                 ) : null}
                 {pickup ? <p className="leading-relaxed">데리러 가기 핀</p> : null}
               </section>
-              {guiding ? (
-                <section className="grid gap-3 border-b border-[#e5e7eb] px-3 py-3">
-                  <div className="flex flex-wrap gap-2" role="tablist" aria-label="길안내">
-                    <ModeButton current={travel} mode="car" label="자동차" onPick={pickTravel} />
-                    <ModeButton current={travel} mode="walk" label="도보" onPick={pickTravel} />
-                    <ModeButton current={travel} mode="bus" label="버스" onPick={pickTravel} />
-                  </div>
-                  {travel !== "bus" && !start ? (
-                    <button type="button" className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold" onClick={() => locate(false)} disabled={pending === "gps"}>
-                      내 위치
-                    </button>
-                  ) : null}
-                  {travel !== "bus" && route ? <p className="leading-relaxed">{routeSummary(route) || "길을 찾았습니다."}</p> : null}
-                  {travel !== "bus" && pending === "route" ? <p className="leading-relaxed">길을 찾고 있습니다.</p> : null}
-                  {rerouting ? <p className="leading-relaxed">재탐색</p> : null}
-                  <button
-                    type="button"
-                    className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white disabled:bg-[#e5e7eb] disabled:text-[#6b7280]"
-                    disabled={!canFollow}
-                    aria-pressed={following}
-                    onClick={() => (following ? stopNavigation() : beginNavigation())}
-                  >
-                    {following ? "따라가는 중" : "따라가기"}
-                  </button>
-                </section>
-              ) : (
-                <div className="border-b border-[#e5e7eb] px-3 py-3">
-                  <button type="button" className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white" onClick={openGuide}>
-                    길안내
-                  </button>
-                </div>
-              )}
-              {guiding && travel === "bus" ? (
-                <section className="grid gap-3 px-3 py-3">
-                  {pending === "bus" ? <p className="leading-relaxed">제주 버스 정보를 찾고 있습니다.</p> : null}
-                  {bus?.kind === "outside" ? <p className="leading-relaxed">제주 버스 정보입니다.</p> : null}
-                  {bus?.kind === "empty" ? <p className="leading-relaxed">이 장소 근처 정류장 응답이 없습니다.</p> : null}
-                  {bus?.kind === "stops" ? (
-                    <ul className="grid list-none gap-3">
-                      {bus.stops.map((stop) => (
-                        <li key={stop.id} className="grid gap-2 border-t border-[#e5e7eb] pt-3 first:border-t-0 first:pt-0">
-                          <p className="font-semibold">{stop.name}</p>
-                          {stop.routes.length > 0 ? (
-                            <ul className="grid list-none gap-2">
-                              {stop.routes.map((item) => (
-                                <li key={item.id} className="flex flex-wrap items-center gap-2">
-                                  <button
-                                    type="button"
-                                    aria-pressed={busRouteId === item.id}
-                                    className={`rounded-full px-3 py-1 text-sm font-semibold ${item.background ? "" : "border border-[#e5e7eb] bg-white"}`}
-                                    style={item.background ? { background: item.background, color: item.text ?? "#ffffff" } : undefined}
-                                    onClick={() => void pickBus(item.id)}
-                                  >
-                                    {item.number}
-                                  </button>
-                                  {item.detail ? <span className="text-sm leading-relaxed text-[#4b5563]">{item.detail}</span> : null}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                          {stop.arrivals.map((arrival) => (
-                            <p key={`${stop.id}-${arrival.routeId}-${arrival.minutes ?? ""}`} className="leading-relaxed">
-                              도착 {arrivalLine(arrival)}
-                            </p>
-                          ))}
+              <TravelControls
+                guiding={guiding}
+                travel={travel}
+                start={start}
+                route={route}
+                bus={bus}
+                busRouteId={busRouteId}
+                pending={pending}
+                rerouting={rerouting}
+                canFollow={canFollow}
+                following={following}
+                onPickTravel={pickTravel}
+                onLocate={() => locate(false)}
+                onFollow={() => (following ? stopNavigation() : beginNavigation())}
+                onOpenGuide={openGuide}
+                onPickBus={(id) => void pickBus(id)}
+              />
+            </article>
+          </div>
+        ) : null}
+        {!searchOpen && (error || note) ? (
+          <p
+            role={error ? "alert" : "status"}
+            data-testid={note && !error ? "map-search-note" : undefined}
+            className={`absolute left-3 z-20 max-w-[min(22rem,calc(100%-1.5rem))] rounded-2xl px-4 py-3 leading-relaxed shadow-md ${error ? "bg-[#fde8e2]" : "bg-[#ecfdf3]"} ${promoKind ? "top-3 hidden lg:top-16 lg:block" : "top-16"}`}
+          >
+            {error || note}
+          </p>
+        ) : null}
+        {self ? (
+          <div className={`absolute right-3 top-3 z-10 ${promoKind ? "max-lg:hidden" : ""}`}>
+            <button type="button" className="rounded-xl bg-white px-4 py-3 font-semibold shadow-md" onClick={() => setAddressOpen((open) => !open)}>
+              데리러 가기
+            </button>
+          </div>
+        ) : null}
+        {addressOpen && self ? (
+          <form onSubmit={onSaveAddress} className={`absolute right-3 top-16 z-10 grid w-[min(22rem,calc(100%-1.5rem))] gap-3 rounded-2xl bg-white p-4 shadow-md ${promoKind ? "max-lg:hidden" : ""}`}>
+            <h2 className="font-semibold leading-snug">데리러 가기 주소 제공</h2>
+            <p className="leading-relaxed">이 주소를 데리러 가는 사역자에게 지도로 보여 줍니다.</p>
+            <label className="grid gap-1">
+              <span className="font-semibold">내 주소</span>
+              <input value={address} onChange={(event) => setAddress(event.target.value)} className="w-full rounded-xl border border-[#e5e7eb] px-3 py-2 leading-snug" />
+            </label>
+            <button type="submit" disabled={pending === "address"} className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
+              주소 저장
+            </button>
+            <label className="flex items-start gap-2 leading-relaxed">
+              <input type="checkbox" checked={consented} disabled={pending === "consent"} onChange={(event) => void onConsent(event.target.checked)} />
+              <span>데리러 가기 주소 제공</span>
+            </label>
+          </form>
+        ) : null}
+        {draft ? (
+          <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-3 md:items-center">
+            <form
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="map-church-edit-title"
+              data-testid="map-church-edit-dialog"
+              onSubmit={onSaveChurch}
+              className="grid max-h-[min(42rem,calc(100%-1rem))] w-full max-w-lg gap-3 overflow-y-auto rounded-2xl bg-white p-4 shadow-md"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <h2 id="map-church-edit-title" className="text-lg font-semibold leading-snug">
+                  교회 정보 수정
+                </h2>
+                <button type="button" className="rounded-xl px-3 py-2 text-[#4b5563]" onClick={() => setDraft(null)}>
+                  닫기
+                </button>
+              </div>
+              <label className="grid gap-1">
+                <span className="font-semibold">교회이름</span>
+                <input name="name" required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className={CHURCH_FIELD} />
+              </label>
+              <label className="grid gap-1">
+                <span className="font-semibold">담임목사</span>
+                <input name="pastorName" value={draft.pastorName} onChange={(event) => setDraft({ ...draft, pastorName: event.target.value })} className={CHURCH_FIELD} />
+              </label>
+              <label className="grid gap-1">
+                <span className="font-semibold">주소</span>
+                <input name="address" value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value })} className={CHURCH_FIELD} />
+              </label>
+              <label className="grid gap-1">
+                <span className="font-semibold">전화번호</span>
+                <input name="phone" value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} className={CHURCH_FIELD} />
+              </label>
+              <label className="grid gap-1">
+                <span className="font-semibold">주일 예배시간</span>
+                <input name="serviceTime" value={draft.serviceTime} onChange={(event) => setDraft({ ...draft, serviceTime: event.target.value })} className={CHURCH_FIELD} />
+              </label>
+              <label className="grid gap-1">
+                <span className="font-semibold">메모</span>
+                <input name="memo" value={draft.memo} onChange={(event) => setDraft({ ...draft, memo: event.target.value })} className={CHURCH_FIELD} />
+              </label>
+              <ChurchTagFilters
+                testId="map-church-edit-tags"
+                selected={new Set(draft.tags)}
+                onToggle={(tag) =>
+                  setDraft((current) =>
+                    current ? { ...current, tags: current.tags.includes(tag) ? current.tags.filter((item) => item !== tag) : [...current.tags, tag] } : current,
+                  )
+                }
+              />
+              {error ? (
+                <p ref={editErrorRef} role="alert" data-testid="map-church-edit-error" className="rounded-xl bg-[#fde8e2] px-3 py-2 leading-relaxed">
+                  {error}
+                </p>
+              ) : null}
+              <button type="submit" disabled={pending === "church"} className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
+                저장
+              </button>
+            </form>
+          </div>
+        ) : null}
+      </div>
+      {promoKind && (church || gathering) ? (
+        <aside
+          data-testid="map-promo-panel"
+          data-kind={promoKind}
+          className="absolute inset-x-2 bottom-2 top-16 z-30 flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[#e5e7eb] bg-white shadow-md lg:static lg:z-auto lg:h-full lg:w-1/2 lg:shrink-0 lg:rounded-none lg:border-y-0 lg:border-r-0 lg:shadow-none"
+        >
+          <MapPlacePage
+            kind={promoKind}
+            id={church?.id ?? gathering?.id ?? ""}
+            title={targetName}
+            fallbackIntro={church?.promoIntro ?? ""}
+            canEditIntro={Boolean(church?.canEditIntro)}
+            subscribed={subscribedSelected}
+            subscribing={Boolean(subscribing)}
+            onSubscribe={() => {
+              if (church) void onSubscribe({ kind: "church", id: church.id, name: church.name, address: church.address });
+              else if (gathering) void onSubscribe({ kind: "gathering", id: gathering.id, name: gathering.name, address: gathering.address });
+            }}
+            onClose={clearOverlay}
+            onEdit={church && canEditChurches ? () => openChurchEdit(church) : undefined}
+            statusNote={
+              error || note ? (
+                <p role={error ? "alert" : "status"} className={`rounded-2xl px-4 py-3 leading-relaxed ${error ? "bg-[#fde8e2]" : "bg-[#ecfdf3]"}`}>
+                  {error || note}
+                </p>
+              ) : null
+            }
+            facts={
+              church ? (
+                <dl className="grid gap-1 leading-relaxed">
+                  <Detail label="교회이름" value={church.name} />
+                  <Detail label="담임목사" value={church.pastorName} />
+                  <Detail label="주소" value={church.address} />
+                  <Detail label="지역" value={church.region ?? ""} />
+                  <Detail label="전화번호" value={church.phone} />
+                  <Detail label="주일 예배시간" value={church.serviceTime} />
+                  <Detail label="메모" value={church.memo} />
+                  {church.tags.length > 0 ? <Detail label="태그" value={church.tags.join(" · ")} /> : null}
+                </dl>
+              ) : gathering ? (
+                <dl className="grid gap-1 leading-relaxed">
+                  <Detail label="모들" value={gathering.name} />
+                  <Detail label="주소" value={gathering.address} />
+                </dl>
+              ) : null
+            }
+            guide={
+              <TravelControls
+                guiding={guiding}
+                travel={travel}
+                start={start}
+                route={route}
+                bus={bus}
+                busRouteId={busRouteId}
+                pending={pending}
+                rerouting={rerouting}
+                canFollow={canFollow}
+                following={following}
+                onPickTravel={pickTravel}
+                onLocate={() => locate(false)}
+                onFollow={() => (following ? stopNavigation() : beginNavigation())}
+                onOpenGuide={openGuide}
+                onPickBus={(id) => void pickBus(id)}
+              />
+            }
+          />
+        </aside>
+      ) : null}
+    </section>
+  );
+}
+
+function DirectoryResults({
+  hits,
+  followed,
+  subscribing,
+  onChoose,
+  onSubscribe,
+}: {
+  hits: DirectoryHit[];
+  followed: (hit: DirectoryHit) => boolean;
+  subscribing: string | null;
+  onChoose: (selected: Selected) => void;
+  onSubscribe: (hit: DirectoryHit) => void;
+}) {
+  if (hits.length === 0) return null;
+  return (
+    <ul data-testid="map-directory-results" className="list-none border-b border-[#e5e7eb]">
+      {hits.map((hit) => {
+        const ready = followed(hit);
+        return (
+          <li key={`${hit.kind}-${hit.id}`} data-testid="map-directory-hit" data-kind={hit.kind} className="flex items-center gap-2 border-b border-[#f3f4f6] px-3 py-2 last:border-b-0">
+            <button type="button" className="grid min-w-0 flex-1 gap-0.5 text-left" onClick={() => onChoose({ type: hit.kind, id: hit.id })}>
+              <span className="break-words font-semibold">
+                {hit.kind === "church" ? "교회" : "모들"} · {hit.name}
+              </span>
+              {hit.address ? <span className="break-words text-sm text-[#4b5563]">{hit.address}</span> : null}
+            </button>
+            <MapSubscribeButton subscribed={ready} pending={subscribing === `${hit.kind}:${hit.id}`} onSubscribe={() => onSubscribe(hit)} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function MapSubscribeButton({ subscribed, pending, onSubscribe }: { subscribed: boolean; pending: boolean; onSubscribe: () => void }) {
+  if (subscribed) return <span className="shrink-0 text-sm text-[#4b5563]">구독 중</span>;
+  return (
+    <button
+      type="button"
+      data-testid="map-subscribe"
+      disabled={pending}
+      className="shrink-0 rounded-xl bg-[#111827] px-3 py-2 text-sm font-semibold text-white disabled:bg-[#e5e7eb]"
+      onClick={onSubscribe}
+    >
+      구독
+    </button>
+  );
+}
+
+function TravelControls({
+  guiding,
+  travel,
+  start,
+  route,
+  bus,
+  busRouteId,
+  pending,
+  rerouting,
+  canFollow,
+  following,
+  onPickTravel,
+  onLocate,
+  onFollow,
+  onOpenGuide,
+  onPickBus,
+}: {
+  guiding: boolean;
+  travel: TravelMode;
+  start: MapPoint | null;
+  route: RouteResult | null;
+  bus: BusGuide | null;
+  busRouteId: string | null;
+  pending: Pending;
+  rerouting: boolean;
+  canFollow: boolean;
+  following: boolean;
+  onPickTravel: (mode: TravelMode) => void;
+  onLocate: () => void;
+  onFollow: () => void;
+  onOpenGuide: () => void;
+  onPickBus: (id: string) => void;
+}) {
+  if (!guiding) {
+    return (
+      <div className="px-1 py-1">
+        <button type="button" className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white" onClick={onOpenGuide}>
+          길안내
+        </button>
+      </div>
+    );
+  }
+  return (
+    <section className="grid gap-3 rounded-3xl border border-[#e5e7eb] px-3 py-3">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="길안내">
+        <ModeButton current={travel} mode="car" label="자동차" onPick={onPickTravel} />
+        <ModeButton current={travel} mode="walk" label="도보" onPick={onPickTravel} />
+        <ModeButton current={travel} mode="bus" label="버스" onPick={onPickTravel} />
+      </div>
+      {travel !== "bus" && !start ? (
+        <button type="button" className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 font-semibold" onClick={onLocate} disabled={pending === "gps"}>
+          내 위치
+        </button>
+      ) : null}
+      {travel !== "bus" && route ? <p className="leading-relaxed">{routeSummary(route) || "길을 찾았습니다."}</p> : null}
+      {travel !== "bus" && pending === "route" ? <p className="leading-relaxed">길을 찾고 있습니다.</p> : null}
+      {rerouting ? <p className="leading-relaxed">재탐색</p> : null}
+      <button
+        type="button"
+        className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white disabled:bg-[#e5e7eb] disabled:text-[#6b7280]"
+        disabled={!canFollow}
+        aria-pressed={following}
+        onClick={onFollow}
+      >
+        {following ? "따라가는 중" : "따라가기"}
+      </button>
+      {travel === "bus" ? (
+        <div className="grid gap-3">
+          {pending === "bus" ? <p className="leading-relaxed">제주 버스 정보를 찾고 있습니다.</p> : null}
+          {bus?.kind === "outside" ? <p className="leading-relaxed">제주 버스 정보입니다.</p> : null}
+          {bus?.kind === "empty" ? <p className="leading-relaxed">이 장소 근처 정류장 응답이 없습니다.</p> : null}
+          {bus?.kind === "stops" ? (
+            <ul className="grid list-none gap-3">
+              {bus.stops.map((stop) => (
+                <li key={stop.id} className="grid gap-2 border-t border-[#e5e7eb] pt-3 first:border-t-0 first:pt-0">
+                  <p className="font-semibold">{stop.name}</p>
+                  {stop.routes.length > 0 ? (
+                    <ul className="grid list-none gap-2">
+                      {stop.routes.map((item) => (
+                        <li key={item.id} className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            aria-pressed={busRouteId === item.id}
+                            className={`rounded-full px-3 py-1 text-sm font-semibold ${item.background ? "" : "border border-[#e5e7eb] bg-white"}`}
+                            style={item.background ? { background: item.background, color: item.text ?? "#ffffff" } : undefined}
+                            onClick={() => onPickBus(item.id)}
+                          >
+                            {item.number}
+                          </button>
+                          {item.detail ? <span className="text-sm leading-relaxed text-[#4b5563]">{item.detail}</span> : null}
                         </li>
                       ))}
                     </ul>
                   ) : null}
-                </section>
-              ) : null}
-            </article>
-          ) : null}
-          {visibleChurches.length === 0 ? (
-            <p className="px-4 py-2 text-sm leading-relaxed">
-              {churchRows.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
-            </p>
-          ) : null}
-          {error ? (
-            <p role="alert" className="bg-[#fde8e2] px-4 py-3 leading-relaxed">
-              {error}
-            </p>
-          ) : null}
-          {note ? (
-            <p role="status" className="bg-[#ecfdf3] px-4 py-3 leading-relaxed">
-              {note}
-            </p>
-          ) : null}
-            </div>
+                  {stop.arrivals.map((arrival) => (
+                    <p key={`${stop.id}-${arrival.routeId}-${arrival.minutes ?? ""}`} className="leading-relaxed">
+                      도착 {arrivalLine(arrival)}
+                    </p>
+                  ))}
+                </li>
+              ))}
+            </ul>
           ) : null}
         </div>
-      </div>
-      {draft ? (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-3 md:items-center">
-          <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="map-church-edit-title"
-            data-testid="map-church-edit-dialog"
-            onSubmit={onSaveChurch}
-            className="grid max-h-[min(42rem,calc(100%-1rem))] w-full max-w-lg gap-3 overflow-y-auto rounded-2xl bg-white p-4 shadow-md"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <h2 id="map-church-edit-title" className="text-lg font-semibold leading-snug">
-                교회 정보 수정
-              </h2>
-              <button type="button" className="rounded-xl px-3 py-2 text-[#4b5563]" onClick={() => setDraft(null)}>
-                닫기
-              </button>
-            </div>
-            <label className="grid gap-1">
-              <span className="font-semibold">교회이름</span>
-              <input
-                name="name"
-                required
-                value={draft.name}
-                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                className={CHURCH_FIELD}
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="font-semibold">담임목사</span>
-              <input
-                name="pastorName"
-                value={draft.pastorName}
-                onChange={(event) => setDraft({ ...draft, pastorName: event.target.value })}
-                className={CHURCH_FIELD}
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="font-semibold">주소</span>
-              <input
-                name="address"
-                value={draft.address}
-                onChange={(event) => setDraft({ ...draft, address: event.target.value })}
-                className={CHURCH_FIELD}
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="font-semibold">전화번호</span>
-              <input
-                name="phone"
-                value={draft.phone}
-                onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
-                className={CHURCH_FIELD}
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="font-semibold">주일 예배시간</span>
-              <input
-                name="serviceTime"
-                value={draft.serviceTime}
-                onChange={(event) => setDraft({ ...draft, serviceTime: event.target.value })}
-                className={CHURCH_FIELD}
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="font-semibold">메모</span>
-              <input
-                name="memo"
-                value={draft.memo}
-                onChange={(event) => setDraft({ ...draft, memo: event.target.value })}
-                className={CHURCH_FIELD}
-              />
-            </label>
-            <ChurchTagFilters
-              testId="map-church-edit-tags"
-              selected={new Set(draft.tags)}
-              onToggle={(tag) =>
-                setDraft((current) =>
-                  current
-                    ? { ...current, tags: current.tags.includes(tag) ? current.tags.filter((item) => item !== tag) : [...current.tags, tag] }
-                    : current,
-                )
-              }
-            />
-            {error ? (
-              <p ref={editErrorRef} role="alert" data-testid="map-church-edit-error" className="rounded-xl bg-[#fde8e2] px-3 py-2 leading-relaxed">
-                {error}
-              </p>
-            ) : null}
-            <button type="submit" disabled={pending === "church"} className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
-              저장
-            </button>
-          </form>
-        </div>
       ) : null}
-      {self ? (
-        <div className="absolute right-3 top-3 z-10">
-          <button type="button" className="rounded-xl bg-white px-4 py-3 font-semibold shadow-md" onClick={() => setAddressOpen((open) => !open)}>
-            데리러 가기
-          </button>
-        </div>
-      ) : null}
-      {addressOpen && self ? (
-        <form onSubmit={onSaveAddress} className="absolute right-3 top-16 z-10 grid w-[min(22rem,calc(100%-1.5rem))] gap-3 rounded-2xl bg-white p-4 shadow-md">
-          <h2 className="font-semibold leading-snug">데리러 가기 주소 제공</h2>
-          <p className="leading-relaxed">이 주소를 데리러 가는 사역자에게 지도로 보여 줍니다.</p>
-          <label className="grid gap-1">
-            <span className="font-semibold">내 주소</span>
-            <input value={address} onChange={(event) => setAddress(event.target.value)} className="w-full rounded-xl border border-[#e5e7eb] px-3 py-2 leading-snug" />
-          </label>
-          <button type="submit" disabled={pending === "address"} className="w-fit rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
-            주소 저장
-          </button>
-          <label className="flex items-start gap-2 leading-relaxed">
-            <input type="checkbox" checked={consented} disabled={pending === "consent"} onChange={(event) => void onConsent(event.target.checked)} />
-            <span>데리러 가기 주소 제공</span>
-          </label>
-        </form>
-      ) : null}
-      {/* 폰 분류와 교회 소개는 지도 위에 겹치지 않게 화면 아래에 붙입니다. */}
-      <div data-testid="map-phone-bar" className="absolute inset-x-0 bottom-0 z-20 md:hidden">
-        {church || place || pickup ? (
-          <div className="max-h-[min(22rem,46dvh)] overflow-y-auto border-t border-[#e5e7eb] bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.12)]">
-            <article data-testid={church ? "map-phone-church" : undefined}>
-              <div className="flex items-start justify-between gap-2 border-b border-[#e5e7eb] px-3 py-2">
-                <h2 className="text-base font-semibold leading-snug">{targetName}</h2>
-                <button
-                  type="button"
-                  className="rounded-xl px-3 py-2 text-sm text-[#4b5563]"
-                  onClick={() => {
-                    setDraft(null);
-                    setPhoneFiltersOpen(false);
-                    setSelected(null);
-                    setGuiding(false);
-                    setRoute(null);
-                    setBus(null);
-                    setBusLine([]);
-                    setBusRouteId(null);
-                    stopNavigation();
-                  }}
-                >
-                  닫기
-                </button>
-              </div>
-              <section className="grid gap-2 px-3 py-2">
-                {church ? (
-                  <>
-                    <dl className="grid gap-1 text-sm leading-relaxed">
-                      <Detail label="교회이름" value={church.name} />
-                      <Detail label="담임목사" value={church.pastorName} />
-                      <Detail label="주소" value={church.address} />
-                      <Detail label="지역" value={church.region ?? ""} />
-                      <Detail label="전화번호" value={church.phone} />
-                      <Detail label="주일 예배시간" value={church.serviceTime} />
-                      <Detail label="메모" value={church.memo} />
-                      {church.tags.length > 0 ? <Detail label="태그" value={church.tags.join(" · ")} /> : null}
-                    </dl>
-                    {canEditChurches ? (
-                      <button
-                        type="button"
-                        data-testid="map-phone-church-edit"
-                        className="w-fit rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-semibold"
-                        onClick={() => openChurchEdit(church)}
-                      >
-                        수정
-                      </button>
-                    ) : null}
-                  </>
-                ) : null}
-                {place ? (
-                  <dl className="grid gap-1 text-sm leading-relaxed">
-                    <Detail label="이름" value={place.name} />
-                    <Detail label="주소" value={place.address} />
-                  </dl>
-                ) : null}
-                {pickup ? <p className="text-sm leading-relaxed">데리러 가기 핀</p> : null}
-                {guiding ? (
-                  <div className="grid gap-2">
-                    <div className="flex flex-wrap gap-2" role="tablist" aria-label="길안내">
-                      <ModeButton current={travel} mode="car" label="자동차" onPick={pickTravel} />
-                      <ModeButton current={travel} mode="walk" label="도보" onPick={pickTravel} />
-                      <ModeButton current={travel} mode="bus" label="버스" onPick={pickTravel} />
-                    </div>
-                    {travel !== "bus" && route ? <p className="text-sm leading-relaxed">{routeSummary(route) || "길을 찾았습니다."}</p> : null}
-                    {rerouting ? <p className="text-sm leading-relaxed">재탐색</p> : null}
-                  </div>
-                ) : (
-                  <button type="button" className="w-fit rounded-xl bg-[#111827] px-3 py-2 text-sm font-semibold text-white" onClick={openGuide}>
-                    길안내
-                  </button>
-                )}
-              </section>
-            </article>
-          </div>
-        ) : phoneFiltersOpen ? (
-          <div className="flex max-h-[min(22rem,46dvh)] min-h-0 flex-col overflow-hidden border-t border-[#e5e7eb] bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.12)]">
-            <div className="flex shrink-0 items-center justify-between border-b border-[#e5e7eb] px-3 py-1">
-              <h2 className="text-base font-semibold leading-snug">분류</h2>
-              <button
-                type="button"
-                data-testid="map-phone-filter-close"
-                className="min-h-12 rounded-xl px-3 text-base text-[#4b5563]"
-                onClick={() => setPhoneFiltersOpen(false)}
-              >
-                닫기
-              </button>
-            </div>
-            {/* 아래 태그가 잘리지 않게 목록만 스크롤합니다. 완료는 이 목록 밖에 두어 스크롤 중에도 보입니다. */}
-            <div
-              data-testid="map-phone-filter-scroll"
-              className="min-h-0 max-h-full flex-[1_1_auto] touch-pan-y overflow-y-scroll overscroll-y-contain px-3 pb-4 pt-3"
-            >
-              <ChurchTagFilters layout="board" testId="map-phone-filters" selected={phoneDraftTags} onToggle={togglePhoneDraft} />
-            </div>
-            <div className="grid shrink-0 gap-2 border-t border-[#e5e7eb] bg-white px-3 py-2">
-              <p className="text-sm leading-relaxed" data-testid="map-phone-edit-request">
-                교회정보수정요청{" "}
-                <a className="underline" href="mailto:anyplan@me.com">
-                  anyplan@me.com
-                </a>
-              </p>
-              <button
-                type="button"
-                data-testid="map-phone-filter-done"
-                className="min-h-12 w-full rounded-xl bg-[#111827] px-3 text-base font-semibold text-white"
-                onClick={finishPhoneFilters}
-              >
-                완료
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {places.length > 0 ? (
-              <ul className="max-h-36 list-none overflow-y-auto border-b border-[#e5e7eb]">
-                {places.map((item) => (
-                  <li key={item.id}>
-                    <button type="button" className="grid w-full gap-0.5 px-3 py-2 text-left" onClick={() => choose({ type: "place", id: item.id })}>
-                      <span className="text-sm font-semibold">
-                        {PLACE_KIND_LABEL[item.kind]} · {item.name}
-                      </span>
-                      <span className="break-words text-xs text-[#4b5563]">{item.address}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <form onSubmit={onSearch} data-testid="map-phone-search" className="flex items-center gap-2 border-t border-[#e5e7eb] bg-white p-2">
-              <label className="min-w-0 flex-1">
-                <span className="sr-only">장소 검색</span>
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  className="w-full rounded-xl border border-[#e5e7eb] px-3 py-2 text-base leading-snug outline-none"
-                  placeholder="장소나 주소"
-                />
-              </label>
-              <button
-                type="button"
-                data-testid="map-phone-filter"
-                className="min-h-12 shrink-0 rounded-xl border border-[#e5e7eb] bg-white px-4 text-base font-semibold"
-                onClick={openPhoneFilters}
-              >
-                분류
-              </button>
-            </form>
-            {visibleChurches.length === 0 ? (
-              <p className="px-3 pb-2 text-sm leading-relaxed">
-                {churchRows.length === 0 ? (hasChurches ? "주소가 있는 교회가 없습니다." : "등록된 교회가 없습니다.") : "조건에 맞는 교회 핀이 없습니다."}
-              </p>
-            ) : null}
-          </>
-        )}
-      </div>
-      </div>
     </section>
   );
 }
@@ -1019,6 +1053,9 @@ function ModeButton({
 function MapCanvas({
   places,
   churches,
+  gatherings,
+  churchPinColor,
+  gatheringPinColor,
   pickups,
   selected,
   line,
@@ -1026,12 +1063,17 @@ function MapCanvas({
   following,
   here,
   speed,
+  openingPoint,
+  openingSource,
   mapboxToken,
   onSelect,
   onClear,
 }: {
   places: PlaceHit[];
   churches: ChurchPin[];
+  gatherings: GatheringPin[];
+  churchPinColor: string;
+  gatheringPinColor: string;
   pickups: PickupPin[];
   selected: Selected | null;
   line: MapPoint[];
@@ -1039,6 +1081,8 @@ function MapCanvas({
   following: boolean;
   here: MapPoint | null;
   speed: number | null;
+  openingPoint: MapPoint;
+  openingSource: MapOpeningSource;
   mapboxToken: string;
   onSelect: (selected: Selected) => void;
   onClear: () => void;
@@ -1053,6 +1097,11 @@ function MapCanvas({
   const lineCountRef = useRef(line.length);
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState("");
+  const [viewTick, setViewTick] = useState(0);
+  const [churchDrawn, setChurchDrawn] = useState(0);
+  const [viewSpanKm, setViewSpanKm] = useState("");
+  const openingRef = useRef(openingPoint);
+  openingRef.current = openingPoint;
   selectRef.current = onSelect;
   clearRef.current = onClear;
   followingRef.current = following;
@@ -1087,8 +1136,8 @@ function MapCanvas({
           },
           layers: [{ id: "modl", type: "raster", source: "modl" }],
         },
-        center: [(JEJU_VIEW.west + JEJU_VIEW.east) / 2, (JEJU_VIEW.south + JEJU_VIEW.north) / 2],
-        zoom: 9,
+        center: [openingRef.current.lon, openingRef.current.lat],
+        zoom: 12,
         attributionControl: false,
         logoPosition: "top-right",
       });
@@ -1103,10 +1152,14 @@ function MapCanvas({
       });
       map.on("load", () => {
         if (!alive || !map) return;
-        const bounds = new mapboxgl.LngLatBounds([JEJU_VIEW.west, JEJU_VIEW.south], [JEJU_VIEW.east, JEJU_VIEW.north]);
+        const view = radiusView(openingRef.current, HERE_RADIUS_METERS);
+        const bounds = new mapboxgl.LngLatBounds([view.west, view.south], [view.east, view.north]);
         map.fitBounds(bounds, { padding: 48, duration: 0 });
         mapRef.current = map;
         setReady(true);
+      });
+      map.on("moveend", () => {
+        if (alive) setViewTick((value) => value + 1);
       });
     });
     return () => {
@@ -1128,6 +1181,13 @@ function MapCanvas({
       const mapboxgl = mod.default;
       markersRef.current.forEach((marker) => marker.remove());
       const markers: import("mapbox-gl").Marker[] = [];
+      const raw = map.getBounds();
+      const frame: ViewBounds = { west: raw.getWest(), south: raw.getSouth(), east: raw.getEast(), north: raw.getNorth() };
+      const zoom = map.getZoom();
+      const churchPins = pinsForView(churches, frame, zoom);
+      const gatheringPins = pinsForView(gatherings, frame, zoom);
+      setChurchDrawn(churchPins.length);
+      setViewSpanKm(boundsSpanKm(frame).toFixed(1));
       const add = (marker: import("mapbox-gl").Marker, choice: Selected, label: string) => {
         marker.getElement().setAttribute("aria-label", label);
         marker.getElement().addEventListener("click", (event) => {
@@ -1136,17 +1196,64 @@ function MapCanvas({
         });
         markers.push(marker);
       };
-      for (const church of churches) {
-        const marker = new mapboxgl.Marker({ color: selected?.type === "church" && selected.id === church.id ? "#1e3a8a" : "#1d4ed8" })
-          .setLngLat([church.point.lon, church.point.lat])
-          .addTo(map);
+      const addCluster = (kind: "church" | "gathering", color: string, pin: { point: MapPoint; count: number; items: Array<{ point: MapPoint }> }) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.pinKind = kind;
+        button.dataset.pinCluster = "true";
+        button.dataset.pinColor = color;
+        button.textContent = String(pin.count);
+        button.setAttribute("aria-label", `${pin.count}곳`);
+        button.style.width = "32px";
+        button.style.height = "32px";
+        button.style.borderRadius = "999px";
+        button.style.background = color;
+        button.style.color = "#ffffff";
+        button.style.border = "2px solid #ffffff";
+        button.style.fontSize = "12px";
+        button.style.fontWeight = "700";
+        const marker = new mapboxgl.Marker({ element: button }).setLngLat([pin.point.lon, pin.point.lat]).addTo(map);
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const next = new mapboxgl.LngLatBounds();
+          for (const item of pin.items) next.extend([item.point.lon, item.point.lat]);
+          map.fitBounds(next, { padding: 64, maxZoom: 14 });
+        });
+        markers.push(marker);
+      };
+      for (const pin of churchPins) {
+        if (pin.count > 1) {
+          addCluster("church", churchPinColor, pin);
+          continue;
+        }
+        const church = pin.items[0];
+        if (!church) continue;
+        const color = selected?.type === "church" && selected.id === church.id ? "#1e3a8a" : churchPinColor;
+        const marker = new mapboxgl.Marker({ color }).setLngLat([church.point.lon, church.point.lat]).addTo(map);
+        marker.getElement().dataset.pinKind = "church";
+        marker.getElement().dataset.pinColor = color;
         add(marker, { type: "church", id: church.id }, church.name);
       }
+      for (const pin of gatheringPins) {
+        if (pin.count > 1) {
+          addCluster("gathering", gatheringPinColor, pin);
+          continue;
+        }
+        const gathering = pin.items[0];
+        if (!gathering) continue;
+        const color = selected?.type === "gathering" && selected.id === gathering.id ? "#4c1d95" : gatheringPinColor;
+        const marker = new mapboxgl.Marker({ color }).setLngLat([gathering.point.lon, gathering.point.lat]).addTo(map);
+        marker.getElement().dataset.pinKind = "gathering";
+        marker.getElement().dataset.pinColor = color;
+        add(marker, { type: "gathering", id: gathering.id }, gathering.name);
+      }
       for (const pin of pickups) {
+        if (!pointInside(pin.point, frame, 0.02) && !(selected?.type === "pickup" && selected.id === pin.id)) continue;
         const marker = new mapboxgl.Marker({ color: "#b45309" }).setLngLat([pin.point.lon, pin.point.lat]).addTo(map);
         add(marker, { type: "pickup", id: pin.id }, pin.name);
       }
       for (const item of places) {
+        if (!pointInside(item.point, frame, 0.02) && !(selected?.type === "place" && selected.id === item.id)) continue;
         const marker = new mapboxgl.Marker({ color: selected?.type === "place" && selected.id === item.id ? "#111827" : "#64748b" })
           .setLngLat([item.point.lon, item.point.lat])
           .addTo(map);
@@ -1170,7 +1277,7 @@ function MapCanvas({
         map.addLayer({ id: "route-line", type: "line", source: "route-line", paint: { "line-color": "#1d4ed8", "line-width": 5 } });
       }
     });
-  }, [ready, churches, pickups, places, selected, line]);
+  }, [ready, viewTick, churches, gatherings, churchPinColor, gatheringPinColor, pickups, places, selected, line]);
 
   useEffect(() => {
     if (!ready) return;
@@ -1205,17 +1312,18 @@ function MapCanvas({
     const map = mapRef.current;
     const point =
       (selected.type === "church" ? churches.find((item) => item.id === selected.id)?.point : null) ??
+      (selected.type === "gathering" ? gatherings.find((item) => item.id === selected.id)?.point : null) ??
       (selected.type === "place" ? places.find((item) => item.id === selected.id)?.point : null) ??
       (selected.type === "pickup" ? pickups.find((item) => item.id === selected.id)?.point : null);
     if (!map || !point) return;
     map.easeTo({ center: [point.lon, point.lat], zoom: Math.max(map.getZoom(), 14) });
-  }, [ready, selected, churches, places, pickups]);
+  }, [ready, selected, churches, gatherings, places, pickups]);
 
   useEffect(() => {
     if (!ready || followingRef.current || line.length >= 2) return;
     const map = mapRef.current;
     if (!map) return;
-    const view = here ? radiusView(here, HERE_RADIUS_METERS) : JEJU_VIEW;
+    const view = radiusView(here ?? openingRef.current, HERE_RADIUS_METERS);
     void import("mapbox-gl").then((mod) => {
       if (!mapRef.current || followingRef.current || lineCountRef.current >= 2) return;
       const next = new mod.default.LngLatBounds([view.west, view.south], [view.east, view.north]);
@@ -1231,8 +1339,7 @@ function MapCanvas({
       if (!mapRef.current || followingRef.current) return;
       const bounds = new mod.default.LngLatBounds();
       for (const point of line) bounds.extend([point.lon, point.lat]);
-      const width = mapRef.current.getContainer().clientWidth;
-      mapRef.current.fitBounds(bounds, { padding: { top: 60, bottom: 60, left: 60, right: width > 800 ? 360 : 24 } });
+      mapRef.current.fitBounds(bounds, { padding: 48 });
     });
   }, [ready, line]);
 
@@ -1245,8 +1352,7 @@ function MapCanvas({
     void import("mapbox-gl").then((mod) => {
       if (!mapRef.current || !followingRef.current) return;
       const mapboxgl = mod.default;
-      const width = mapRef.current.getContainer().clientWidth;
-      const padding = { top: 72, bottom: 72, left: 48, right: width > 800 ? 380 : 24 };
+      const padding = { top: 48, bottom: 48, left: 48, right: 48 };
       const index = nearestSegmentIndex(point, followSegments);
       const segment = index >= 0 ? followSegments[index]?.line : undefined;
       const slow = reading !== null && reading <= 3;
@@ -1268,7 +1374,18 @@ function MapCanvas({
   return (
     <div className="h-full">
       {mapError ? <p className="absolute left-3 top-24 z-10 rounded-2xl bg-white px-4 py-3 leading-relaxed shadow-md">{mapError}</p> : null}
-      <div ref={host} className="modl-map" aria-label="지도" />
+      <div
+        ref={host}
+        className="modl-map"
+        aria-label="지도"
+        data-testid="map-canvas"
+        data-opening-source={openingSource}
+        data-opening-lat={openingPoint.lat}
+        data-opening-lon={openingPoint.lon}
+        data-church-total={churches.length}
+        data-church-drawn={churchDrawn}
+        data-view-span-km={viewSpanKm}
+      />
     </div>
   );
 }

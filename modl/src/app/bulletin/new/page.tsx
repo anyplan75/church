@@ -5,6 +5,7 @@ import { saveBulletinAction } from "@/server/bulletin/actions";
 import { loadBulletinList } from "@/server/bulletin/service";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function NewBulletinPage({
   searchParams,

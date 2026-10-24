@@ -9,10 +9,20 @@ export default async function MapPage() {
   return (
     <MapScreen
       churches={board.churches}
+      gatherings={board.gatherings}
+      directoryChurches={board.directoryChurches}
+      directoryGatherings={board.directoryGatherings}
+      churchPinColor={board.churchPinColor}
+      gatheringPinColor={board.gatheringPinColor}
       pickups={board.pickups}
       self={board.self}
       hasChurches={board.hasChurches}
       canEditChurches={board.canEditChurches}
+      signedIn={board.signedIn}
+      followedChurchIds={board.followedChurchIds}
+      followedGroupIds={board.followedGroupIds}
+      openingPoint={board.openingPoint}
+      openingSource={board.openingSource}
       mapboxToken={mapboxToken}
     />
   );

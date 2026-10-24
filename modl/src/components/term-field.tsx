@@ -15,6 +15,7 @@ export function TermField({
   required = false,
   defaultValue = "",
   autoComplete,
+  testId,
 }: {
   termKey: TermKey;
   name: string;
@@ -22,6 +23,7 @@ export function TermField({
   required?: boolean;
   defaultValue?: string;
   autoComplete?: string;
+  testId?: string;
 }) {
   return (
     <label className="grid gap-1">
@@ -35,6 +37,7 @@ export function TermField({
         required={required}
         defaultValue={defaultValue}
         autoComplete={autoComplete}
+        data-testid={testId}
       />
     </label>
   );
@@ -181,20 +184,6 @@ export function GenderField({ defaultValue = "" }: { defaultValue?: string }) {
         <ChoiceOption value="male" termKey="gender_male" />
         <ChoiceOption value="female" termKey="gender_female" />
         <ChoiceOption value="unspecified" termKey="gender_unspecified" />
-      </select>
-    </label>
-  );
-}
-
-export function PlanField({ defaultValue = "FREE" }: { defaultValue?: "FREE" | "PRO" }) {
-  return (
-    <label className="grid gap-1">
-      <span className="font-semibold">
-        <TermText termKey="field_plan" />
-      </span>
-      <select className={inputClass} name="planTier" defaultValue={defaultValue}>
-        <ChoiceOption value="FREE" termKey="plan_free" />
-        <ChoiceOption value="PRO" termKey="plan_pro" />
       </select>
     </label>
   );

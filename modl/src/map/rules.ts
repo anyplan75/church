@@ -178,3 +178,20 @@ export function parseMapboxGeocode(payload: unknown): MapPoint | null {
   if (!Array.isArray(features) || !features[0] || typeof features[0] !== "object") return null;
   return lonLatPair((features[0] as Record<string, unknown>).center);
 }
+
+/** 주소 검색 후보의 이름과 좌표입니다. 고르는 일은 호출하는 쪽이 합니다. */
+export function parseMapboxGeocodeCandidates(payload: unknown): { label: string; point: MapPoint }[] {
+  if (!payload || typeof payload !== "object") return [];
+  const features = (payload as Record<string, unknown>).features;
+  if (!Array.isArray(features)) return [];
+  const found: { label: string; point: MapPoint }[] = [];
+  for (const feature of features) {
+    if (!feature || typeof feature !== "object") continue;
+    const record = feature as Record<string, unknown>;
+    const point = lonLatPair(record.center);
+    const label = text(record.place_name);
+    if (!point || !label) continue;
+    found.push({ label, point });
+  }
+  return found;
+}

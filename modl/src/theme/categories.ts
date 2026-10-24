@@ -3,12 +3,11 @@ export const CATEGORY_MENUS = [
   {
     label: "예배",
     items: [
-      { href: "/attendance", label: "출석" },
-      { href: "/bulletin", label: "주보" },
+      { href: "/bulletin", label: "안내" },
       { href: "/qt", label: "QT" },
       { href: "/prayer", label: "기도" },
-      { href: "/calendar", label: "달력" },
-      { href: "/quiz", label: "퀴즈" },
+      { href: "/calendar", label: "일정" },
+      { href: "/discussion", label: "토론" },
     ],
   },
   {
@@ -21,10 +20,7 @@ export const CATEGORY_MENUS = [
   },
   {
     label: "연결",
-    items: [
-      { href: "/website", label: "웹사이트" },
-      { href: "/map", label: "지도" },
-    ],
+    items: [{ href: "/map", label: "지도" }],
   },
 ] as const;
 
