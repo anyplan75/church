@@ -80,6 +80,9 @@ export default async function AccountPage({
           <Link href="/account/places" data-testid="operator-places-link" className="w-fit rounded-2xl bg-[#111827] px-4 py-3 font-semibold text-white">
             교회와 모들 전체 수정
           </Link>
+          <Link href="/guide-inbox" data-testid="guide-inbox-link" className="w-fit rounded-2xl border border-[#e4d8c8] bg-white px-4 py-3 font-semibold">
+            메일로 온 안내 승인
+          </Link>
         </div>
       ),
     });

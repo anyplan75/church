@@ -53,6 +53,9 @@ export default async function PromoSettingsPage({
         <section data-testid="guide-settings" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
           <h2 className="text-xl font-semibold leading-snug">안내 만들기</h2>
           <p className="leading-relaxed text-[#5c5148]">이 {kind === "church" ? "교회" : "모들"}의 안내만 만듭니다. 안내 메뉴에는 만들기 화면을 두지 않습니다.</p>
+          <Link href="/guide-inbox" className="w-fit font-semibold underline">
+            메일로 온 안내 승인
+          </Link>
           <BulletinEditor
             action={saveBulletinAction}
             worshipDate={today}

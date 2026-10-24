@@ -386,6 +386,36 @@ export const bulletins = pgTable(
   ],
 );
 
+/** 메일로 온 안내입니다. 승인 전에는 주보로 올리지 않습니다. */
+export const guideInbox = pgTable(
+  "guide_inbox",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    gmailMessageId: text("gmail_message_id").notNull(),
+    fromEmail: text("from_email").notNull().default(""),
+    fromName: text("from_name").notNull().default(""),
+    subject: text("subject").notNull().default(""),
+    fileName: text("file_name").notNull().default(""),
+    receivedAt: timestamp("received_at", { withTimezone: true }),
+    communityId: uuid("community_id").references(() => communities.id, { onDelete: "cascade" }),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "set null" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("pending"),
+    servicesJson: jsonValue("services_json"),
+    note: text("note").notNull().default(""),
+    bulletinIds: jsonList("bulletin_ids"),
+    decidedByUserId: uuid("decided_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("guide_inbox_gmail_message_uidx").on(table.gmailMessageId),
+    index("guide_inbox_status_idx").on(table.status),
+    check("guide_inbox_status_check", sql`${table.status} in ('pending', 'approved', 'rejected', 'skipped')`),
+    check("guide_inbox_one_place", sql`${table.churchId} is null or ${table.groupId} is null`),
+  ],
+);
+
 /** 출석을 받는 모임 한 번입니다. */
 export const attendanceSessions = pgTable(
   "attendance_sessions",
@@ -1138,6 +1168,7 @@ export const dbSchema = {
   groupPosts,
   groupAlbums,
   bulletins,
+  guideInbox,
   attendanceSessions,
   attendanceRecords,
   calendarEvents,

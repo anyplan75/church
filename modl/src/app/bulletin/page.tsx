@@ -3,6 +3,7 @@ import { AccessScreen } from "@/components/access-screen";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermHeading } from "@/components/term-heading";
 import { loadBulletinList } from "@/server/bulletin/service";
+import { pendingGuideCount } from "@/server/guide/inbox";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function BulletinListPage({
   const query = await searchParams;
   const page = await loadBulletinList();
   if (!page.ok) return <AccessScreen />;
+  const waiting = await pendingGuideCount();
 
   return (
     <section className="grid gap-4">
@@ -26,6 +28,11 @@ export default async function BulletinListPage({
         </p>
       ) : null}
           <p className="leading-relaxed text-[#5c5148]">속한 교회와 모들의 안내입니다.</p>
+          {waiting > 0 ? (
+            <Link href="/guide-inbox" className="w-fit font-semibold underline">
+              메일로 온 안내 {waiting}건이 승인을 기다립니다.
+            </Link>
+          ) : null}
           <TermHeading termKey="bulletin_archive" level={2} />
           {page.bulletins.length === 0 ? (
             <p className="leading-relaxed">아직 볼 수 있는 안내가 없습니다.</p>

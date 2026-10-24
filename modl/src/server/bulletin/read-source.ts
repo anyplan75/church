@@ -175,7 +175,22 @@ function payloadBytes(value: unknown): Buffer {
   throw new Error(READ_FAILED);
 }
 
-async function interpretBulletin(name: string, bytes: Buffer, pasted: string): Promise<BulletinReadResult> {
+/** 메일로 받은 주보를 지금 안내 읽기와 같은 방식으로 정리합니다. 바로 등록하지 않습니다. */
+export async function readGuideMaterial(name: string, bytes: Buffer, pasted: string): Promise<BulletinReadResult> {
+  try {
+    return await interpretBulletin(name, bytes, pasted, false);
+  } catch (error) {
+    if (error instanceof BannedWordError) return { ok: false, message: error.message };
+    return { ok: false, message: readFailureMessage(error) };
+  }
+}
+
+async function interpretBulletin(
+  name: string,
+  bytes: Buffer,
+  pasted: string,
+  saveFile = true,
+): Promise<BulletinReadResult> {
   let extracted = "";
   let fileHref: string | null = null;
   let unread = false;
@@ -183,14 +198,16 @@ async function interpretBulletin(name: string, bytes: Buffer, pasted: string): P
     if (!resolveBulletinExtension(name, bytes)) {
       return { ok: false, message: "텍스트, 워드, 한글, PDF, RTF, ODT, HTML, 사진만 올릴 수 있습니다." };
     }
-    try {
-      fileHref = await saveBulletinFile(name, bytes);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "파일을 저장하지 못했습니다.";
-      if (message.includes("30MB") || message.includes("골라 주세요") || message.includes("올릴 수 있습니다")) {
-        return { ok: false, message };
+    if (saveFile) {
+      try {
+        fileHref = await saveBulletinFile(name, bytes);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "파일을 저장하지 못했습니다.";
+        if (message.includes("30MB") || message.includes("골라 주세요") || message.includes("올릴 수 있습니다")) {
+          return { ok: false, message };
+        }
+        fileHref = null;
       }
-      fileHref = null;
     }
     const read = await readBulletinFile(name, bytes, (data) => readBulletinImage(data));
     if (read.kind === "text") extracted = read.text;
