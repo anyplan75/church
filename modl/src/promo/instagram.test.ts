@@ -34,7 +34,7 @@ describe("인스타그램 최신 글", () => {
     assert.equal(readInstagramMedia({}).length, 0);
   });
 
-  it("토큰이 없으면 요청하지 않고 빈 격자를 만들지 않습니다", async () => {
+  it("토큰이 없어도 공개 주소로 페이지 안 임베드를 씁니다", async () => {
     let called = 0;
     const missing = await loadInstagramFeed("@modl.jeju", {
       env: { token: "", userId: "" },
@@ -43,20 +43,23 @@ describe("인스타그램 최신 글", () => {
         return new Response("{}");
       },
     });
-    assert.equal(missing.status, "unavailable");
+    assert.equal(missing.status, "embed");
     assert.equal(called, 0);
-    if (missing.status === "unavailable") assert.match(missing.reason, /META_GRAPH_ACCESS_TOKEN/);
+    if (missing.status === "embed") assert.equal(missing.href, "https://instagram.com/modl.jeju");
     const hidden = await loadInstagramFeed("  ", { env: { token: "unit-test-token", userId: "1" } });
     assert.equal(hidden.status, "hidden");
   });
 
-  it("응답에 열쇠가 섞여도 이유에는 열쇠를 남기지 않습니다", async () => {
+  it("그래프가 막혀도 공개 임베드로 남기고 열쇠는 이유에 넣지 않습니다", async () => {
     const token = "unit-test-token";
     const result = await loadInstagramFeed("modl", {
       env: { token, userId: "123" },
       fetchImpl: async () => Response.json({ error: { message: `거절 ${token}` } }),
     });
-    assert.equal(result.status, "unavailable");
-    if (result.status === "unavailable") assert.equal(result.reason.includes(token), false);
+    assert.equal(result.status, "embed");
+    if (result.status === "embed") {
+      assert.equal(result.href.includes("modl"), true);
+      assert.equal(result.href.includes(token), false);
+    }
   });
 });
