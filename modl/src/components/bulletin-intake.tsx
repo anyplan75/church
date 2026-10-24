@@ -69,7 +69,7 @@ export function BulletinIntake({
         }}
       >
         <label className="grid gap-1">
-          <span className="font-semibold">주보 글</span>
+          <span className="font-semibold">안내 글</span>
           <textarea
             name="text"
             rows={8}
@@ -92,7 +92,7 @@ export function BulletinIntake({
           </span>
         </label>
         <button type="submit" disabled={pending} className="w-fit rounded-2xl bg-[#1d6b45] px-4 py-3 font-semibold leading-snug text-white">
-          {pending ? "읽는 중" : "주보 읽기"}
+          {pending ? "읽는 중" : "안내 읽기"}
         </button>
       </form>
     </div>

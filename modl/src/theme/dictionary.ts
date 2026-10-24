@@ -199,7 +199,7 @@ export const TERM_DICTIONARY = {
     mode_standard: { standard: "표준어 이름", jeju: "표준어만" },
     no_group: { standard: "소속 없음", jeju: "아직 없음" },
     bulletin_new: { standard: "주보 만들기", jeju: "기별 적기" },
-    bulletin_save: { standard: "주보 저장하기", jeju: "기별 담기" },
+    bulletin_save: { standard: "안내 저장하기", jeju: "안내 저장하기" },
     bulletin_publish: { standard: "발행하기", jeju: "기별 내보내기" },
     bulletin_unpublish: { standard: "비공개로 두기", jeju: "기별 거두기" },
     bulletin_archive: { standard: "지난 안내", jeju: "지난 기별" },
