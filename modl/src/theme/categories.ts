@@ -3,7 +3,7 @@ export const CATEGORY_MENUS = [
   {
     label: "예배",
     items: [
-      { href: "/bulletin", label: "주보" },
+      { href: "/bulletin", label: "안내" },
       { href: "/qt", label: "QT" },
       { href: "/prayer", label: "기도" },
       { href: "/calendar", label: "일정" },

@@ -64,7 +64,7 @@ function cellsForDates(dates: readonly string[], page: Extract<CalendarPageData,
   return dates.map((date) => byDate.get(date) ?? { date, day: Number(date.slice(8, 10)), marks: [] });
 }
 
-function DayMarks({ cell }: { cell: MonthDayCell }) {
+function DayMarks({ cell, mode }: { cell: MonthDayCell; mode: "month" | "week" }) {
   const seasons = cell.marks.filter((mark) => mark.kind === "season");
   const rest = cell.marks.filter((mark) => mark.kind !== "season");
   return (
@@ -76,9 +76,9 @@ function DayMarks({ cell }: { cell: MonthDayCell }) {
         ))}
       </div>
       {rest.length > 0 ? (
-        <ul className="grid gap-1">
+        <ul className={mode === "month" ? "grid min-w-0 gap-1 overflow-hidden" : "grid min-w-0 gap-1"}>
           {rest.map((mark) => (
-            <ScheduleItem key={mark.key} mark={mark} />
+            <ScheduleItem key={mark.key} mark={mark} mode={mode} />
           ))}
         </ul>
       ) : null}
@@ -207,7 +207,7 @@ export default async function CalendarPage({
                   className="flex h-96 shrink-0 flex-col gap-1 overflow-y-auto rounded-xl border border-[#e4d8c8] bg-[#fffaf3] p-2"
                 >
                   <span className="text-xs font-medium text-[#5c5148]">{WEEKDAY_LABELS[index]}</span>
-                  <DayMarks cell={cell} />
+                  <DayMarks cell={cell} mode="week" />
                 </li>
               ))}
             </ol>
@@ -235,12 +235,12 @@ export default async function CalendarPage({
                             <div
                               data-testid="calendar-day"
                               data-date={cell.date}
-                              className="flex min-h-16 flex-col gap-1 rounded-xl border border-[#e4d8c8] bg-[#fffaf3] p-1 sm:min-h-24 sm:p-1.5"
+                              className="flex h-16 flex-col gap-1 overflow-hidden rounded-xl border border-[#e4d8c8] bg-[#fffaf3] p-1 sm:h-24 sm:p-1.5"
                             >
-                              <DayMarks cell={cell} />
+                              <DayMarks cell={cell} mode="month" />
                             </div>
                           ) : (
-                            <div className="min-h-16 rounded-xl border border-[#eef2f6] bg-[#f8fafc] sm:min-h-24" />
+                            <div className="h-16 rounded-xl border border-[#eef2f6] bg-[#f8fafc] sm:h-24" />
                           )}
                         </td>
                       ))}

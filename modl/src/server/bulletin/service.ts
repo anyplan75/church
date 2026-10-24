@@ -4,14 +4,14 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { kakaoConfigFromEnv, nextShareState, parseBlocks, type BulletinBlock, type KakaoShareConfig } from "@/bulletin/blocks";
 import type { Actor } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
 import { assertCan, assertSameCommunity } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { bulletinsForActor, canPublishBulletin } from "@/server/bulletin/access";
-import { bulletins, communities } from "@/server/db/schema";
+import { bulletins, communities, mapChurches, smallGroups } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { currentChurchIdFor, loadPlaceScope, visibleSharedRows } from "@/server/place/service";
 import { replaceBulletinSchedule } from "@/server/calendar/from-bulletin";
@@ -109,43 +109,66 @@ export async function loadBulletinList() {
   const db = getDb();
   const [community] = await db.select().from(communities).where(eq(communities.id, communityId)).limit(1);
   if (!community) return { ok: false as const, message: "공동체를 찾지 못했습니다." };
+  const scope = await loadPlaceScope(actor.userId);
+  const churchIds = [...scope.churchIds];
+  const groupIds = [...scope.groupIds];
+  const filters = [
+    churchIds.length > 0 ? inArray(bulletins.churchId, churchIds) : undefined,
+    groupIds.length > 0 ? inArray(bulletins.groupId, groupIds) : undefined,
+    and(eq(bulletins.communityId, communityId), isNull(bulletins.churchId), isNull(bulletins.groupId)),
+  ].filter((item) => item !== undefined);
+  const where = filters.length === 1 ? filters[0] : or(...filters);
   const rows = visibleSharedRows(
-    await db
-      .select()
-      .from(bulletins)
-      .where(eq(bulletins.communityId, communityId))
-      .orderBy(desc(bulletins.worshipDate), desc(bulletins.createdAt)),
-    await loadPlaceScope(actor.userId),
+    await db.select().from(bulletins).where(where).orderBy(desc(bulletins.worshipDate), desc(bulletins.createdAt)),
+    scope,
   );
-  const visible = bulletinsForActor(
+  const attached = rows.filter((row) => (row.churchId && scope.churchIds.has(row.churchId)) || (row.groupId && scope.groupIds.has(row.groupId)));
+  const legacy = bulletinsForActor(
     actor,
     communityId,
-    rows.map((row) => ({
-      id: row.id,
-      communityId: row.communityId,
-      isPublic: row.isPublic,
-      worshipDate: row.worshipDate,
-      sermonTitle: row.sermonTitle,
-      serviceLabel: row.serviceLabel,
-    })),
+    rows
+      .filter((row) => !row.churchId && !row.groupId)
+      .map((row) => ({
+        id: row.id,
+        communityId: row.communityId,
+        isPublic: row.isPublic,
+        worshipDate: row.worshipDate,
+        sermonTitle: row.sermonTitle,
+        serviceLabel: row.serviceLabel,
+      })),
   );
-  const byId = new Map(rows.map((row) => [row.id, row]));
+  const chosen = new Map<string, (typeof rows)[number]>();
+  for (const row of attached) chosen.set(row.id, row);
+  for (const item of legacy) {
+    const row = rows.find((candidate) => candidate.id === item.id);
+    if (row) chosen.set(row.id, row);
+  }
+  const visible = [...chosen.values()].sort((left, right) => {
+    if (left.worshipDate === right.worshipDate) return left.createdAt < right.createdAt ? 1 : -1;
+    return left.worshipDate < right.worshipDate ? 1 : -1;
+  });
+  const namedChurches = churchIds.length
+    ? await db.select({ id: mapChurches.id, name: mapChurches.name }).from(mapChurches).where(inArray(mapChurches.id, churchIds))
+    : [];
+  const namedGroups = groupIds.length
+    ? await db.select({ id: smallGroups.id, name: smallGroups.name }).from(smallGroups).where(inArray(smallGroups.id, groupIds))
+    : [];
+  const churchNames = new Map(namedChurches.map((row) => [row.id, row.name]));
+  const groupNames = new Map(namedGroups.map((row) => [row.id, row.name]));
   return {
     ok: true as const,
     communityName: community.name,
     canPublish: canPublishBulletin(actor, communityId),
-    bulletins: visible.map((item) => {
-      const row = byId.get(item.id);
-      return {
-        id: item.id,
-        worshipDate: item.worshipDate,
-        serviceLabel: item.serviceLabel,
-        serviceTime: row?.serviceTime ?? "",
-        sermonTitle: item.sermonTitle,
-        isPublic: item.isPublic,
-        shareToken: row?.shareToken ?? null,
-      };
-    }),
+    bulletins: visible.map((row) => ({
+      id: row.id,
+      worshipDate: row.worshipDate,
+      serviceLabel: row.serviceLabel,
+      serviceTime: row.serviceTime,
+      sermonTitle: row.sermonTitle,
+      isPublic: row.isPublic,
+      shareToken: row.shareToken,
+      placeLabel: row.churchId ? churchNames.get(row.churchId) ?? "교회" : row.groupId ? groupNames.get(row.groupId) ?? "모들" : "",
+    })),
   };
 }
 
@@ -172,6 +195,43 @@ export async function loadBulletin(id: string) {
   };
 }
 
+async function bulletinPlace(actor: Actor, kind: string, id: string): Promise<{ communityId: string; churchId: string | null; groupId: string | null }> {
+  if (kind && id) {
+    if (actor.kind !== "user") throw new BulletinFlowError("안내는 그 교회나 모들 관리자가 설정에서 만듭니다.");
+    const db = getDb();
+    if (kind === "church") {
+      const [row] = await db
+        .select({ communityId: mapChurches.communityId, createdByUserId: mapChurches.createdByUserId })
+        .from(mapChurches)
+        .where(eq(mapChurches.id, id))
+        .limit(1);
+      if (!row || row.createdByUserId !== actor.userId) {
+        throw new BulletinFlowError("안내는 그 교회나 모들 관리자가 설정에서 만듭니다.");
+      }
+      return { communityId: row.communityId, churchId: id, groupId: null };
+    }
+    if (kind === "gathering") {
+      const [row] = await db
+        .select({ communityId: smallGroups.communityId, createdByUserId: smallGroups.createdByUserId })
+        .from(smallGroups)
+        .where(eq(smallGroups.id, id))
+        .limit(1);
+      if (!row || row.createdByUserId !== actor.userId) {
+        throw new BulletinFlowError("안내는 그 교회나 모들 관리자가 설정에서 만듭니다.");
+      }
+      return { communityId: row.communityId, churchId: null, groupId: id };
+    }
+    throw new BulletinFlowError("안내는 그 교회나 모들 관리자가 설정에서 만듭니다.");
+  }
+  const communityId = await requireCommunity(actor);
+  assertCan(actor, { type: "publish_bulletin", communityId });
+  return {
+    communityId,
+    churchId: actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null,
+    groupId: null,
+  };
+}
+
 export async function saveBulletin(input: {
   bulletinId: string | null;
   worshipDate: string;
@@ -180,17 +240,20 @@ export async function saveBulletin(input: {
   preacher: string;
   blocks: BulletinBlock[];
   intent: "save" | "publish";
+  placeKind?: string;
+  placeId?: string;
 }) {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await requireCommunity(actor);
-  assertCan(actor, { type: "publish_bulletin", communityId });
+  const placed = await bulletinPlace(actor, input.placeKind ?? "", input.placeId ?? "");
+  const communityId = placed.communityId;
   const parsed = parseBlocks(input.blocks);
   if (!parsed.ok) throw new BulletinFlowError(parsed.message);
   await assertTextsAllowed(input.sermonTitle, input.scriptureText, input.preacher, parsed.blocks);
 
   const db = getDb();
-  const currentChurchId = actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null;
+  const currentChurchId = placed.churchId;
+  const groupId = placed.groupId;
   if (!input.bulletinId) {
     const share = nextShareState({ isPublic: false, shareToken: null }, input.intent, makeShareToken);
     const [created] = await db
@@ -198,6 +261,7 @@ export async function saveBulletin(input: {
       .values({
         communityId,
         churchId: currentChurchId,
+        groupId,
         worshipDate: input.worshipDate,
         sermonTitle: input.sermonTitle,
         scriptureText: input.scriptureText,
@@ -262,11 +326,12 @@ export async function saveBulletinWeek(
     preacher: string;
     blocks: BulletinBlock[];
   }>,
+  place?: { kind: string; id: string },
 ) {
   await ensureDatabase();
   const actor = await loadActor();
-  const communityId = await requireCommunity(actor);
-  assertCan(actor, { type: "publish_bulletin", communityId });
+  const placed = await bulletinPlace(actor, place?.kind ?? "", place?.id ?? "");
+  const communityId = placed.communityId;
   if (services.length === 0) throw new BulletinFlowError("저장할 예배가 없습니다.");
   const ready = services.map((service) => {
     const parsed = parseBlocks(service.blocks);
@@ -275,7 +340,8 @@ export async function saveBulletinWeek(
   });
   await assertTextsAllowed(ready);
   const db = getDb();
-  const churchId = actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null;
+  const churchId = placed.churchId;
+  const groupId = placed.groupId;
   const ids = await db.transaction(async (tx) => {
     const created: string[] = [];
     for (const service of ready) {
@@ -284,6 +350,7 @@ export async function saveBulletinWeek(
         .values({
           communityId,
           churchId,
+          groupId,
           worshipDate: service.worshipDate,
           serviceLabel: service.label,
           serviceTime: service.time,

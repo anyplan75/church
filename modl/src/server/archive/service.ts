@@ -207,9 +207,8 @@ export async function createArchive(input: {
   eventDate: string;
   photoText: string;
   youtubeText: string;
-  audience: string;
-  churchId: string;
-  gatheringId: string;
+  churchIds: string[];
+  gatheringIds: string[];
 }): Promise<string> {
   await ensureDatabase();
   const actor = await loadActor();
@@ -219,11 +218,10 @@ export async function createArchive(input: {
   assertPastor(actor, communityId);
   const scope = await loadPlaceScope(actor.userId);
   const target = archiveTargets({
-    audience: input.audience,
-    churchId: input.churchId,
-    gatheringId: input.gatheringId,
-    churchIds: scope.churchIds,
-    gatheringIds: new Set(
+    churchIds: input.churchIds,
+    gatheringIds: input.gatheringIds,
+    allowedChurchIds: scope.churchIds,
+    allowedGatheringIds: new Set(
       scope.groupIds.size
         ? (
             await getDb()
@@ -248,20 +246,23 @@ export async function createArchive(input: {
   }
   await assertTextsAllowed(input.title, input.photoText, input.youtubeText);
   const db = getDb();
-  const [created] = await db
+  const created = await db
     .insert(eventArchives)
-    .values({
-      communityId,
-      churchId: target.churchId,
-      groupId: target.groupId,
-      title: input.title.trim(),
-      eventDate: input.eventDate,
-      photoUrls,
-      youtubeUrls,
-    })
+    .values(
+      target.places.map((place) => ({
+        communityId,
+        churchId: place.churchId,
+        groupId: place.groupId,
+        title: input.title.trim(),
+        eventDate: input.eventDate,
+        photoUrls,
+        youtubeUrls,
+      })),
+    )
     .returning({ id: eventArchives.id });
-  if (!created) throw new ArchiveFlowError("행사 기록을 저장하지 못했습니다.");
-  return created.id;
+  const first = created[0];
+  if (!first) throw new ArchiveFlowError("행사 기록을 저장하지 못했습니다.");
+  return first.id;
 }
 
 export async function loadArchiveDetail(archiveId: string) {

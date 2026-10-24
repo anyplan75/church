@@ -1,37 +1,34 @@
 import Link from "next/link";
 import type { DayMark } from "@/calendar/rules";
 
-/** 일정 한 줄입니다. 교회·모들 이름은 아주 작게, 이름 옆에 색만 둡니다. */
-export function ScheduleItem({ mark }: { mark: DayMark }) {
-  const body = (
-    <>
-      {mark.placeName && mark.placeColor ? (
-        <span data-testid="schedule-place" className="mb-0.5 flex items-center gap-1 text-[10px] leading-none text-[#5c5148]">
-          <span
-            aria-hidden
-            data-testid="schedule-place-color"
-            data-kind={mark.placeKind ?? ""}
-            className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ backgroundColor: mark.placeColor }}
-          />
-          <span data-testid="schedule-place-name">{mark.placeName}</span>
+/** 월별 칸은 제목만, 주간 칸은 제목과 짧은 요약만 보여 줍니다. */
+export function ScheduleItem({ mark, mode }: { mark: DayMark; mode: "month" | "week" }) {
+  const titleClass =
+    mode === "month"
+      ? "block truncate text-[11px] leading-snug text-[#241c16] sm:text-xs"
+      : "block break-words text-[11px] leading-snug text-[#241c16] sm:text-xs";
+  const title =
+    mark.href ? (
+      <Link href={mark.href} className={titleClass}>
+        <span data-testid="event-title">{mark.title}</span>
+      </Link>
+    ) : mark.kind === "google" ? (
+      <span data-testid="google-event" className={titleClass}>
+        {mark.title}
+      </span>
+    ) : (
+      <span data-testid="birthday-name" className={titleClass}>
+        {mark.title} 생일
+      </span>
+    );
+  return (
+    <li className="min-w-0">
+      {title}
+      {mode === "week" && mark.summary ? (
+        <span data-testid="event-summary" className="block truncate text-[10px] leading-snug text-[#5c5148]">
+          {mark.summary}
         </span>
       ) : null}
-      {mark.href ? (
-        <Link href={mark.href} className="block break-words text-[11px] leading-snug text-[#241c16] sm:text-xs">
-          <span data-testid="event-title">{mark.title}</span>
-          {mark.leaderOnly ? <span className="mt-0.5 block text-[10px] text-[#5c5148]">리더만 보는 일정</span> : null}
-        </Link>
-      ) : mark.kind === "google" ? (
-        <span data-testid="google-event" className="block break-words text-[11px] leading-snug text-[#241c16] sm:text-xs">
-          {mark.title}
-        </span>
-      ) : (
-        <span data-testid="birthday-name" className="block break-words text-[11px] leading-snug text-[#5c5148] sm:text-xs">
-          {mark.title} 생일
-        </span>
-      )}
-    </>
+    </li>
   );
-  return <li>{body}</li>;
 }

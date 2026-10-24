@@ -157,34 +157,35 @@ export function pickQuizKing(entries: readonly QuizKingEntry[]): QuizKingEntry |
   return winner;
 }
 
-export type ArchiveAudience = "church" | "gathering" | "both";
+export type ArchivePlace = { churchId: string | null; groupId: string | null };
 
 /**
- * 행사자료는 교회, 모들, 둘 다 중 하나를 골라야 붙습니다.
- * 고르지 않으면 저장하지 않습니다. 속한 곳 목록은 지금 보는 한 곳으로 줄이지 않습니다.
+ * 체크한 교회와 모들마다 자료를 올립니다.
+ * 하나도 고르지 않으면 저장하지 않습니다. 속하지 않은 곳은 받지 않습니다.
  */
 export function archiveTargets(input: {
-  audience: string;
-  churchId: string;
-  gatheringId: string;
-  churchIds: ReadonlySet<string>;
-  gatheringIds: ReadonlySet<string>;
-}): { ok: true; churchId: string | null; groupId: string | null } | { ok: false; message: string } {
-  if (input.audience !== "church" && input.audience !== "gathering" && input.audience !== "both") {
-    return { ok: false, message: "교회, 모들, 둘 다 중에서 골라 주세요." };
+  churchIds: readonly string[];
+  gatheringIds: readonly string[];
+  allowedChurchIds: ReadonlySet<string>;
+  allowedGatheringIds: ReadonlySet<string>;
+}): { ok: true; places: ArchivePlace[] } | { ok: false; message: string } {
+  const churches = [...new Set(input.churchIds.map((id) => id.trim()).filter(Boolean))];
+  const gatherings = [...new Set(input.gatheringIds.map((id) => id.trim()).filter(Boolean))];
+  if (churches.length === 0 && gatherings.length === 0) {
+    return { ok: false, message: "자료를 올릴 곳을 골라 주세요." };
   }
-  const churchId = input.churchId.trim();
-  const gatheringId = input.gatheringId.trim();
-  if ((input.audience === "church" || input.audience === "both") && !input.churchIds.has(churchId)) {
-    return { ok: false, message: "어느 교회인지 골라 주세요." };
+  if (churches.some((id) => !input.allowedChurchIds.has(id))) {
+    return { ok: false, message: "속한 교회만 고를 수 있습니다." };
   }
-  if ((input.audience === "gathering" || input.audience === "both") && !input.gatheringIds.has(gatheringId)) {
-    return { ok: false, message: "어느 모들인지 골라 주세요." };
+  if (gatherings.some((id) => !input.allowedGatheringIds.has(id))) {
+    return { ok: false, message: "속한 모들만 고를 수 있습니다." };
   }
   return {
     ok: true,
-    churchId: input.audience === "gathering" ? null : churchId,
-    groupId: input.audience === "church" ? null : gatheringId,
+    places: [
+      ...churches.map((churchId) => ({ churchId, groupId: null })),
+      ...gatherings.map((groupId) => ({ churchId: null, groupId })),
+    ],
   };
 }
 

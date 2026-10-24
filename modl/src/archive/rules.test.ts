@@ -89,24 +89,22 @@ describe("퀴즈 점수", () => {
     assert.equal(monthKey(new Date("2026-10-31T14:30:00.000Z")), "2026-10");
   });
 
-  it("공개 범위를 고르지 않으면 올리지 않고 속한 곳은 하나로 줄이지 않습니다", () => {
-    const churchIds = new Set(["c1", "c2"]);
-    const gatheringIds = new Set(["g1", "g2"]);
-    assert.equal(archiveTargets({ audience: "", churchId: "c1", gatheringId: "g1", churchIds, gatheringIds }).ok, false);
-    assert.deepEqual(archiveTargets({ audience: "church", churchId: "c2", gatheringId: "", churchIds, gatheringIds }), {
+  it("체크한 교회와 모들마다 자료를 올리고 빈 선택은 거절합니다", () => {
+    const allowedChurchIds = new Set(["c1", "c2"]);
+    const allowedGatheringIds = new Set(["g1", "g2"]);
+    assert.equal(archiveTargets({ churchIds: [], gatheringIds: [], allowedChurchIds, allowedGatheringIds }).ok, false);
+    assert.equal(archiveTargets({ churchIds: ["c9"], gatheringIds: [], allowedChurchIds, allowedGatheringIds }).ok, false);
+    assert.deepEqual(archiveTargets({ churchIds: ["c1", "c1"], gatheringIds: ["g2"], allowedChurchIds, allowedGatheringIds }), {
       ok: true,
-      churchId: "c2",
-      groupId: null,
-    });
-    assert.deepEqual(archiveTargets({ audience: "both", churchId: "c1", gatheringId: "g2", churchIds, gatheringIds }), {
-      ok: true,
-      churchId: "c1",
-      groupId: "g2",
+      places: [
+        { churchId: "c1", groupId: null },
+        { churchId: null, groupId: "g2" },
+      ],
     });
     assert.equal(canSeeArchive({ churchId: "c2", groupId: null }, new Set(["c1"]), new Set(["g1"])), false);
     assert.equal(canSeeArchive({ churchId: "c1", groupId: "g9" }, new Set(["c1"]), new Set(["g1"])), true);
     assert.equal(canSeeArchive({ churchId: "c9", groupId: "g1" }, new Set(), new Set(["g1"])), true);
-    assert.equal(canSeeArchive({ churchId: null, groupId: null }, churchIds, gatheringIds), false);
+    assert.equal(canSeeArchive({ churchId: null, groupId: null }, allowedChurchIds, allowedGatheringIds), false);
     assert.equal(archiveScopeLabel({ churchName: "남원교회", gatheringName: "청년모들" }), "교회 · 남원교회 · 모들 · 청년모들");
     assert.equal(archiveScopeLabel({ churchName: null, gatheringName: null }), "");
   });

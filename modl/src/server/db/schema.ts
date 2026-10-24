@@ -547,6 +547,8 @@ export const prayerRequests = pgTable(
     content: text("content").notNull(),
     isAnonymous: boolean("is_anonymous").notNull().default(false),
     visibility: prayerVisibilityEnum("visibility").notNull().default("PUBLIC"),
+    /** 모들, 교회, 서귀포시, 제주시, 제주도, 전국. 예전 글은 비어 있습니다. */
+    scope: text("scope"),
     prayTogetherCount: integer("pray_together_count").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

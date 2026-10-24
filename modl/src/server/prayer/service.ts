@@ -4,17 +4,19 @@
  * 권한은 assertCan 과 visiblePrayerFilter, toPrayerDto 만 씁니다.
  */
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { letterRecipientLabel, nextPrayTogetherCount } from "@/prayer/rules";
+import { canSeePrayerScope, isPrayerScope, prayerScopeLabel, type PrayerScope } from "@/prayer/scopes";
 import type { Actor, PrayerVisibility } from "@/server/auth/actor";
 import { PermissionError } from "@/server/auth/membership";
 import { filterVisiblePrayers, toPrayerDto, type PrayerRecord } from "@/server/auth/prayer-visibility";
 import { assertApprovedMember, assertCan, assertSameCommunity, formalMembership } from "@/server/auth/rbac";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
-import { communities, members, prayerLetters, prayerReactions, prayerRequests } from "@/server/db/schema";
+import { communities, mapChurches, members, prayerLetters, prayerReactions, prayerRequests } from "@/server/db/schema";
 import { ensureDatabase, getDb } from "@/server/db/runtime";
 import { assertTextsAllowed } from "@/server/moderation/guard";
+import { currentChurchIdFor, loadPlaceScope } from "@/server/place/service";
 
 export class PrayerFlowError extends Error {
   constructor(message: string) {
@@ -82,6 +84,8 @@ export async function loadPrayerHome() {
       communityId: prayerRequests.communityId,
       memberId: prayerRequests.memberId,
       groupId: prayerRequests.groupId,
+      churchId: prayerRequests.churchId,
+      scope: prayerRequests.scope,
       content: prayerRequests.content,
       isAnonymous: prayerRequests.isAnonymous,
       visibility: prayerRequests.visibility,
@@ -93,11 +97,13 @@ export async function loadPrayerHome() {
     .innerJoin(members, and(eq(prayerRequests.memberId, members.id), eq(members.communityId, page.communityId)))
     .where(eq(prayerRequests.communityId, page.communityId))
     .orderBy(desc(prayerRequests.createdAt));
-  const records: Array<PrayerRecord & { authorName: string }> = rows.map((row) => ({
+  const records = rows.map((row) => ({
     id: row.id,
     communityId: row.communityId,
     memberId: row.memberId,
     groupId: row.groupId,
+    churchId: row.churchId,
+    scope: row.scope,
     content: row.content,
     isAnonymous: row.isAnonymous,
     visibility: row.visibility,
@@ -105,7 +111,26 @@ export async function loadPrayerHome() {
     createdAt: row.createdAt.toISOString(),
     authorName: row.authorName,
   }));
-  const visible = filterVisiblePrayers(page.actor, records);
+  const place = await loadPlaceScope(page.actor.userId);
+  const districtRows = place.churchIds.size
+    ? await page.db
+        .select({ district: mapChurches.district })
+        .from(mapChurches)
+        .where(inArray(mapChurches.id, [...place.churchIds]))
+    : [];
+  const districts = new Set(districtRows.flatMap((row) => (row.district ? [row.district] : [])));
+  const visible = filterVisiblePrayers(page.actor, records).filter(
+    (row) =>
+      row.memberId === page.membership.memberId ||
+      canSeePrayerScope({
+        scope: row.scope,
+        churchId: row.churchId,
+        groupId: row.groupId,
+        churchIds: place.churchIds,
+        groupIds: place.groupIds,
+        districts,
+      }),
+  );
   const reacted = await page.db
     .select({ prayerRequestId: prayerReactions.prayerRequestId })
     .from(prayerReactions)
@@ -122,6 +147,7 @@ export async function loadPrayerHome() {
         content: dto.content,
         isAnonymous: dto.isAnonymous,
         visibility: dto.visibility,
+        scopeLabel: prayerScopeLabel(row.scope, dto.visibility),
         prayTogetherCount: dto.prayTogetherCount,
         authorName: dto.authorMemberId ? row.authorName : null,
         alreadyPrayed: reactedIds.has(dto.id),
@@ -132,23 +158,20 @@ export async function loadPrayerHome() {
 
 export async function createPrayer(input: {
   content: string;
-  visibility: PrayerVisibility;
+  scope: PrayerScope;
   isAnonymous: boolean;
 }): Promise<string> {
   await ensureDatabase();
   const actor = await loadActor();
   const communityId = await requireCommunity(actor);
   const membership = await requireMember(actor, communityId);
-  if ((input.visibility === "GROUP_ONLY" || input.visibility === "LEADER_ONLY") && !membership.currentGroupId) {
-    throw new PrayerFlowError("모들만 또는 테우리만으로 쓰려면 소속 모들이 있어야 합니다.");
-  }
-  const groupId =
-    input.visibility === "GROUP_ONLY" || input.visibility === "LEADER_ONLY" ? membership.currentGroupId : membership.currentGroupId;
+  if (!isPrayerScope(input.scope)) throw new PrayerFlowError("기도 범위를 골라 주세요.");
+  const placed = await prayerPlacement(actor, membership.currentGroupId, input.scope);
   assertCan(actor, {
     type: "write_prayer",
     communityId,
-    visibility: input.visibility,
-    groupId: input.visibility === "PUBLIC" || input.visibility === "PASTOR_ONLY" ? null : groupId,
+    visibility: placed.visibility,
+    groupId: placed.groupId,
   });
   await assertTextsAllowed(input.content);
   const db = getDb();
@@ -157,14 +180,33 @@ export async function createPrayer(input: {
     .values({
       communityId,
       memberId: membership.memberId,
-      groupId,
+      groupId: placed.groupId,
+      churchId: placed.churchId,
       content: input.content.trim(),
       isAnonymous: input.isAnonymous,
-      visibility: input.visibility,
+      visibility: placed.visibility,
+      scope: input.scope,
     })
     .returning({ id: prayerRequests.id });
   if (!created) throw new PrayerFlowError("기도를 저장하지 못했습니다.");
   return created.id;
+}
+
+async function prayerPlacement(
+  actor: Actor,
+  currentGroupId: string | null,
+  scope: PrayerScope,
+): Promise<{ visibility: PrayerVisibility; groupId: string | null; churchId: string | null }> {
+  if (scope === "gathering") {
+    if (!currentGroupId) throw new PrayerFlowError("모들 범위로 쓰려면 속한 모들이 있어야 합니다.");
+    return { visibility: "GROUP_ONLY", groupId: currentGroupId, churchId: null };
+  }
+  if (scope === "church") {
+    const churchId = actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null;
+    if (!churchId) throw new PrayerFlowError("교회 범위로 쓰려면 내가 갈 교회가 있어야 합니다.");
+    return { visibility: "PUBLIC", groupId: null, churchId };
+  }
+  return { visibility: "PUBLIC", groupId: null, churchId: null };
 }
 
 export async function prayTogether(prayerId: string): Promise<"added" | "kept"> {

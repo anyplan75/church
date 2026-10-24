@@ -8,13 +8,15 @@
 
 import { randomBytes } from "node:crypto";
 import { servicesFromBulletinText, BULLETIN_PART_BYTES, BULLETIN_UPLOAD_BYTES, type BulletinServiceDraft } from "@/bulletin/intake";
+import { eq } from "drizzle-orm";
 import { canPublishBulletin } from "@/server/bulletin/access";
 import type { Actor } from "@/server/auth/actor";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { readBulletinImage } from "@/server/bulletin/read/image";
 import { readBulletinFile } from "@/server/bulletin/read/files";
 import { resolveBulletinExtension, saveBulletinFile } from "@/server/bulletin/read/store";
-import { getPool } from "@/server/db/runtime";
+import { mapChurches, smallGroups } from "@/server/db/schema";
+import { ensureDatabase, getDb, getPool } from "@/server/db/runtime";
 import { assertTextsAllowed, BannedWordError } from "@/server/moderation/guard";
 
 export type BulletinReadResult =
@@ -47,13 +49,34 @@ function uploadName(value: FormDataEntryValue | null): string {
   return (name || "bulletin").slice(0, 240);
 }
 
-async function publisher(): Promise<{ userId: string } | { message: string }> {
+async function publisher(formData: FormData): Promise<{ userId: string } | { message: string }> {
   const actor = await loadActor();
+  const userId = userIdOf(actor);
+  const kind = formData.get("placeKind");
+  const id = formData.get("placeId");
+  if ((kind === "church" || kind === "gathering") && typeof id === "string" && id) {
+    if (!(await managesPlace(userId, kind, id))) {
+      return { message: "안내는 그 교회나 모들 관리자가 설정에서 만듭니다." };
+    }
+    return { userId };
+  }
   const communityId = await activeCommunityId(actor);
   if (!communityId || !canPublishBulletin(actor, communityId)) {
-    return { message: "주보를 만들 수 있는 사람은 그 교회 담당자입니다." };
+    return { message: "안내는 그 교회나 모들 관리자가 설정에서 만듭니다." };
   }
-  return { userId: userIdOf(actor) };
+  return { userId };
+}
+
+async function managesPlace(userId: string, kind: "church" | "gathering", id: string): Promise<boolean> {
+  if (!userId) return false;
+  await ensureDatabase();
+  const db = getDb();
+  if (kind === "church") {
+    const [row] = await db.select({ createdByUserId: mapChurches.createdByUserId }).from(mapChurches).where(eq(mapChurches.id, id)).limit(1);
+    return row?.createdByUserId === userId;
+  }
+  const [row] = await db.select({ createdByUserId: smallGroups.createdByUserId }).from(smallGroups).where(eq(smallGroups.id, id)).limit(1);
+  return row?.createdByUserId === userId;
 }
 
 function userIdOf(actor: Actor): string {
@@ -71,7 +94,7 @@ export async function readBulletinSourceAction(formData: FormData): Promise<Bull
 }
 
 async function readBulletinSource(formData: FormData): Promise<BulletinReadResult> {
-  const allowed = await publisher();
+  const allowed = await publisher(formData);
   if ("message" in allowed) return { ok: false, message: allowed.message };
   const pasted = typeof formData.get("text") === "string" ? String(formData.get("text")) : "";
   const file = formData.get("file");
@@ -88,7 +111,7 @@ async function readBulletinSource(formData: FormData): Promise<BulletinReadResul
 /** 큰 한글 파일의 한 조각입니다. 마지막 조각 다음 finishBulletinUploadAction 이 이어 붙입니다. */
 export async function storeBulletinPartAction(formData: FormData): Promise<PartStored> {
   try {
-    const allowed = await publisher();
+    const allowed = await publisher(formData);
     if ("message" in allowed) return { ok: false, message: allowed.message };
     const uploadId = typeof formData.get("uploadId") === "string" ? String(formData.get("uploadId")) : "";
     const index = wholeNumber(formData.get("index"));
@@ -116,7 +139,7 @@ export async function storeBulletinPartAction(formData: FormData): Promise<PartS
 /** 나뉜 조각을 한 파일로 이어 은혜로운 예배와 같은 읽기를 탑니다. */
 export async function finishBulletinUploadAction(formData: FormData): Promise<BulletinReadResult> {
   try {
-    const allowed = await publisher();
+    const allowed = await publisher(formData);
     if ("message" in allowed) return { ok: false, message: allowed.message };
     const uploadId = typeof formData.get("uploadId") === "string" ? String(formData.get("uploadId")) : "";
     const count = wholeNumber(formData.get("count"));

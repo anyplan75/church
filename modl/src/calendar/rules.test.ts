@@ -18,6 +18,7 @@ import {
   seasonGuide,
   seasonIconKey,
   monthCells,
+  eventSummary,
   monthDayMarks,
   schedulePlaceColor,
   shiftDateKey,
@@ -353,6 +354,31 @@ describe("교회 절기", () => {
     assert.match(tabs, /월별일정/);
     assert.match(tabs, /주간일정/);
     assert.doesNotMatch(tabs, /달력/);
+  });
+
+  it("같은 날 같은 곳 같은 제목은 한 번만 두고 요약은 짧게 남깁니다", () => {
+    const event = {
+      id: "modl-1",
+      title: "정기제직회",
+      startAt: "2026-10-11T12:00",
+      endAt: "2026-10-11T13:00",
+      isLeaderOnly: false,
+      placeName: "서귀포제일교회",
+      placeKind: "church" as const,
+      placeId: "church-a",
+    };
+    const days = monthDayMarks(2026, 10, [event, { ...event, id: "modl-2" }], [], []);
+    const marks = days.find((cell) => cell.date === "2026-10-11")?.marks ?? [];
+    assert.equal(marks.length, 1);
+    assert.equal(marks[0]?.title, "정기제직회");
+    assert.match(marks[0]?.summary ?? "", /서귀포제일교회/);
+    assert.equal(eventSummary({ ...event, placeName: "서귀포제일교회".repeat(8) })?.endsWith("..."), true);
+    const page = readFileSync(new URL("../app/calendar/page.tsx", import.meta.url), "utf8");
+    assert.match(page, /h-96/);
+    assert.match(page, /overflow-y-auto/);
+    assert.match(page, /mode="month"/);
+    assert.match(page, /h-16/);
+    assert.match(page, /overflow-hidden/);
   });
 });
 

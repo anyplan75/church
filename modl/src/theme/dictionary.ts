@@ -7,7 +7,7 @@
 export const TERM_DICTIONARY = {
   menus: {
     bulletin: {
-      standard: "모바일 주보",
+      standard: "안내",
       jeju_primary: "주일 기별",
       jeju_alt: "하영 기별",
     },
@@ -202,7 +202,7 @@ export const TERM_DICTIONARY = {
     bulletin_save: { standard: "주보 저장하기", jeju: "기별 담기" },
     bulletin_publish: { standard: "발행하기", jeju: "기별 내보내기" },
     bulletin_unpublish: { standard: "비공개로 두기", jeju: "기별 거두기" },
-    bulletin_archive: { standard: "지난 주보", jeju: "지난 기별" },
+    bulletin_archive: { standard: "지난 안내", jeju: "지난 기별" },
     block_order: { standard: "예배 순서", jeju: "예배 차례" },
     block_sermon: { standard: "설교", jeju: "말씀" },
     block_officers: { standard: "임사자 명단", jeju: "섬기는 사람" },

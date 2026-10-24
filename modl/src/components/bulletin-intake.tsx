@@ -4,7 +4,15 @@ import { useState } from "react";
 import { bulletinAccept, bulletinFormatNote, BULLETIN_PART_BYTES, BULLETIN_UPLOAD_BYTES, type BulletinServiceDraft } from "@/bulletin/intake";
 import { finishBulletinUploadAction, readBulletinSourceAction, storeBulletinPartAction } from "@/server/bulletin/read-source";
 
-export function BulletinIntake({ onApply }: { onApply: (services: BulletinServiceDraft[]) => void }) {
+export function BulletinIntake({
+  onApply,
+  placeKind,
+  placeId,
+}: {
+  onApply: (services: BulletinServiceDraft[]) => void;
+  placeKind?: string;
+  placeId?: string;
+}) {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -17,9 +25,11 @@ export function BulletinIntake({ onApply }: { onApply: (services: BulletinServic
     try {
       const file = formData.get("file");
       const text = typeof formData.get("text") === "string" ? String(formData.get("text")) : "";
+      if (placeKind) formData.set("placeKind", placeKind);
+      if (placeId) formData.set("placeId", placeId);
       const result =
         file instanceof File && file.size > BULLETIN_PART_BYTES
-          ? await readLargeFile(file, text)
+          ? await readLargeFile(file, text, placeKind, placeId)
           : await readBulletinSourceAction(formData);
       if (!result.ok) {
         setError(result.message);
@@ -36,7 +46,7 @@ export function BulletinIntake({ onApply }: { onApply: (services: BulletinServic
 
   return (
     <div className="grid gap-3 rounded-3xl bg-[#fffaf3] px-4 py-4">
-      <h2 className="text-[clamp(1.1rem,1rem+0.3vw,1.35rem)] font-semibold leading-snug">주보 입력</h2>
+      <h2 className="text-[clamp(1.1rem,1rem+0.3vw,1.35rem)] font-semibold leading-snug">안내 입력</h2>
       <p className="text-sm leading-6 text-[#5c5148]">{bulletinFormatNote()}</p>
       <p className="text-sm leading-6 text-[#5c5148]">
         anyplan@me.com 으로 보낸 파일은 지금 받지 않습니다. 담당자가 이 화면에서 파일을 올리면 그 주 예배를 만듭니다. 십일조, 헌금, 봉헌은 넣지 않습니다.
@@ -89,7 +99,7 @@ export function BulletinIntake({ onApply }: { onApply: (services: BulletinServic
   );
 }
 
-async function readLargeFile(file: File, text: string) {
+async function readLargeFile(file: File, text: string, placeKind?: string, placeId?: string) {
   if (file.size > BULLETIN_UPLOAD_BYTES) {
     return { ok: false as const, message: "파일은 30MB 이하로 올려 주세요." };
   }
@@ -102,6 +112,8 @@ async function readLargeFile(file: File, text: string) {
     part.set("index", String(index));
     part.set("count", String(count));
     part.set("name", file.name);
+    if (placeKind) part.set("placeKind", placeKind);
+    if (placeId) part.set("placeId", placeId);
     part.set("part", new File([slice], "part", { type: "application/octet-stream" }));
     const stored = await storeBulletinPartAction(part);
     if (!stored.ok) return stored;
@@ -111,5 +123,7 @@ async function readLargeFile(file: File, text: string) {
   finish.set("count", String(count));
   finish.set("name", file.name);
   finish.set("text", text);
+  if (placeKind) finish.set("placeKind", placeKind);
+  if (placeId) finish.set("placeId", placeId);
   return finishBulletinUploadAction(finish);
 }

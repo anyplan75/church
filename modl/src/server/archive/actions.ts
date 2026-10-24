@@ -13,6 +13,10 @@ function text(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function texts(formData: FormData, key: string): string[] {
+  return formData.getAll(key).flatMap((value) => (typeof value === "string" && value.trim() ? [value.trim()] : []));
+}
+
 export async function createArchiveAction(formData: FormData) {
   const parsed = z
     .object({
@@ -20,18 +24,16 @@ export async function createArchiveAction(formData: FormData) {
       eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "행사 날짜를 확인해 주세요."),
       photoText: z.string().max(8000),
       youtubeText: z.string().max(8000),
-      audience: z.enum(["church", "gathering", "both"], { message: "교회, 모들, 둘 다 중에서 골라 주세요." }),
-      churchId: z.string(),
-      gatheringId: z.string(),
+      churchIds: z.array(z.string()),
+      gatheringIds: z.array(z.string()),
     })
     .safeParse({
       title: text(formData, "title"),
       eventDate: text(formData, "eventDate"),
       photoText: text(formData, "photoText"),
       youtubeText: text(formData, "youtubeText"),
-      audience: text(formData, "audience"),
-      churchId: text(formData, "churchId"),
-      gatheringId: text(formData, "gatheringId"),
+      churchIds: texts(formData, "churchIds"),
+      gatheringIds: texts(formData, "gatheringIds"),
     });
   if (!parsed.success) fail("/archive", new ArchiveFlowError(parsed.error.issues[0]?.message ?? "행사 기록을 확인해 주세요."));
   try {

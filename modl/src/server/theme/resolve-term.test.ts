@@ -7,7 +7,7 @@ describe("말투 고르기", () => {
   it("함께 보기는 제주어 큰 제목과 표준어 작은 제목입니다", () => {
     const term = resolveTerm("bulletin", { languageMode: "JEJU_DUAL" });
     assert.equal(term.primary, "주일 기별");
-    assert.equal(term.secondary, "모바일 주보");
+    assert.equal(term.secondary, "안내");
   });
 
   it("제주어만은 작은 제목을 뺍니다", () => {

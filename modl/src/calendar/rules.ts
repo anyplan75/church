@@ -271,6 +271,8 @@ export type GoogleEventView = {
 export type DayMark = {
   key: string;
   title: string;
+  /** 주간 칸에만 보이는 짧은 줄입니다. 월별 칸에는 제목만 둡니다. */
+  summary: string | null;
   kind: "event" | "birthday" | "google" | "season";
   href: string | null;
   leaderOnly: boolean;
@@ -513,6 +515,25 @@ export function seasonGuide(title: string): string | null {
   return SEASON_GUIDES[title] ?? null;
 }
 
+/** 주간 칸의 짧은 줄입니다. 장소와 시각만 남기고 본문은 넣지 않습니다. */
+export function eventSummary(event: CalendarDayEvent): string | null {
+  const parts: string[] = [];
+  const place = event.placeName?.trim();
+  if (place) parts.push(place);
+  const clock = seoulClock(event.startAt);
+  if (clock) parts.push(clock);
+  if (parts.length === 0) return null;
+  const text = parts.join(" · ");
+  return text.length > 40 ? `${text.slice(0, 37)}...` : text;
+}
+
+function rememberMark(marks: DayMark[], seen: Set<string>, date: string, placeKey: string, mark: DayMark) {
+  const identity = `${date}\n${placeKey}\n${mark.title}`;
+  if (seen.has(identity)) return;
+  seen.add(identity);
+  marks.push(mark);
+}
+
 /** 저장된 일정, 읽어 온 구글 일정, 계산한 교회 절기만 날짜 칸에 놓습니다. 없는 모임은 만들지 않습니다. */
 export function monthDayMarks(
   year: number,
@@ -525,24 +546,29 @@ export function monthDayMarks(
   return monthCells(year, month).map((cell) => {
     if (!cell.date || cell.day === null) return { date: null, day: null, marks: [] };
     const marks: DayMark[] = [];
+    const seen = new Set<string>();
+    const date = cell.date;
     for (const event of events) {
-      if (!eventCoversLocalDate(event, cell.date)) continue;
-      marks.push({
+      if (!eventCoversLocalDate(event, date)) continue;
+      const place = placeOf(event);
+      rememberMark(marks, seen, date, `${place.placeKind ?? ""}:${event.placeId?.trim() || place.placeName || ""}`, {
         key: `event-${event.id}`,
         title: event.title,
+        summary: eventSummary(event),
         kind: "event",
         href: `/calendar/${event.id}`,
         leaderOnly: event.isLeaderOnly,
-        ...placeOf(event),
+        ...place,
       });
     }
     for (const event of googleEvents) {
-      if (!googleEventCoversDate(event, cell.date)) continue;
+      if (!googleEventCoversDate(event, date)) continue;
       const title = event.title || (event.allDay ? "종일" : seoulClock(event.startAt));
       if (!title) continue;
-      marks.push({
+      rememberMark(marks, seen, date, "google:", {
         key: `google-${event.id}`,
         title,
+        summary: event.allDay ? null : seoulClock(event.startAt) || null,
         kind: "google",
         href: null,
         leaderOnly: false,
@@ -550,10 +576,11 @@ export function monthDayMarks(
       });
     }
     for (const season of seasons) {
-      if (season.date !== cell.date) continue;
-      marks.push({
+      if (season.date !== date) continue;
+      rememberMark(marks, seen, date, "season:", {
         key: `season-${season.date}-${season.title}`,
         title: season.title,
+        summary: null,
         kind: "season",
         href: null,
         leaderOnly: false,
@@ -561,17 +588,18 @@ export function monthDayMarks(
       });
     }
     for (const birthday of birthdays) {
-      if (birthday.date !== cell.date) continue;
-      marks.push({
+      if (birthday.date !== date) continue;
+      rememberMark(marks, seen, date, `birthday:${birthday.memberId}`, {
         key: `birthday-${birthday.memberId}`,
         title: birthday.name,
+        summary: null,
         kind: "birthday",
         href: null,
         leaderOnly: false,
         ...NO_PLACE,
       });
     }
-    return { date: cell.date, day: cell.day, marks };
+    return { date, day: cell.day, marks };
   });
 }
 

@@ -31,6 +31,8 @@ export function BulletinEditor({
   scriptureText,
   preacher,
   blocks,
+  placeKind,
+  placeId,
 }: {
   action: (formData: FormData) => Promise<void>;
   bulletinId?: string;
@@ -39,6 +41,8 @@ export function BulletinEditor({
   scriptureText: string;
   preacher: string;
   blocks: BulletinBlock[];
+  placeKind?: "church" | "gathering";
+  placeId?: string;
 }) {
   const [items, setItems] = useState(blocks);
   const [date, setDate] = useState(worshipDate);
@@ -71,10 +75,12 @@ export function BulletinEditor({
 
   return (
     <div className="grid gap-4">
-      <BulletinIntake onApply={applyIntake} />
+      <BulletinIntake onApply={applyIntake} placeKind={placeKind} placeId={placeId} />
       {week ? (
         <form action={saveBulletinWeekAction} className="grid gap-4" data-testid="bulletin-week">
           <input type="hidden" name="weekJson" value={JSON.stringify(week)} />
+          {placeKind && placeId ? <input type="hidden" name="placeKind" value={placeKind} /> : null}
+          {placeKind && placeId ? <input type="hidden" name="placeId" value={placeId} /> : null}
           <h2 className="font-semibold leading-snug">이번 주 예배</h2>
           <p className="leading-relaxed text-[#5c5148]">한 번 읽은 예배 {week.length}개입니다. 글에 없는 순서는 넣지 않았습니다.</p>
           <ol className="grid gap-3">
@@ -106,6 +112,8 @@ export function BulletinEditor({
       {week ? null : (
       <form action={action} id="bulletin-form" className="grid gap-4">
       {bulletinId ? <input type="hidden" name="bulletinId" value={bulletinId} /> : null}
+      {placeKind && placeId ? <input type="hidden" name="placeKind" value={placeKind} /> : null}
+      {placeKind && placeId ? <input type="hidden" name="placeId" value={placeId} /> : null}
       <input type="hidden" name="blocksJson" value={JSON.stringify(items)} />
       <p className="leading-relaxed text-[#5c5148]">
         설교 제목, 본문 말씀, 설교자는 목록과 공유 카드에 나갑니다. 아래 블록은 교회마다 순서를 바꿔도 됩니다.

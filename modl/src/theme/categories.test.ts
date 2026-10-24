@@ -7,7 +7,8 @@ describe("분류 메뉴", () => {
   it("이미 있는 일을 분류 안에 둡니다", () => {
     const found = new Map<string, string>(CATEGORY_LINKS.map((item) => [item.label, item.href]));
     assert.equal(found.get("출석"), undefined);
-    assert.equal(found.get("주보"), "/bulletin");
+    assert.equal(found.get("안내"), "/bulletin");
+    assert.equal(found.get("주보"), undefined);
     assert.equal(found.get("재정"), "/finance");
     assert.equal(found.get("QT"), "/qt");
     assert.equal(found.get("기도"), "/prayer");
@@ -28,7 +29,7 @@ describe("분류 메뉴", () => {
     assert.deepEqual(
       CATEGORY_MENUS.map((group) => [group.label, group.items.map((item) => item.label)]),
       [
-        ["예배", ["주보", "QT", "기도", "일정", "토론"]],
+        ["예배", ["안내", "QT", "기도", "일정", "토론"]],
         ["운영", ["재정", "회의록", "행사자료"]],
         ["연결", ["지도"]],
       ],
