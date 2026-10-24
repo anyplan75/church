@@ -141,6 +141,7 @@ export default async function CalendarPage({
               aria-selected={view === "month"}
               data-testid="calendar-tab-month"
               className={`${choiceButtonClass} ${view === "month" ? "border-[#111827] bg-[#111827] text-white" : "border-[#111827] bg-transparent text-[#111827]"}`}
+              style={{ fontSize: "1rem", lineHeight: "24px" }}
             >
               월별일정
             </Link>
@@ -150,6 +151,7 @@ export default async function CalendarPage({
               aria-selected={view === "week"}
               data-testid="calendar-tab-week"
               className={`${choiceButtonClass} ${view === "week" ? "border-[#111827] bg-[#111827] text-white" : "border-[#111827] bg-transparent text-[#111827]"}`}
+              style={{ fontSize: "1rem", lineHeight: "24px" }}
             >
               주간일정
             </Link>
