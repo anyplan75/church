@@ -48,7 +48,8 @@ describe("분류 메뉴", () => {
     assert.equal(member.includes("/discussion"), true);
     assert.equal(member.includes("/quiz"), false);
     assert.equal(member.includes("/archive"), true);
-    assert.equal(member.includes("/finance"), false);
+    assert.equal(member.includes("/finance"), true);
+    assert.equal(member.includes("/minutes"), true);
     assert.equal(member.includes("/survey"), false);
     const officer = sidebarHrefs({ formal: true, officer: true });
     assert.equal(officer.includes("/finance"), true);

@@ -67,17 +67,21 @@ export async function loadFinanceHome() {
     : [];
   const names = new Map<string, string>([...churchRows.map((row) => [row.id, row.name] as const), ...groupRows.map((row) => [row.id, row.name] as const)]);
   const places = [
-    ...[...scope.editChurchIds].map((id) => ({ id, name: names.get(id) ?? "교회", kind: "church" as const })),
-    ...[...scope.editGroupIds].map((id) => ({ id, name: names.get(id) ?? "모들", kind: "gathering" as const })),
-  ];
+    ...churchRows.map((row) => ({ id: row.id, name: row.name, kind: "church" as const, canEdit: scope.editChurchIds.has(row.id) })),
+    ...groupRows.map((row) => ({ id: row.id, name: row.name, kind: "gathering" as const, canEdit: scope.editGroupIds.has(row.id) })),
+  ].sort((left, right) => {
+    if (left.kind !== right.kind) return left.kind === "church" ? -1 : 1;
+    return left.name.localeCompare(right.name, "ko");
+  });
   return {
     ok: true as const,
-    canEdit: places.length > 0,
     places,
     categories: visibleCategories.map((row) => ({
       id: row.id,
       name: row.name,
       type: row.type,
+      placeId: row.groupId ?? row.churchId ?? "",
+      placeKind: row.groupId ? ("gathering" as const) : ("church" as const),
       place: row.groupId ? names.get(row.groupId) ?? "모들" : row.churchId ? names.get(row.churchId) ?? "교회" : "기록",
     })),
     transactions: visibleTransactions.map((row) => ({
@@ -85,6 +89,8 @@ export async function loadFinanceHome() {
       date: String(row.transactionDate),
       amount: row.amount,
       description: row.description,
+      placeId: row.groupId ?? row.churchId ?? "",
+      placeKind: row.groupId ? ("gathering" as const) : ("church" as const),
       place: row.groupId ? names.get(row.groupId) ?? "모들" : row.churchId ? names.get(row.churchId) ?? "교회" : "기록",
     })),
   };

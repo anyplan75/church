@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { schedulePlaceColor } from "@/calendar/rules";
+import { choiceButtonClass, choiceButtonStyle, choiceRowClass } from "@/components/choice-buttons";
 
 type PlaceButton = { id: string; name: string; kind: "church" | "gathering" };
 
@@ -35,7 +36,7 @@ export function CalendarPlaceFilters({ places, children }: { places: readonly Pl
   return (
     <div className="grid min-w-0 gap-4">
       {places.length > 0 ? (
-        <div data-testid="calendar-place-filters" className="flex flex-col gap-2 lg:flex-row lg:flex-nowrap">
+        <div data-testid="calendar-place-filters" className={choiceRowClass}>
           {places.map((place) => {
             const key = placeKey(place);
             const on = shown.has(key);
@@ -49,14 +50,10 @@ export function CalendarPlaceFilters({ places, children }: { places: readonly Pl
                 data-on={on ? "yes" : "no"}
                 aria-pressed={on}
                 onClick={() => toggle(key)}
-                className="rounded-2xl border-2 px-3 py-2 text-sm font-semibold leading-snug lg:min-w-0 lg:flex-1"
-                style={
-                  on
-                    ? { backgroundColor: color, borderColor: color, color: "#ffffff" }
-                    : { backgroundColor: "transparent", borderColor: color, color }
-                }
+                className={choiceButtonClass}
+                style={choiceButtonStyle(on, color)}
               >
-                <span className="block truncate">{place.name}</span>
+                {place.name}
               </button>
             );
           })}

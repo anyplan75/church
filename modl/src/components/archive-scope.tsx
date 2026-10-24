@@ -1,6 +1,8 @@
+import { choiceButtonClass, choiceRowClass } from "@/components/choice-buttons";
+
 type NamedPlace = { id: string; name: string };
 
-/** 속한 교회와 모들 전부입니다. 체크한 곳에만 자료가 올라갑니다. */
+/** 속한 교회와 모들 전부입니다. 켠 곳에만 자료가 올라갑니다. */
 export function ArchiveScope({
   churches,
   gatherings,
@@ -14,24 +16,26 @@ export function ArchiveScope({
       {churches.length === 0 && gatherings.length === 0 ? (
         <p className="leading-relaxed text-[#5c5148]">속한 교회와 모들이 없습니다.</p>
       ) : (
-        <ul data-testid="archive-place-list" className="flex list-none flex-col gap-2 lg:flex-row lg:flex-wrap lg:gap-x-6 lg:gap-y-2">
+        <div data-testid="archive-place-list" className={choiceRowClass}>
           {churches.map((church) => (
-            <li key={church.id}>
-              <label className="flex items-center gap-2 leading-snug">
-                <input type="checkbox" name="churchIds" value={church.id} data-testid="archive-church-check" />
-                <span>{church.name}</span>
-              </label>
-            </li>
+            <label
+              key={church.id}
+              className={`${choiceButtonClass} cursor-pointer border-[#1d4ed8] bg-transparent text-[#1d4ed8] has-[:checked]:border-[#1d4ed8] has-[:checked]:bg-[#1d4ed8] has-[:checked]:text-white`}
+            >
+              <input type="checkbox" name="churchIds" value={church.id} className="sr-only" data-testid="archive-church-check" />
+              {church.name}
+            </label>
           ))}
           {gatherings.map((gathering) => (
-            <li key={gathering.id}>
-              <label className="flex items-center gap-2 leading-snug">
-                <input type="checkbox" name="gatheringIds" value={gathering.id} data-testid="archive-gathering-check" />
-                <span>{gathering.name}</span>
-              </label>
-            </li>
+            <label
+              key={gathering.id}
+              className={`${choiceButtonClass} cursor-pointer border-[#6d28d9] bg-transparent text-[#6d28d9] has-[:checked]:border-[#6d28d9] has-[:checked]:bg-[#6d28d9] has-[:checked]:text-white`}
+            >
+              <input type="checkbox" name="gatheringIds" value={gathering.id} className="sr-only" data-testid="archive-gathering-check" />
+              {gathering.name}
+            </label>
           ))}
-        </ul>
+        </div>
       )}
     </fieldset>
   );

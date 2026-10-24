@@ -779,7 +779,7 @@ export const quizMonthPrizes = pgTable(
   (table) => [uniqueIndex("quiz_month_prizes_community_month_uidx").on(table.communityId, table.yearMonth)],
 );
 
-/** 토론 글입니다. 교회나 모들, 또는 제주 전체에 붙습니다. 제주 전체는 익명을 고를 수 있습니다. */
+/** 토론 글입니다. 지역, 속한 교회, 속한 모들, 전체 교회 중 한 범위에 붙습니다. */
 export const discussionPosts = pgTable(
   "discussion_posts",
   {
@@ -790,6 +790,8 @@ export const discussionPosts = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     isJeju: boolean("is_jeju").notNull().default(false),
+    /** seogwipo, jeju_city, jeju, church, gathering, all */
+    scope: text("scope").notNull().default(""),
     anonymous: boolean("anonymous").notNull().default(false),
     title: text("title").notNull(),
     body: text("body").notNull(),
@@ -801,8 +803,8 @@ export const discussionPosts = pgTable(
     index("discussion_posts_group_id_idx").on(table.groupId),
     index("discussion_posts_author_user_id_idx").on(table.authorUserId),
     check(
-      "discussion_posts_one_place",
-      sql`((${table.isJeju} = true and ${table.churchId} is null and ${table.groupId} is null) or (${table.isJeju} = false and (${table.churchId} is not null) <> (${table.groupId} is not null)))`,
+      "discussion_posts_scope_place",
+      sql`((${table.scope} in ('seogwipo', 'jeju_city', 'jeju', 'all') and ${table.churchId} is null and ${table.groupId} is null) or (${table.scope} = 'church' and ${table.churchId} is not null and ${table.groupId} is null and ${table.isJeju} = false) or (${table.scope} = 'gathering' and ${table.groupId} is not null and ${table.churchId} is null and ${table.isJeju} = false))`,
     ),
     check("discussion_posts_title_not_blank", sql`length(btrim(${table.title})) > 0`),
     check("discussion_posts_body_not_blank", sql`length(btrim(${table.body})) > 0`),

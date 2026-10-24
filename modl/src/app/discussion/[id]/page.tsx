@@ -92,7 +92,7 @@ export default async function DiscussionPostPage({
                 className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-relaxed"
               />
             </label>
-            {page.post.isJeju ? (
+            {page.post.broad ? (
               <label className="flex items-center gap-2 leading-snug">
                 <input type="checkbox" name="anonymous" value="1" data-testid="discussion-reply-anonymous" />
                 익명으로 답글 달기

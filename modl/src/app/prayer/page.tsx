@@ -7,6 +7,7 @@ import { TermButton } from "@/components/term-button";
 import { SubmitButton, TermArea } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
 import { TermText } from "@/components/term-text";
+import { choiceButtonClass, choiceRowClass } from "@/components/choice-buttons";
 import { PRAYER_SCOPES } from "@/prayer/scopes";
 import { viewerIsGuest } from "@/server/login/access";
 import { createPrayerAction, prayTogetherAction } from "@/server/prayer/actions";
@@ -50,14 +51,14 @@ export default async function PrayerPage({
         <TermArea termKey="field_prayer" name="content" required rows={4} />
         <fieldset data-testid="prayer-scopes" className="grid gap-2">
           <legend className="font-semibold">범위</legend>
-          <div className="flex flex-col gap-2 lg:flex-row lg:flex-nowrap">
+          <div className={choiceRowClass}>
             {PRAYER_SCOPES.map((scope) => (
               <label
                 key={scope.value}
-                className="cursor-pointer rounded-2xl border-2 border-[#1d4ed8] bg-transparent px-3 py-2 text-center text-sm font-semibold leading-snug text-[#1d4ed8] has-[:checked]:border-[#1d4ed8] has-[:checked]:bg-[#1d4ed8] has-[:checked]:text-white lg:min-w-0 lg:flex-1"
+                className={`${choiceButtonClass} cursor-pointer border-[#0f766e] bg-transparent text-[#0f766e] has-[:checked]:border-[#0f766e] has-[:checked]:bg-[#0f766e] has-[:checked]:text-white`}
               >
                 <input type="radio" name="scope" value={scope.value} required className="sr-only" data-testid={`prayer-scope-${scope.value}`} />
-                <span className="block truncate">{scope.label}</span>
+                {scope.label}
               </label>
             ))}
           </div>

@@ -11,13 +11,15 @@ const MEMBER_HREFS = [
   "/qt",
   "/prayer",
   "/calendar",
-  "/archive",
   "/discussion",
+  "/finance",
+  "/minutes",
+  "/archive",
   "/leader",
   "/map",
 ] as const;
 
-const OFFICER_HREFS = ["/finance", "/minutes"] as const;
+const OFFICER_HREFS = [] as const;
 
 export function sidebarHrefs(input: { formal: boolean; officer: boolean }): string[] {
   if (!input.formal) return CATEGORY_LINKS.map((item) => item.href);

@@ -5,7 +5,8 @@ import { z } from "zod";
 import { createCategory, createTransaction, FinanceFlowError, readableFinanceError, syncFinanceToSheets } from "@/server/finance/service";
 
 function fail(path: string, error: unknown): never {
-  redirect(`${path}?error=${encodeURIComponent(readableFinanceError(error))}`);
+  const joiner = path.includes("?") ? "&" : "?";
+  redirect(`${path}${joiner}error=${encodeURIComponent(readableFinanceError(error))}`);
 }
 
 function text(formData: FormData, key: string): string {
@@ -35,9 +36,9 @@ export async function createCategoryAction(formData: FormData) {
   try {
     await createCategory({ ...parsed.data, placeKind, placeId });
   } catch (error) {
-    fail("/finance", error);
+    fail(`/finance?place=${encodeURIComponent(placeRef)}`, error);
   }
-  redirect("/finance?ok=category");
+  redirect(`/finance?place=${encodeURIComponent(placeRef)}&ok=category`);
 }
 
 export async function createTransactionAction(formData: FormData) {
