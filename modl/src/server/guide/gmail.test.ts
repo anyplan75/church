@@ -78,15 +78,16 @@ describe("안내 메일함 읽기", () => {
     assert.equal(result.items[0]?.fromEmail, "office@example.com");
   });
 
-  it("받는 주소 자체는 읽지 않습니다", async () => {
+  it("modl.jeju 편지함만 읽습니다", async () => {
+    assert.equal(GUIDE_MAILBOX, "modl.jeju@gmail.com");
+    assert.equal(GUIDE_INTAKE_ADDRESS, GUIDE_MAILBOX);
     const result = await fetchGuideMail({ GOOGLE_SQL_ADMIN_CREDENTIALS: serviceAccount }, new Set(), async (input) => {
       const url = String(input);
       if (url.includes("oauth2.googleapis.com/token")) return json({ access_token: "fixture-token" });
-      if (url.endsWith("/profile")) return json({ emailAddress: GUIDE_INTAKE_ADDRESS });
+      if (url.endsWith("/profile")) return json({ emailAddress: "anyplan.me@gmail.com" });
       return json({}, 404);
     });
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.reason, "mailbox");
-    assert.notEqual(GUIDE_INTAKE_ADDRESS, GUIDE_MAILBOX);
   });
 });
