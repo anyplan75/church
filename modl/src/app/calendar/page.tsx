@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { monthDayMarks, seoulToday, shiftDateKey, weekDateKeys, WEEKDAY_LABELS, type MonthDayCell } from "@/calendar/rules";
 import { CalendarPlaceFilters } from "@/components/calendar-place-filters";
+import { choiceButtonClass } from "@/components/choice-buttons";
 import { SeasonMark } from "@/components/season-mark";
 import { ScheduleItem } from "@/components/schedule-item";
 import { CategoryField, LeaderOnlyField } from "@/components/choice-fields";
@@ -139,7 +140,7 @@ export default async function CalendarPage({
               role="tab"
               aria-selected={view === "month"}
               data-testid="calendar-tab-month"
-              className={`rounded-full px-3 py-2 text-sm font-semibold ${view === "month" ? "bg-[#111827] text-white" : "bg-[#fffaf3] text-[#475569]"}`}
+              className={`${choiceButtonClass} ${view === "month" ? "border-[#111827] bg-[#111827] text-white" : "border-[#111827] bg-transparent text-[#111827]"}`}
             >
               월별일정
             </Link>
@@ -148,7 +149,7 @@ export default async function CalendarPage({
               role="tab"
               aria-selected={view === "week"}
               data-testid="calendar-tab-week"
-              className={`rounded-full px-3 py-2 text-sm font-semibold ${view === "week" ? "bg-[#111827] text-white" : "bg-[#fffaf3] text-[#475569]"}`}
+              className={`${choiceButtonClass} ${view === "week" ? "border-[#111827] bg-[#111827] text-white" : "border-[#111827] bg-transparent text-[#111827]"}`}
             >
               주간일정
             </Link>

@@ -7,11 +7,11 @@ const otherChurch = "church-2";
 const gathering = "group-1";
 
 describe("토론 범위", () => {
-  it("지역, 속한 교회와 모들, 전체 교회를 나열합니다", () => {
+  it("전체, 제주시, 서귀포시, 속한 교회와 모들 순으로 나열합니다", () => {
     const scopes = discussionScopesFor({ churchIds: [church, otherChurch], groupIds: [gathering] });
     assert.deepEqual(
       scopes.map((scope) => scope.kind),
-      ["seogwipo", "jeju_city", "jeju", "church", "church", "gathering", "all"],
+      ["all", "jeju_city", "seogwipo", "church", "church", "gathering"],
     );
     assert.deepEqual(
       scopes.filter((scope) => scope.kind === "church").map((scope) => scope.id),
@@ -31,8 +31,8 @@ describe("토론 범위", () => {
     assert.equal(canSeeDiscussionPost({ scope: "gathering", churchId: null, groupId: "group-2" }, viewer), false);
     assert.equal(canSeeDiscussionPost({ scope: "seogwipo", churchId: null, groupId: null }, viewer), true);
     assert.equal(canSeeDiscussionPost({ scope: "jeju_city", churchId: null, groupId: null }, viewer), true);
-    assert.equal(canSeeDiscussionPost({ scope: "jeju", churchId: null, groupId: null }, viewer), true);
     assert.equal(canSeeDiscussionPost({ scope: "all", churchId: null, groupId: null }, viewer), true);
+    assert.equal(canSeeDiscussionPost({ scope: "jeju", churchId: null, groupId: null }, viewer), true);
     assert.equal(canSeeDiscussionPost({ scope: "seogwipo", churchId: church, groupId: null }, viewer), false);
     assert.equal(canSeeDiscussionPost({ churchId: null, groupId: null, isJeju: true }, viewer), true);
   });

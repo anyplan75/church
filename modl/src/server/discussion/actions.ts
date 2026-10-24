@@ -18,13 +18,13 @@ export async function createDiscussionPostAction(formData: FormData) {
     .object({
       title: z.string().trim().min(1, "제목을 적어 주세요.").max(160, "제목은 160자 안으로 적어 주세요."),
       body: z.string().trim().min(1, "글을 적어 주세요.").max(4000, "글은 4000자 안으로 적어 주세요."),
-      placeRef: z.string().trim().min(1, "글을 올릴 곳을 골라 주세요."),
+      placeRefs: z.array(z.string().trim().min(1)).min(1, "글을 올릴 범위를 골라 주세요."),
       anonymous: z.boolean(),
     })
     .safeParse({
       title: text(formData, "title"),
       body: text(formData, "body"),
-      placeRef: text(formData, "placeRef"),
+      placeRefs: formData.getAll("placeRef").filter((item): item is string => typeof item === "string" && item.trim().length > 0),
       anonymous: formData.get("anonymous") === "1",
     });
   if (!parsed.success) fail("/discussion", new DiscussionFlowError(parsed.error.issues[0]?.message ?? "글을 확인해 주세요."));

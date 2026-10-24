@@ -1,13 +1,14 @@
 /**
  * 토론 글과 답글을 저장합니다.
  * 교회 글과 모들 글은 그곳에 속한 사람만 봅니다.
- * 서귀포시, 제주시, 제주도, 전체 교회는 로그인한 사람이 보고, 익명을 고르면 이름을 내리지 않습니다.
+ * 전체, 제주시, 서귀포시는 로그인한 사람이 보고, 익명을 고르면 이름을 내리지 않습니다.
  */
 
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   canSeeDiscussionPost,
   discussionScopeFromRef,
+  discussionScopeKey,
   isBroadDiscussionScope,
   resolvedDiscussionScope,
   visibleAuthorName,
@@ -36,18 +37,18 @@ export function readableDiscussionError(error: unknown): string {
 export type DiscussionScopeChoice = DiscussionScope & { label: string };
 
 const REGION_CHOICES: DiscussionScopeChoice[] = [
-  { kind: "seogwipo", id: "seogwipo", label: "서귀포시" },
+  { kind: "all", id: "all", label: "전체" },
   { kind: "jeju_city", id: "jeju_city", label: "제주시" },
-  { kind: "jeju", id: "jeju", label: "제주도" },
+  { kind: "seogwipo", id: "seogwipo", label: "서귀포시" },
 ];
 
 const SCOPE_LABEL: Record<DiscussionScopeKind, string> = {
+  all: "전체",
   seogwipo: "서귀포시",
   jeju_city: "제주시",
-  jeju: "제주도",
+  jeju: "전체",
   church: "교회",
   gathering: "모들",
-  all: "전체 교회",
 };
 
 async function viewerScopes() {
@@ -70,7 +71,7 @@ async function viewerScopes() {
     .slice()
     .sort((left, right) => left.name.localeCompare(right.name, "ko"))
     .map((row) => ({ kind: "gathering" as const, id: row.id, label: row.name }));
-  const scopes: DiscussionScopeChoice[] = [...REGION_CHOICES, ...churches, ...gatherings, { kind: "all", id: "all", label: "전체 교회" }];
+  const scopes: DiscussionScopeChoice[] = [...REGION_CHOICES, ...churches, ...gatherings];
   return { ok: true as const, userId: actor.userId, scopes, churchIds: scope.churchIds, groupIds: scope.groupIds };
 }
 
@@ -87,10 +88,9 @@ function placeLabelFor(
   return "";
 }
 
-export async function loadDiscussionBoard(scopeRef = "") {
+export async function loadDiscussionBoard() {
   const viewer = await viewerScopes();
   if (!viewer.ok) return { ok: false as const };
-  const selected = discussionScopeFromRef(scopeRef, viewer.scopes) ?? viewer.scopes[0] ?? null;
   const db = getDb();
   const churchIds = [...viewer.churchIds];
   const groupIds = [...viewer.groupIds];
@@ -119,14 +119,7 @@ export async function loadDiscussionBoard(scopeRef = "") {
     .where(where)
     .orderBy(desc(discussionPosts.createdAt));
   const viewerSets = { churchIds: viewer.churchIds, groupIds: viewer.groupIds };
-  const visible = rows.filter((row) => {
-    if (!canSeeDiscussionPost(row, viewerSets)) return false;
-    if (!selected) return true;
-    if (resolvedDiscussionScope(row) !== selected.kind) return false;
-    if (selected.kind === "church") return row.churchId === selected.id;
-    if (selected.kind === "gathering") return row.groupId === selected.id;
-    return true;
-  });
+  const visible = rows.filter((row) => canSeeDiscussionPost(row, viewerSets));
   const ids = visible.map((row) => row.id);
   const counts = ids.length
     ? await db
@@ -141,14 +134,15 @@ export async function loadDiscussionBoard(scopeRef = "") {
   const countByPost = new Map(counts.map((row) => [row.postId, Number(row.total)]));
   return {
     ok: true as const,
-    scopes: viewer.scopes,
-    selected,
+    churches: viewer.scopes.filter((scope) => scope.kind === "church").map((scope) => ({ id: scope.id, name: scope.label })),
+    gatherings: viewer.scopes.filter((scope) => scope.kind === "gathering").map((scope) => ({ id: scope.id, name: scope.label })),
     posts: visible.map((row) => ({
       id: row.id,
       title: row.title,
       body: row.body,
       authorName: visibleAuthorName({ anonymous: row.anonymous, name: row.authorName }),
       placeLabel: placeLabelFor(row, viewer.scopes),
+      scopeKey: discussionScopeKey(row),
       replyCount: countByPost.get(row.id) ?? 0,
       createdAt: row.createdAt,
     })),
@@ -213,28 +207,40 @@ export async function loadDiscussionPost(postId: string) {
   };
 }
 
-export async function createDiscussionPost(input: { title: string; body: string; placeRef: string; anonymous: boolean }): Promise<string> {
+export async function createDiscussionPost(input: { title: string; body: string; placeRefs: readonly string[]; anonymous: boolean }): Promise<string> {
   const viewer = await viewerScopes();
   if (!viewer.ok) throw new DiscussionFlowError("글을 쓰려면 먼저 들어가 주세요.");
-  const place = discussionScopeFromRef(input.placeRef, viewer.scopes);
-  if (!place) throw new DiscussionFlowError("글을 올릴 범위를 골라 주세요.");
+  const places = input.placeRefs
+    .map((ref) => discussionScopeFromRef(ref, viewer.scopes))
+    .filter((place): place is NonNullable<typeof place> => place !== null);
+  if (places.length === 0) throw new DiscussionFlowError("글을 올릴 범위를 골라 주세요.");
+  const broadCount = places.filter((place) => isBroadDiscussionScope(place.kind) && place.kind !== "jeju").length;
+  const placeCount = places.filter((place) => place.kind === "church" || place.kind === "gathering").length;
+  if (broadCount > 0 && placeCount > 0) throw new DiscussionFlowError("전체나 지역과 교회·모들을 같이 고를 수 없습니다.");
+  if (broadCount > 1) throw new DiscussionFlowError("전체, 제주시, 서귀포시 중 하나만 고를 수 있습니다.");
   await assertTextsAllowed(input.title, input.body);
-  const broad = isBroadDiscussionScope(place.kind);
-  const [created] = await getDb()
-    .insert(discussionPosts)
-    .values({
-      churchId: place.kind === "church" ? place.id : null,
-      groupId: place.kind === "gathering" ? place.id : null,
-      isJeju: place.kind === "jeju",
-      scope: place.kind,
-      anonymous: broad && input.anonymous,
-      authorUserId: viewer.userId,
-      title: input.title,
-      body: input.body,
-    })
-    .returning({ id: discussionPosts.id });
-  if (!created) throw new DiscussionFlowError("글을 저장하지 못했습니다.");
-  return created.id;
+  let firstId = "";
+  for (const place of places) {
+    if (place.kind === "jeju") continue;
+    const broad = isBroadDiscussionScope(place.kind);
+    const [created] = await getDb()
+      .insert(discussionPosts)
+      .values({
+        churchId: place.kind === "church" ? place.id : null,
+        groupId: place.kind === "gathering" ? place.id : null,
+        isJeju: false,
+        scope: place.kind,
+        anonymous: broad && input.anonymous,
+        authorUserId: viewer.userId,
+        title: input.title,
+        body: input.body,
+      })
+      .returning({ id: discussionPosts.id });
+    if (!created) throw new DiscussionFlowError("글을 저장하지 못했습니다.");
+    if (!firstId) firstId = created.id;
+  }
+  if (!firstId) throw new DiscussionFlowError("글을 올릴 범위를 골라 주세요.");
+  return firstId;
 }
 
 export async function createDiscussionReply(input: { postId: string; body: string; anonymous: boolean }): Promise<void> {

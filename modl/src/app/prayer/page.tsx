@@ -7,8 +7,7 @@ import { TermButton } from "@/components/term-button";
 import { SubmitButton, TermArea } from "@/components/term-field";
 import { TermHeading } from "@/components/term-heading";
 import { TermText } from "@/components/term-text";
-import { choiceButtonClass, choiceRowClass } from "@/components/choice-buttons";
-import { PRAYER_SCOPES } from "@/prayer/scopes";
+import { BelongingScopes } from "@/components/belonging-scopes";
 import { viewerIsGuest } from "@/server/login/access";
 import { createPrayerAction, prayTogetherAction } from "@/server/prayer/actions";
 import { loadPrayerHome } from "@/server/prayer/service";
@@ -49,20 +48,13 @@ export default async function PrayerPage({
       <p className="leading-relaxed text-[#5c5148]">{page.communityName}</p>
       <form action={createPrayerAction} id="prayer-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
         <TermArea termKey="field_prayer" name="content" required rows={4} />
-        <fieldset data-testid="prayer-scopes" className="grid gap-2">
-          <legend className="font-semibold">범위</legend>
-          <div className={choiceRowClass}>
-            {PRAYER_SCOPES.map((scope) => (
-              <label
-                key={scope.value}
-                className={`${choiceButtonClass} cursor-pointer border-[#0f766e] bg-transparent text-[#0f766e] has-[:checked]:border-[#0f766e] has-[:checked]:bg-[#0f766e] has-[:checked]:text-white`}
-              >
-                <input type="radio" name="scope" value={scope.value} required className="sr-only" data-testid={`prayer-scope-${scope.value}`} />
-                {scope.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <BelongingScopes
+          churches={page.churches}
+          gatherings={page.gatherings}
+          testId="prayer-scopes"
+          itemTestId="prayer-scope"
+          boardId="prayer-list"
+        />
         <AnonymousField />
         <SubmitButton termKey="save" testId="save-prayer" />
       </form>
@@ -71,11 +63,11 @@ export default async function PrayerPage({
           <TermText termKey="prayer_empty" />
         </p>
       ) : (
-        <ul className="grid gap-3">
+        <ul className="grid gap-3" data-scope-board="prayer-list">
           {page.items.map((item) => {
             const prayFormId = `pray-${item.id}`;
             return (
-              <li key={item.id} className="grid min-w-0 gap-2 rounded-2xl bg-[#fffaf3] px-4 py-3">
+              <li key={item.id} data-scope-key={item.scopeKey} className="grid min-w-0 gap-2 rounded-2xl bg-[#fffaf3] px-4 py-3">
                 {item.authorName ? (
                   <p data-testid="prayer-author" className="break-words font-semibold">
                     {item.authorName}

@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { choiceButtonClass, choiceButtonStyle, choiceRowClass, choiceToneColor, type ChoiceTone } from "@/components/choice-buttons";
+import { BelongingScopes } from "@/components/belonging-scopes";
 import { ErrorNote } from "@/components/form-note";
 import { LoginGuide } from "@/components/login-guide";
 import { TermHeading } from "@/components/term-heading";
-import { isBroadDiscussionScope } from "@/discussion/rules";
 import { createDiscussionPostAction } from "@/server/discussion/actions";
 import { loadDiscussionBoard } from "@/server/discussion/service";
 
@@ -19,19 +18,13 @@ function writtenAt(value: Date): string {
   }).format(value);
 }
 
-function toneOf(kind: string): ChoiceTone {
-  if (kind === "church") return "church";
-  if (kind === "gathering") return "gathering";
-  return "region";
-}
-
 export default async function DiscussionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; ok?: string; scope?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
   const query = await searchParams;
-  const page = await loadDiscussionBoard(query.scope ?? "");
+  const page = await loadDiscussionBoard();
 
   return (
     <section className="grid min-w-0 gap-4" data-testid="discussion-board">
@@ -46,34 +39,15 @@ export default async function DiscussionPage({
         <LoginGuide compact />
       ) : (
         <>
-          <div data-testid="discussion-scopes" className={choiceRowClass}>
-            {page.scopes.map((scope) => {
-              const ref = `${scope.kind}:${scope.id}`;
-              const on = page.selected?.kind === scope.kind && page.selected.id === scope.id;
-              return (
-                <Link
-                  key={ref}
-                  href={`/discussion?scope=${encodeURIComponent(ref)}`}
-                  data-testid="discussion-scope"
-                  data-kind={scope.kind}
-                  data-on={on ? "yes" : "no"}
-                  className={choiceButtonClass}
-                  style={choiceButtonStyle(on, choiceToneColor(toneOf(scope.kind)))}
-                >
-                  {scope.label}
-                </Link>
-              );
-            })}
-          </div>
-          {page.selected ? (
-            <form action={createDiscussionPostAction} id="discussion-form" data-testid="discussion-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
-              <input type="hidden" name="placeRef" value={`${page.selected.kind}:${page.selected.id}`} data-testid="discussion-place" />
-              {isBroadDiscussionScope(page.selected.kind) ? (
-                <label className="flex items-center gap-2 leading-snug">
-                  <input type="checkbox" name="anonymous" value="1" data-testid="discussion-anonymous" />
-                  익명으로 올리기
-                </label>
-              ) : null}
+          <form action={createDiscussionPostAction} id="discussion-form" data-testid="discussion-form" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
+              <BelongingScopes
+                churches={page.churches}
+                gatherings={page.gatherings}
+                testId="discussion-scopes"
+                itemTestId="discussion-scope"
+                boardId="discussion-list"
+                anonymousWhenBroad
+              />
               <label className="grid gap-1">
                 <span className="font-semibold">제목</span>
                 <input
@@ -99,15 +73,14 @@ export default async function DiscussionPage({
                 글 올리기
               </button>
             </form>
-          ) : null}
           {page.posts.length === 0 ? (
             <p className="leading-relaxed" data-testid="discussion-empty">
               아직 글이 없습니다.
             </p>
           ) : (
-            <ul className="grid list-none gap-2" data-testid="discussion-list">
+            <ul className="grid list-none gap-2" data-testid="discussion-list" data-scope-board="discussion-list">
               {page.posts.map((post) => (
-                <li key={post.id} data-testid="discussion-post" className="grid gap-1 rounded-2xl bg-[#fffaf3] px-4 py-3">
+                <li key={post.id} data-testid="discussion-post" data-scope-key={post.scopeKey} className="grid gap-1 rounded-2xl bg-[#fffaf3] px-4 py-3">
                   <Link href={`/discussion/${post.id}`} className="break-words font-semibold" data-testid="discussion-title">
                     {post.title}
                   </Link>

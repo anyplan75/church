@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { isPrayerScope } from "@/prayer/scopes";
 import {
   createPrayer,
   markLetterRead,
@@ -25,12 +24,12 @@ export async function createPrayerAction(formData: FormData) {
   const parsed = z
     .object({
       content: z.string().trim().min(1, "기도 내용을 적어 주세요.").max(4000),
-      scope: z.string().refine(isPrayerScope, "기도 범위를 골라 주세요."),
+      placeRefs: z.array(z.string().trim().min(1)).min(1, "기도 범위를 골라 주세요."),
       isAnonymous: z.boolean(),
     })
     .safeParse({
       content: text(formData, "content"),
-      scope: text(formData, "scope"),
+      placeRefs: formData.getAll("placeRef").filter((item): item is string => typeof item === "string" && item.trim().length > 0),
       isAnonymous: formData.get("isAnonymous") === "yes",
     });
   if (!parsed.success) fail("/prayer", new PrayerFlowError(parsed.error.issues[0]?.message ?? "기도를 확인해 주세요."));
