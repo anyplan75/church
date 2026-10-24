@@ -192,8 +192,12 @@ export async function loadCalendarMonth(year: number, month: number) {
   const knownGoogleIds = new Set(visible.map((event) => event.googleEventId).filter((id): id is string => Boolean(id)));
   const googleEvents: GoogleEventView[] = google.items.filter((item) => !knownGoogleIds.has(item.id));
   const followedChurchRows = scope.churchIds.size
-    ? await db.select({ id: mapChurches.id, name: mapChurches.name }).from(mapChurches).where(inArray(mapChurches.id, [...scope.churchIds]))
+    ? await db
+        .select({ id: mapChurches.id, name: mapChurches.name, communityId: mapChurches.communityId })
+        .from(mapChurches)
+        .where(inArray(mapChurches.id, [...scope.churchIds]))
     : [];
+  const churchByCommunity = new Map(followedChurchRows.map((row) => [row.communityId, row.id]));
   const followedGroupRows = scope.groupIds.size
     ? await db.select({ id: smallGroups.id, name: smallGroups.name }).from(smallGroups).where(inArray(smallGroups.id, [...scope.groupIds]))
     : [];
@@ -203,11 +207,19 @@ export async function loadCalendarMonth(year: number, month: number) {
     ...[...scope.editChurchIds].map((id) => ({ id, name: churchPlaceNames.get(id) ?? "교회", kind: "church" as const })),
     ...[...scope.editGroupIds].map((id) => ({ id, name: groupPlaceNames.get(id) ?? "모들", kind: "gathering" as const })),
   ].sort((left, right) => left.name.localeCompare(right.name, "ko"));
+  const memberships = [
+    ...followedChurchRows.map((row) => ({ id: row.id, name: row.name, kind: "church" as const })),
+    ...followedGroupRows.map((row) => ({ id: row.id, name: row.name, kind: "gathering" as const })),
+  ].sort((left, right) => {
+    if (left.kind !== right.kind) return left.kind === "church" ? -1 : 1;
+    return left.name.localeCompare(right.name, "ko");
+  });
   return {
     ok: true as const,
     communityName: community?.name ?? "",
     canEdit: places.length > 0,
     places,
+    memberships,
     myGroups: places.filter((place) => place.kind === "gathering").map((place) => ({ id: place.id, name: place.name })),
     googleCanWrite: readGoogleCalendarCanWrite(),
     googleNeedsCalendar: readGoogleCalendarWait() === "needs_calendar",
@@ -221,7 +233,7 @@ export async function loadCalendarMonth(year: number, month: number) {
             placeName: groupPlaceNames.get(event.groupId) ?? groupNames.get(event.groupId) ?? "모들",
           }
         : {
-            placeId: event.churchId ?? event.communityId,
+            placeId: event.churchId ?? churchByCommunity.get(event.communityId) ?? event.communityId,
             placeKind: "church" as const,
             placeName: event.churchId
               ? (churchPlaceNames.get(event.churchId) ?? "교회")

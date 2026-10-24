@@ -14,7 +14,7 @@ export function ArchiveScope({
       {churches.length === 0 && gatherings.length === 0 ? (
         <p className="leading-relaxed text-[#5c5148]">속한 교회와 모들이 없습니다.</p>
       ) : (
-        <ul className="grid list-none gap-2">
+        <ul data-testid="archive-place-list" className="flex list-none flex-col gap-2 lg:flex-row lg:flex-wrap lg:gap-x-6 lg:gap-y-2">
           {churches.map((church) => (
             <li key={church.id}>
               <label className="flex items-center gap-2 leading-snug">

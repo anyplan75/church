@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { monthDayMarks, seoulToday, shiftDateKey, weekDateKeys, WEEKDAY_LABELS, type MonthDayCell } from "@/calendar/rules";
+import { CalendarPlaceFilters } from "@/components/calendar-place-filters";
 import { SeasonMark } from "@/components/season-mark";
 import { ScheduleItem } from "@/components/schedule-item";
 import { CategoryField, LeaderOnlyField } from "@/components/choice-fields";
@@ -196,6 +197,7 @@ export default async function CalendarPage({
               구글 달력 열쇠가 있어야 보낼 수 있습니다. 모들 달력은 그대로 씁니다.
             </p>
           ) : null}
+          <CalendarPlaceFilters places={page.ok ? page.memberships : []}>
           {view === "week" ? (
             <ol data-testid="week-board" className="grid list-none grid-cols-1 gap-2 lg:grid-cols-7">
               {/* 칸 높이는 이전 6rem의 네 배입니다. 좁은 화면은 일곱 요일을 세로로 쌓아 페이지가 스크롤됩니다. */}
@@ -250,6 +252,7 @@ export default async function CalendarPage({
               </table>
             </div>
           )}
+          </CalendarPlaceFilters>
           {hasMarks ? null : <p className="leading-relaxed">{view === "week" ? "이 주에는 보이는 일정이 없습니다." : "이 달에는 보이는 일정이 없습니다."}</p>}
           {page.ok ? (
             <p className="leading-relaxed text-[#5c5148]" data-testid="calendar-scope-note">

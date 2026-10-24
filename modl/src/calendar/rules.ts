@@ -278,6 +278,7 @@ export type DayMark = {
   leaderOnly: boolean;
   placeName: string | null;
   placeKind: "church" | "gathering" | null;
+  placeId: string | null;
   placeColor: string | null;
 };
 
@@ -299,14 +300,14 @@ export function schedulePlaceColor(kind: "church" | "gathering", id: string): st
   return palette[swatchIndex(id, palette.length)] ?? palette[0];
 }
 
-const NO_PLACE = { placeName: null, placeKind: null, placeColor: null } as const;
+const NO_PLACE = { placeName: null, placeKind: null, placeId: null, placeColor: null } as const;
 
-function placeOf(event: CalendarDayEvent): { placeName: string | null; placeKind: "church" | "gathering" | null; placeColor: string | null } {
+function placeOf(event: CalendarDayEvent): { placeName: string | null; placeKind: "church" | "gathering" | null; placeId: string | null; placeColor: string | null } {
   const placeName = event.placeName?.trim() || null;
   const placeKind = event.placeKind === "church" || event.placeKind === "gathering" ? event.placeKind : null;
   const placeId = event.placeId?.trim() || null;
   if (!placeName || !placeKind || !placeId) return NO_PLACE;
-  return { placeName, placeKind, placeColor: schedulePlaceColor(placeKind, placeId) };
+  return { placeName, placeKind, placeId, placeColor: schedulePlaceColor(placeKind, placeId) };
 }
 
 /** 일요일로 시작하는 그 주의 일곱 날짜입니다. 없는 날짜는 만들지 않습니다. */
