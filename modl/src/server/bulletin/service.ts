@@ -205,7 +205,7 @@ async function bulletinPlace(actor: Actor, kind: string, id: string): Promise<{ 
         .from(mapChurches)
         .where(eq(mapChurches.id, id))
         .limit(1);
-      if (!row || row.createdByUserId !== actor.userId) {
+      if (!row || (row.createdByUserId !== actor.userId && !canPublishBulletin(actor, row.communityId))) {
         throw new BulletinFlowError("안내는 그 교회나 모들 관리자가 설정에서 만듭니다.");
       }
       return { communityId: row.communityId, churchId: id, groupId: null };
@@ -216,7 +216,7 @@ async function bulletinPlace(actor: Actor, kind: string, id: string): Promise<{ 
         .from(smallGroups)
         .where(eq(smallGroups.id, id))
         .limit(1);
-      if (!row || row.createdByUserId !== actor.userId) {
+      if (!row || (row.createdByUserId !== actor.userId && !canPublishBulletin(actor, row.communityId))) {
         throw new BulletinFlowError("안내는 그 교회나 모들 관리자가 설정에서 만듭니다.");
       }
       return { communityId: row.communityId, churchId: null, groupId: id };
@@ -230,6 +230,18 @@ async function bulletinPlace(actor: Actor, kind: string, id: string): Promise<{ 
     churchId: actor.kind === "user" ? await currentChurchIdFor(actor.userId) : null,
     groupId: null,
   };
+}
+
+export async function canMakeGuide(kind: string, id: string): Promise<boolean> {
+  await ensureDatabase();
+  const actor = await loadActor();
+  if (actor.kind !== "user" || (kind !== "church" && kind !== "gathering") || !id) return false;
+  try {
+    await bulletinPlace(actor, kind, id);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function saveBulletin(input: {

@@ -8,15 +8,14 @@
 
 import { randomBytes } from "node:crypto";
 import { servicesFromBulletinText, BULLETIN_PART_BYTES, BULLETIN_UPLOAD_BYTES, type BulletinServiceDraft } from "@/bulletin/intake";
-import { eq } from "drizzle-orm";
 import { canPublishBulletin } from "@/server/bulletin/access";
+import { canMakeGuide } from "@/server/bulletin/service";
 import type { Actor } from "@/server/auth/actor";
 import { activeCommunityId, loadActor } from "@/server/auth/session";
 import { readBulletinImage } from "@/server/bulletin/read/image";
 import { readBulletinFile } from "@/server/bulletin/read/files";
 import { resolveBulletinExtension, saveBulletinFile } from "@/server/bulletin/read/store";
-import { mapChurches, smallGroups } from "@/server/db/schema";
-import { ensureDatabase, getDb, getPool } from "@/server/db/runtime";
+import { getPool } from "@/server/db/runtime";
 import { assertTextsAllowed, BannedWordError } from "@/server/moderation/guard";
 
 export type BulletinReadResult =
@@ -55,7 +54,7 @@ async function publisher(formData: FormData): Promise<{ userId: string } | { mes
   const kind = formData.get("placeKind");
   const id = formData.get("placeId");
   if ((kind === "church" || kind === "gathering") && typeof id === "string" && id) {
-    if (!(await managesPlace(userId, kind, id))) {
+    if (!(await canMakeGuide(kind, id))) {
       return { message: "안내는 그 교회나 모들 관리자가 설정에서 만듭니다." };
     }
     return { userId };
@@ -65,18 +64,6 @@ async function publisher(formData: FormData): Promise<{ userId: string } | { mes
     return { message: "안내는 그 교회나 모들 관리자가 설정에서 만듭니다." };
   }
   return { userId };
-}
-
-async function managesPlace(userId: string, kind: "church" | "gathering", id: string): Promise<boolean> {
-  if (!userId) return false;
-  await ensureDatabase();
-  const db = getDb();
-  if (kind === "church") {
-    const [row] = await db.select({ createdByUserId: mapChurches.createdByUserId }).from(mapChurches).where(eq(mapChurches.id, id)).limit(1);
-    return row?.createdByUserId === userId;
-  }
-  const [row] = await db.select({ createdByUserId: smallGroups.createdByUserId }).from(smallGroups).where(eq(smallGroups.id, id)).limit(1);
-  return row?.createdByUserId === userId;
 }
 
 function userIdOf(actor: Actor): string {
