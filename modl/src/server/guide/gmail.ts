@@ -1,5 +1,6 @@
 /**
- * 모들 제주 메일함의 새 편지를 읽습니다.
+ * anyplan.me 편지함의 새 편지를 읽습니다.
+ * modl.jeju 로 온 안내는 그 편지함으로 전달됩니다.
  * 갱신 열쇠가 있으면 그 열쇠를 쓰고, 없으면 이미 있는 구글 서비스 계정으로 그 메일함을 엽니다.
  * 열쇠 값은 기록으로 남기지 않습니다.
  */
@@ -14,8 +15,9 @@ import {
   pickGuideAttachment,
   type ParsedMail,
 } from "@/guide/mail";
+import { GUIDE_MAILBOX } from "@/guide/mailbox";
 
-export const GUIDE_MAILBOX = "modl.jeju@gmail.com";
+export { GUIDE_MAILBOX };
 
 const SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";

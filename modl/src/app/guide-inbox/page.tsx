@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AccessScreen } from "@/components/access-screen";
+import { GUIDE_INTAKE_ADDRESS } from "@/guide/mailbox";
 import { approveGuideAction, pullGuideMailAction, rejectGuideAction } from "@/server/guide/actions";
 import { loadGuideDesk } from "@/server/guide/inbox";
 
@@ -38,7 +39,7 @@ export default async function GuideInboxPage({
     <section className="grid gap-4" data-testid="guide-approval">
       <h1 className="text-2xl font-semibold leading-snug">안내 승인</h1>
       <p className="leading-relaxed text-[#5c5148]">
-        modl.jeju@gmail.com 으로 온 주보와 안내는 승인 후에만 등록됩니다. 거절하면 등록되지 않습니다.
+        {GUIDE_INTAKE_ADDRESS} 으로 온 주보와 안내는 승인 후에만 등록됩니다. 거절하면 등록되지 않습니다.
       </p>
       {query.error ? <p className="rounded-2xl bg-[#fde8e2] px-4 py-3 leading-relaxed">{query.error}</p> : null}
       {status ? (

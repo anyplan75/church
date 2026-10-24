@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { describe, it } from "node:test";
+import { GUIDE_INTAKE_ADDRESS, GUIDE_MAILBOX } from "@/guide/mailbox";
 import { fetchGuideMail, type GmailEnv } from "@/server/guide/gmail";
 
 const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -36,11 +37,11 @@ describe("안내 메일함 읽기", () => {
           sub?: string;
           scope?: string;
         };
-        assert.equal(payload.sub, "modl.jeju@gmail.com");
+        assert.equal(payload.sub, GUIDE_MAILBOX);
         assert.match(payload.scope ?? "", /gmail\.readonly/);
         return json({ access_token: "fixture-token" });
       }
-      if (url.endsWith("/profile")) return json({ emailAddress: "modl.jeju@gmail.com" });
+      if (url.endsWith("/profile")) return json({ emailAddress: GUIDE_MAILBOX });
       if (url.includes("/messages?")) return json({ messages: [{ id: "m1" }, { id: "old" }] });
       if (url.includes("/attachments/")) {
         return json({ data: Buffer.from("주일 1부 예배", "utf8").toString("base64url") });
@@ -77,14 +78,15 @@ describe("안내 메일함 읽기", () => {
     assert.equal(result.items[0]?.fromEmail, "office@example.com");
   });
 
-  it("다른 메일함이면 읽지 않습니다", async () => {
+  it("받는 주소 자체는 읽지 않습니다", async () => {
     const result = await fetchGuideMail({ GOOGLE_SQL_ADMIN_CREDENTIALS: serviceAccount }, new Set(), async (input) => {
       const url = String(input);
       if (url.includes("oauth2.googleapis.com/token")) return json({ access_token: "fixture-token" });
-      if (url.endsWith("/profile")) return json({ emailAddress: "other@example.com" });
+      if (url.endsWith("/profile")) return json({ emailAddress: GUIDE_INTAKE_ADDRESS });
       return json({}, 404);
     });
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.reason, "mailbox");
+    assert.notEqual(GUIDE_INTAKE_ADDRESS, GUIDE_MAILBOX);
   });
 });
