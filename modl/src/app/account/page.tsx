@@ -69,6 +69,13 @@ export default async function AccountPage({
   const siteOperator = showsSiteOperator(account.role);
   const year = seasonYear(query.year);
   const tabs: Array<{ id: string; label: string; panel: ReactNode }> = [];
+  if (account.user && place) {
+    tabs.push({
+      id: "places",
+      label: "교회·모들",
+      panel: <PlaceAccount place={place} part="personal" churchQuery={query.church ?? ""} gatheringQuery={query.gathering ?? ""} />,
+    });
+  }
   if (account.user && siteOperator) {
     const banned = await loadBannedWordsForEditor();
     tabs.push({
@@ -138,12 +145,11 @@ export default async function AccountPage({
         </p>
       ) : null}
       {account.user ? (
-        <div className="grid gap-6">
-          <div className="grid items-start gap-6 lg:grid-cols-2">
-          <section data-testid="personal-settings" className="grid gap-4">
+        <div className="grid gap-8">
+          <section data-testid="personal-settings" className="grid w-full gap-4">
             <h2 className="text-lg font-semibold leading-snug">개인설정</h2>
             <p className="font-semibold leading-snug">{account.user.name}</p>
-            <form action={deleteAccountAction} data-testid="account-delete" className="grid gap-3">
+            <form action={deleteAccountAction} data-testid="account-delete" className="grid max-w-xl gap-3">
               <h3 className="font-semibold leading-snug">계정 삭제</h3>
               <p className="leading-relaxed text-[#5c5148]">
                 이메일, 비밀번호, 전화번호와 내가 쓴 글, 기도, 묵상을 지웁니다. 교회가 적어 둔 안내와 재정 내역은 남습니다. 지운 뒤에는 이 계정으로 다시 들어오지 못합니다.
@@ -168,29 +174,33 @@ export default async function AccountPage({
                 계정을 지우기
               </button>
             </form>
-            {place ? <PlaceAccount place={place} part="personal" churchQuery={query.church ?? ""} gatheringQuery={query.gathering ?? ""} /> : null}
             {showsOwnPickup(account.role) ? <OwnPickupSettings /> : null}
           </section>
           {current ? (
-            <div className="grid gap-4">
-              <nav role="tablist" aria-label="관리 설정" data-testid="account-role-tabs" className="flex flex-wrap gap-2">
-                {tabs.map((tab) => (
-                  <Link
-                    key={tab.id}
-                    href={`/account?tab=${tab.id}`}
-                    role="tab"
-                    aria-selected={tab.id === current.id}
-                    className={`rounded-full px-3 py-2 text-sm font-semibold ${tab.id === current.id ? "bg-[#111827] text-white" : "bg-[#fffaf3] text-[#475569]"}`}
-                  >
-                    {tab.label}
-                  </Link>
-                ))}
+            <div className="grid w-full gap-4" data-testid="account-tabs">
+              <nav role="tablist" aria-label="계정 내용" data-testid="account-role-tabs" className="flex flex-wrap gap-2">
+                {tabs.map((tab) => {
+                  const params = new URLSearchParams({ tab: tab.id });
+                  if (query.church) params.set("church", query.church);
+                  if (query.gathering) params.set("gathering", query.gathering);
+                  if (query.year) params.set("year", query.year);
+                  return (
+                    <Link
+                      key={tab.id}
+                      href={`/account?${params}`}
+                      role="tab"
+                      aria-selected={tab.id === current.id}
+                      className={`rounded-full px-3 py-2 text-sm font-semibold ${tab.id === current.id ? "bg-[#111827] text-white" : "bg-[#fffaf3] text-[#475569]"}`}
+                    >
+                      {tab.label}
+                    </Link>
+                  );
+                })}
               </nav>
               <div role="tabpanel">{current.panel}</div>
             </div>
           ) : null}
-          </div>
-          <form action={logoutAction} data-testid="account-logout" className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">
+          <form action={logoutAction} data-testid="account-logout" className="grid w-full gap-3 rounded-3xl bg-[#fffaf3] p-4">
             <SubmitButton termKey="logout" />
           </form>
         </div>

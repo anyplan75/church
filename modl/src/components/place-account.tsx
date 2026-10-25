@@ -35,6 +35,7 @@ export function PlaceAccount({
         <h2 className="text-lg font-semibold leading-snug">교회</h2>
         <p className="leading-relaxed text-[#5c5148]">여러 교회를 구독하고, 내가 갈 교회를 고릅니다.</p>
         <form action="/account" className="flex flex-wrap gap-2">
+          <input type="hidden" name="tab" value="places" />
           <input
             name="church"
             defaultValue={churchQuery}
@@ -103,6 +104,7 @@ export function PlaceAccount({
           </button>
         </form>
         <form action="/account" className="flex flex-wrap gap-2">
+          <input type="hidden" name="tab" value="places" />
           <input
             name="gathering"
             defaultValue={gatheringQuery}
