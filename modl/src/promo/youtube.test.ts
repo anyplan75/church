@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { readYoutubeRss, youtubeTarget } from "@/promo/youtube";
+import { classifyYoutubeUrl, readYoutubeRss, videoIdsFromHtml, youtubeTarget } from "@/promo/youtube";
 import { loadYoutubeFeed } from "@/server/promo/youtube-feed";
 
 const rss = `<?xml version="1.0"?>
@@ -36,6 +36,17 @@ describe("유튜브 최신 글", () => {
     if (target?.kind === "videos") assert.deepEqual(target.videos.map((video) => video.title), ["나", "다", "라"]);
   });
 
+  it("한글 핸들 채널 주소를 읽습니다", () => {
+    const found = classifyYoutubeUrl("https://www.youtube.com/@서귀포제일교회");
+    assert.equal(found?.kind, "handle");
+    if (found?.kind === "handle") assert.equal(found.handle, "서귀포제일교회");
+  });
+
+  it("채널 HTML 에서 영상 번호를 순서대로 3개까지 읽습니다", () => {
+    const ids = videoIdsFromHtml('"videoId":"aaaaaaaaaaa" "videoId":"aaaaaaaaaaa" "videoId":"bbbbbbbbbbb" "videoId":"ccccccccccc" "videoId":"ddddddddddd"');
+    assert.deepEqual(ids, ["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"]);
+  });
+
   it("채널 주소가 있으면 그 채널의 최신 글을 가져오고 빈 칸은 만들지 않습니다", async () => {
     const channel = youtubeTarget([{ title: "채널", url: "https://www.youtube.com/channel/UCccccccccccc" }]);
     assert.equal(channel?.kind, "channel");
@@ -55,5 +66,25 @@ describe("유튜브 최신 글", () => {
     assert.equal(called.includes("feeds/videos.xml"), true);
     const hidden = await loadYoutubeFeed([], { fetchImpl: async () => new Response("") });
     assert.equal(hidden.status, "hidden");
+  });
+
+  it("RSS 가 비면 채널 페이지 HTML 로 최신 글 3개를 채웁니다", async () => {
+    const result = await loadYoutubeFeed([{ title: "채널", url: "https://www.youtube.com/channel/UCccccccccccc" }], {
+      apiKey: "",
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url.includes("feeds/videos.xml")) return new Response("not found", { status: 404 });
+        if (url.includes("oembed")) {
+          const id = new URL(url).searchParams.get("url")?.split("v=")[1] ?? "";
+          return Response.json({ title: `제목-${id}` });
+        }
+        return new Response(`<html>"videoId":"aaaaaaaaaaa""videoId":"bbbbbbbbbbb""videoId":"ccccccccccc"</html>`);
+      },
+    });
+    assert.equal(result.status, "ready");
+    if (result.status === "ready") {
+      assert.equal(result.videos.length, 3);
+      assert.equal(result.videos[0]?.title, "제목-aaaaaaaaaaa");
+    }
   });
 });

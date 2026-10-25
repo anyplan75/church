@@ -3,7 +3,13 @@
  * 열쇠가 없어도 공개 목록을 먼저 읽고, 필요할 때만 환경 변수를 씁니다.
  */
 
-import { channelIdFromHtml, readYoutubeRss, youtubeTarget, type YoutubeVideo } from "@/promo/youtube";
+import {
+  channelIdFromHtml,
+  readYoutubeRss,
+  videoIdsFromHtml,
+  youtubeTarget,
+  type YoutubeVideo,
+} from "@/promo/youtube";
 
 export type YoutubeFeed =
   | { status: "hidden" }
@@ -34,6 +40,32 @@ async function channelFromPage(fetchImpl: typeof fetch, pageUrl: string): Promis
   const html = await readText(fetchImpl, pageUrl);
   if (!html) return null;
   return channelIdFromHtml(html);
+}
+
+/** RSS 가 비어 있을 때, 채널 페이지 HTML + oEmbed 로 최신 글 3개를 읽습니다. */
+async function videosFromChannelPage(fetchImpl: typeof fetch, pageUrl: string): Promise<YoutubeVideo[]> {
+  const html = await readText(fetchImpl, pageUrl);
+  if (!html) return [];
+  const ids = videoIdsFromHtml(html);
+  if (ids.length === 0) return [];
+  return videosFromSaved(
+    fetchImpl,
+    ids.map((id) => ({ id, title: "", url: `https://www.youtube.com/watch?v=${id}` })),
+  );
+}
+
+function channelPageUrl(target: {
+  kind: "channel" | "handle" | "user" | "custom";
+  id?: string;
+  handle?: string;
+  user?: string;
+  name?: string;
+}): string {
+  if (target.kind === "channel" && target.id) return `https://www.youtube.com/channel/${target.id}`;
+  if (target.kind === "handle" && target.handle) return `https://www.youtube.com/@${encodeURIComponent(target.handle)}`;
+  if (target.kind === "custom" && target.name) return `https://www.youtube.com/c/${encodeURIComponent(target.name)}`;
+  if (target.kind === "user" && target.user) return `https://www.youtube.com/user/${encodeURIComponent(target.user)}`;
+  return "https://www.youtube.com/";
 }
 
 async function videosFromApi(fetchImpl: typeof fetch, apiKey: string, query: string): Promise<YoutubeVideo[] | null> {
@@ -137,15 +169,17 @@ export async function loadYoutubeFeed(
       const fromApi = await videosFromApi(fetchImpl, apiKey, query);
       videos = fromApi ?? [];
     }
-    if (videos.length === 0) {
+    if (videos.length === 0 && target.kind !== "videos") {
+      const pageUrl = channelPageUrl(target);
       let channelId = target.kind === "channel" ? target.id : "";
-      if (!channelId && target.kind === "handle") channelId = (await channelFromPage(fetchImpl, `https://www.youtube.com/@${target.handle}`)) ?? "";
-      if (!channelId && target.kind === "custom") channelId = (await channelFromPage(fetchImpl, `https://www.youtube.com/c/${target.name}`)) ?? "";
+      if (!channelId) channelId = (await channelFromPage(fetchImpl, pageUrl)) ?? "";
       if (!channelId && target.kind === "user") {
         const xml = await readText(fetchImpl, `https://www.youtube.com/feeds/videos.xml?user=${encodeURIComponent(target.user)}`);
         videos = xml ? readYoutubeRss(xml) : [];
       }
       if (videos.length === 0 && channelId) videos = await videosFromChannel(fetchImpl, channelId);
+      // RSS 가 막히거나 비면 채널 페이지에서 최근 영상 번호를 읽어 채웁니다.
+      if (videos.length === 0) videos = await videosFromChannelPage(fetchImpl, pageUrl);
     }
     if (videos.length === 0) {
       return {
