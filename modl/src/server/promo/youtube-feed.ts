@@ -169,7 +169,7 @@ export async function loadYoutubeFeed(
       const fromApi = await videosFromApi(fetchImpl, apiKey, query);
       videos = fromApi ?? [];
     }
-    if (videos.length === 0 && target.kind !== "videos") {
+    if (videos.length === 0) {
       const pageUrl = channelPageUrl(target);
       let channelId = target.kind === "channel" ? target.id : "";
       if (!channelId) channelId = (await channelFromPage(fetchImpl, pageUrl)) ?? "";

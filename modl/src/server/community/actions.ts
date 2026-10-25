@@ -2,7 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { accountDeleteConfirmError } from "@/account/delete-rules";
 import { parseAccountGender, parseAccountPhone } from "@/account/profile";
+import { deleteOwnAccount } from "@/server/account/delete";
 import { closeSession } from "@/server/auth/session";
 import {
   applyToJoin,
@@ -89,6 +91,17 @@ export async function loginAction(formData: FormData) {
 export async function logoutAction() {
   await closeSession();
   redirect("/account");
+}
+
+export async function deleteAccountAction(formData: FormData) {
+  const error = accountDeleteConfirmError(text(formData, "confirm"));
+  if (error) fail("/account", new Error(error));
+  try {
+    await deleteOwnAccount(text(formData, "confirm"));
+  } catch (caught) {
+    fail("/account", caught);
+  }
+  redirect("/account?ok=deleted");
 }
 
 export async function createCommunityAction(formData: FormData) {
