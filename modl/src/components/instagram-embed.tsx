@@ -56,14 +56,15 @@ export function InstagramEmbed({
 
   return (
     <div
-      className="mx-auto w-full max-w-[300px]"
+      className="mx-auto w-full max-w-[280px]"
       data-testid="instagram-embed"
       data-instagram-href={href}
       data-instagram-mode={mode}
       data-instagram-count={posts.length}
+      data-instagram-aspect="9/19.5"
     >
-      {/* 세로 긴 폰 비율. 12칸(4줄) 그리드도 아래가 잘려 스크롤되게 높이를 맞춥니다. */}
-      <div className="relative aspect-[9/11.5] overflow-hidden rounded-[1.75rem] border border-[#d6d3d1] bg-[#0f172a] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+      {/* 최신 스마트폰에 가까운 화면 비율(약 9:19.5). 가로 280 → 세로 약 607. */}
+      <div className="relative aspect-[9/19.5] overflow-hidden rounded-[1.75rem] border border-[#d6d3d1] bg-[#0f172a] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
         <div className="absolute inset-[5px] flex flex-col overflow-hidden rounded-[1.35rem] bg-white">
           {(openPost || showProfile) && (
             <div className="flex h-6 shrink-0 items-center gap-1 border-b border-[#f1f5f9] px-1.5">
