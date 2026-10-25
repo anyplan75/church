@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { instagramFrameSrc, instagramUsername, proxiedInstagramImageUrl, readInstagramMedia } from "@/promo/instagram";
-import { readWebProfileMedia } from "@/promo/instagram-web";
+import { readUserFeedMedia, readWebProfileMedia } from "@/promo/instagram-web";
 import { loadInstagramFeed } from "@/server/promo/instagram-feed";
 
 describe("인스타그램 최신 글", () => {
@@ -15,7 +15,7 @@ describe("인스타그램 최신 글", () => {
     assert.equal(instagramFrameSrc("https://instagram.com/modl.jeju/"), "https://www.instagram.com/modl.jeju/embed/");
     assert.equal(
       instagramFrameSrc("https://www.instagram.com/p/AbCdEf12345/"),
-      "https://www.instagram.com/p/AbCdEf12345/embed/captioned/",
+      "https://www.instagram.com/p/AbCdEf12345/embed/",
     );
     assert.equal(instagramFrameSrc("https://example.com/x"), null);
   });
@@ -48,6 +48,22 @@ describe("인스타그램 최신 글", () => {
     assert.equal(posts.length, 1);
     assert.equal(posts[0]?.caption, "예배");
     assert.equal(readInstagramMedia({}).length, 0);
+  });
+
+  it("공개 사용자 피드 JSON에서 게시물 칸을 읽습니다", () => {
+    const posts = readUserFeedMedia({
+      items: [
+        {
+          pk: "99",
+          code: "FeedCode1",
+          display_uri: "https://scontent.cdninstagram.com/b.jpg",
+          caption: { text: "한라산 정상" },
+        },
+      ],
+    });
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0]?.permalink, "https://www.instagram.com/p/FeedCode1/");
+    assert.equal(posts[0]?.caption, "한라산 정상");
   });
 
   it("공개 웹 프로필 JSON에서 게시물 칸을 읽습니다", () => {

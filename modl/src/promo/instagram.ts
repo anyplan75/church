@@ -42,7 +42,8 @@ export function instagramFrameSrc(href: string): string | null {
       return `https://www.instagram.com${url.pathname}${url.search}`;
     }
     if ((parts[0] === "p" || parts[0] === "reel" || parts[0] === "tv") && parts[1]) {
-      return `https://www.instagram.com/${parts[0]}/${parts[1]}/embed/captioned/`;
+      // captioned 는 프로필 보기 글자가 커서, 짧은 embed 를 씁니다.
+      return `https://www.instagram.com/${parts[0]}/${parts[1]}/embed/`;
     }
     const username = parts[0] ?? "";
     if (!/^[A-Za-z0-9._]{1,30}$/.test(username)) return null;
