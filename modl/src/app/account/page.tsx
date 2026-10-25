@@ -182,30 +182,32 @@ export default async function AccountPage({
             <summary className="w-fit cursor-pointer list-none rounded-2xl border border-[#b45309] bg-white px-4 py-3 font-semibold text-[#9a3412] [&::-webkit-details-marker]:hidden">
               계정 삭제
             </summary>
-            <form action={deleteAccountAction} className="mt-3 grid max-w-xl gap-3">
-              <p className="leading-relaxed text-[#5c5148]">
-                이메일, 비밀번호, 전화번호와 내가 쓴 글, 기도, 묵상을 지웁니다. 교회가 적어 둔 안내와 재정 내역은 남습니다. 지운 뒤에는 이 계정으로 다시 들어오지 못합니다.
-              </p>
-              <label className="grid gap-1">
-                <span className="font-semibold">확인</span>
-                <input
-                  name="confirm"
-                  required
-                  autoComplete="off"
-                  data-testid="account-delete-confirm"
-                  placeholder={ACCOUNT_DELETE_CONFIRM}
-                  className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-snug"
-                />
-              </label>
-              <p className="leading-relaxed text-[#5c5148]">확인 칸에 「{ACCOUNT_DELETE_CONFIRM}」라고 적어 주세요.</p>
-              <button
-                type="submit"
-                data-testid="account-delete-submit"
-                className="w-fit rounded-2xl border border-[#b45309] bg-white px-4 py-3 font-semibold text-[#9a3412]"
-              >
-                계정을 지우기
-              </button>
-            </form>
+            <div>
+              <form action={deleteAccountAction} className="mt-3 grid max-w-xl gap-3">
+                <p className="leading-relaxed text-[#5c5148]">
+                  이메일, 비밀번호, 전화번호와 내가 쓴 글, 기도, 묵상을 지웁니다. 교회가 적어 둔 안내와 재정 내역은 남습니다. 지운 뒤에는 이 계정으로 다시 들어오지 못합니다.
+                </p>
+                <label className="grid gap-1">
+                  <span className="font-semibold">확인</span>
+                  <input
+                    name="confirm"
+                    required
+                    autoComplete="off"
+                    data-testid="account-delete-confirm"
+                    placeholder={ACCOUNT_DELETE_CONFIRM}
+                    className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-snug"
+                  />
+                </label>
+                <p className="leading-relaxed text-[#5c5148]">확인 칸에 「{ACCOUNT_DELETE_CONFIRM}」라고 적어 주세요.</p>
+                <button
+                  type="submit"
+                  data-testid="account-delete-submit"
+                  className="w-fit rounded-2xl border border-[#b45309] bg-white px-4 py-3 font-semibold text-[#9a3412]"
+                >
+                  계정을 지우기
+                </button>
+              </form>
+            </div>
           </details>
         </div>
       ) : (
