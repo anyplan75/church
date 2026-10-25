@@ -12,6 +12,24 @@ export type InstagramPost = {
   caption: string;
 };
 
+/** 브라우저에서 CDN 이 막힐 수 있어, 같은 서버 그림 주소로 바꿉니다. */
+export function proxiedInstagramImageUrl(imageUrl: string): string {
+  try {
+    const url = new URL(imageUrl);
+    if (url.protocol !== "https:") return imageUrl;
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    const ok =
+      host === "instagram.com" ||
+      host.endsWith(".cdninstagram.com") ||
+      host === "cdninstagram.com" ||
+      host.endsWith(".fbcdn.net");
+    if (!ok) return imageUrl;
+    return `/api/promo/instagram-media?u=${encodeURIComponent(url.toString())}`;
+  } catch {
+    return imageUrl;
+  }
+}
+
 /** 공개 주소를 폰 틀 안 iframe(/embed) 주소로 바꿉니다. */
 export function instagramFrameSrc(href: string): string | null {
   try {
@@ -71,7 +89,7 @@ export function readInstagramMedia(payload: unknown): InstagramPost[] {
   if (!media || typeof media !== "object" || !("data" in media) || !Array.isArray(media.data)) return [];
   const posts: InstagramPost[] = [];
   for (const row of media.data) {
-    if (posts.length >= 12) break;
+    if (posts.length >= 18) break;
     if (!row || typeof row !== "object") continue;
     const id = "id" in row && typeof row.id === "string" ? row.id : "";
     const permalink = httpsUrl("permalink" in row ? row.permalink : "");

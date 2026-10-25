@@ -25,6 +25,7 @@ export function PromoSns({ headingLevel = "h2", instagramAccount, instagram, you
     instagram?.status === "ready" || instagram?.status === "embed"
       ? instagram.href
       : null;
+  const instagramPosts = instagram?.status === "ready" ? instagram.posts : [];
   const instagramReason = instagram?.status === "unavailable" ? instagram.reason : undefined;
 
   return (
@@ -49,7 +50,7 @@ export function PromoSns({ headingLevel = "h2", instagramAccount, instagram, you
         ) : instagram?.status === "unavailable" ? (
           <p className="leading-relaxed text-[#5c5148]">{instagram.reason}</p>
         ) : instagramHref ? (
-          <InstagramEmbed href={instagramHref} />
+          <InstagramEmbed href={instagramHref} posts={instagramPosts} />
         ) : (
           <p className="leading-relaxed text-[#5c5148]">인스타그램 계정이 없습니다.</p>
         )}
