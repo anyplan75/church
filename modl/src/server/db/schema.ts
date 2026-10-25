@@ -1136,6 +1136,31 @@ export const promoPages = pgTable(
   ],
 );
 
+/** 교회·모들 게시판 글입니다. 그곳 구성원이 올리고, 안내 승인과는 따로 둡니다. */
+export const placeBoardPosts = pgTable(
+  "place_board_posts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    churchId: uuid("church_id").references((): AnyPgColumn => mapChurches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => smallGroups.id, { onDelete: "cascade" }),
+    authorUserId: uuid("author_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("place_board_posts_church_id_idx").on(table.churchId),
+    index("place_board_posts_group_id_idx").on(table.groupId),
+    index("place_board_posts_author_user_id_idx").on(table.authorUserId),
+    check("place_board_posts_one_place", sql`(${table.churchId} is not null) <> (${table.groupId} is not null)`),
+    check("place_board_posts_title_not_blank", sql`length(btrim(${table.title})) > 0`),
+    check("place_board_posts_body_not_blank", sql`length(btrim(${table.body})) > 0`),
+  ],
+);
+
 /** 태우리가 소속원에게 준 재정·일정 수정 권한입니다. */
 export const placeEditGrants = pgTable(
   "place_edit_grants",
@@ -1198,6 +1223,7 @@ export const dbSchema = {
   groupFollows,
   placeEditGrants,
   promoPages,
+  placeBoardPosts,
   bannedWords,
   worshipCaptionLinks,
 };

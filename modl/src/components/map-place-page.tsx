@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { PromoBoard } from "@/components/promo-board";
+import { PlaceBoard } from "@/components/place-board";
 import { PromoSns } from "@/components/promo-sns";
 import { loadMapPromoAction, saveChurchIntroAction, type MapPromoPayload } from "@/server/promo/actions";
 
@@ -122,7 +122,11 @@ export function MapPlacePage({
           />
           <section className="grid gap-2 rounded-3xl bg-[#fffaf3] p-4" data-testid="map-promo-board">
             <h3 className="font-semibold">게시판</h3>
-            {state.status === "loading" ? <p className="leading-relaxed text-[#5c5148]">게시판을 읽고 있습니다.</p> : <PromoBoard tabs={page?.tabs ?? []} />}
+            {state.status === "loading" ? (
+              <p className="leading-relaxed text-[#5c5148]">게시판을 읽고 있습니다.</p>
+            ) : (
+              <PlaceBoard kind={kind} id={id} canWrite={page?.canWrite ?? false} posts={page?.posts ?? []} />
+            )}
           </section>
           {facts ? <div className="grid gap-2 rounded-3xl border border-[#e5e7eb] p-4">{facts}</div> : null}
           {guide ? <div className="grid gap-2">{guide}</div> : null}
