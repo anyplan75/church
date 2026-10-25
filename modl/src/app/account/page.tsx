@@ -12,7 +12,8 @@ import { SignupPeople } from "@/components/signup-people";
 import { SocialLoginButtons } from "@/components/social-login";
 import { loadPendingSignup } from "@/server/login/access";
 import { completeSocialSignup } from "@/server/login/oauth-actions";
-import { loginAction, logoutAction, signupAction } from "@/server/community/actions";
+import { ACCOUNT_DELETE_CONFIRM } from "@/account/delete-rules";
+import { deleteAccountAction, loginAction, logoutAction, signupAction } from "@/server/community/actions";
 import { loadAccountPage, loadSignupPeople } from "@/server/community/service";
 import { loadBannedWordsForEditor } from "@/server/moderation/words";
 import { loadSurveyDesk } from "@/server/survey/service";
@@ -36,6 +37,7 @@ function note(ok: string | undefined, count: string | undefined, missed: string 
   if (ok === "revoke") return "수정 권한을 뺐습니다.";
   if (ok === "steward") return "관리자를 지정했습니다.";
   if (ok === "address") return "내 주소를 저장했습니다.";
+  if (ok === "deleted") return "계정을 지웠습니다. 이 이메일로는 다시 들어오지 못합니다.";
   if (ok === "pickup") return "데리러 가기 동의를 저장했습니다.";
   if (ok === "survey") return "설문을 저장했습니다.";
   if (ok === "sheet") {
@@ -141,6 +143,31 @@ export default async function AccountPage({
           <section data-testid="personal-settings" className="grid gap-4">
             <h2 className="text-lg font-semibold leading-snug">개인설정</h2>
             <p className="font-semibold leading-snug">{account.user.name}</p>
+            <form action={deleteAccountAction} data-testid="account-delete" className="grid gap-3">
+              <h3 className="font-semibold leading-snug">계정 삭제</h3>
+              <p className="leading-relaxed text-[#5c5148]">
+                이메일, 비밀번호, 전화번호와 내가 쓴 글, 기도, 묵상을 지웁니다. 교회가 적어 둔 안내와 재정 내역은 남습니다. 지운 뒤에는 이 계정으로 다시 들어오지 못합니다.
+              </p>
+              <label className="grid gap-1">
+                <span className="font-semibold">확인</span>
+                <input
+                  name="confirm"
+                  required
+                  autoComplete="off"
+                  data-testid="account-delete-confirm"
+                  placeholder={ACCOUNT_DELETE_CONFIRM}
+                  className="w-full rounded-xl border border-[#e4d8c8] bg-white px-3 py-2 leading-snug"
+                />
+              </label>
+              <p className="leading-relaxed text-[#5c5148]">확인 칸에 「{ACCOUNT_DELETE_CONFIRM}」라고 적어 주세요.</p>
+              <button
+                type="submit"
+                data-testid="account-delete-submit"
+                className="w-fit rounded-2xl border border-[#b45309] bg-white px-4 py-3 font-semibold text-[#9a3412]"
+              >
+                계정을 지우기
+              </button>
+            </form>
             {place ? <PlaceAccount place={place} part="personal" churchQuery={query.church ?? ""} gatheringQuery={query.gathering ?? ""} /> : null}
             {showsOwnPickup(account.role) ? <OwnPickupSettings /> : null}
           </section>
