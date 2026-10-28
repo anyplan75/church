@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { cachedInstagramFeed, cachedYoutubeFeed, SNS_FEED_REVALIDATE_SECONDS } from "@/server/promo/feed-cache";
 import { loadPromoPublicContent, type PromoKind } from "@/server/promo/service";
 
-/** 공개 SNS JSON은 수분 단위로 다시 써도 됩니다. 계정 화면과는 다릅니다. */
-export const revalidate = SNS_FEED_REVALIDATE_SECONDS;
+/** 공개 SNS JSON은 수분 단위로 다시 써도 됩니다. 계정 화면과는 다릅니다. Next는 revalidate에 숫자만 받습니다. */
+export const revalidate = 300;
 export const maxDuration = 60;
 
 function kindOf(value: string | null): PromoKind | null {
