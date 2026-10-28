@@ -123,9 +123,11 @@ async function migrate(): Promise<void> {
   const files = readdirSync(dir)
     .filter((name) => name.endsWith(".sql"))
     .sort();
+  // 이미 적용된 이름을 한 번에 읽어, 콜드스타트마다 파일별 조회를 하지 않습니다.
+  const applied = await pool.query<{ id: string }>("SELECT id FROM schema_migrations");
+  const done = new Set(applied.rows.map((row) => row.id));
   for (const file of files) {
-    const found = await pool.query("SELECT 1 FROM schema_migrations WHERE id = $1", [file]);
-    if (found.rowCount) continue;
+    if (done.has(file)) continue;
     const sqlText = readFileSync(path.join(dir, file), "utf8");
     await pool.query(sqlText);
     await pool.query("INSERT INTO schema_migrations (id) VALUES ($1)", [file]);
