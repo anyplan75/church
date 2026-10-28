@@ -46,7 +46,7 @@ export async function loadInstagramFeed(
         `business_discovery.username(${username}){media.limit(18){id,caption,media_type,media_url,permalink,thumbnail_url,timestamp}}`,
       );
       url.searchParams.set("access_token", token);
-      const response = await fetchImpl(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+      const response = await fetchImpl(url, { next: { revalidate: 300 }, signal: AbortSignal.timeout(8000) } as RequestInit);
       const payload: unknown = await response.json();
       if (response.ok && payload && typeof payload === "object" && !("error" in payload)) {
         const posts = withProxiedImages(readInstagramMedia(payload));

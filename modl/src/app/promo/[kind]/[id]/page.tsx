@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PromoBoard } from "@/components/promo-board";
-import { PromoSns } from "@/components/promo-sns";
-import { loadInstagramFeed } from "@/server/promo/instagram-feed";
+import { PromoSnsLazy } from "@/components/promo-sns-lazy";
 import { loadPromo, type PromoKind } from "@/server/promo/service";
-import { loadYoutubeFeed } from "@/server/promo/youtube-feed";
 
-export const dynamic = "force-dynamic";
+/** 공개 홍보 페이지는 짧은 시간 동안 기억해 두어도 됩니다. 계정·설정 화면은 dynamic을 유지합니다. */
+export const revalidate = 60;
 
 function kindOf(value: string): PromoKind | null {
   if (value === "church" || value === "gathering") return value;
@@ -26,8 +25,6 @@ export default async function PromoPage({
   const page = await loadPromo(kind, id);
   if (!page) notFound();
   const query = await searchParams;
-  const instagramFeed = await loadInstagramFeed(page.content.instagram);
-  const youtubeFeed = await loadYoutubeFeed(page.content.youtube);
 
   return (
     <section className="grid gap-4" data-testid="promo-page">
@@ -42,12 +39,7 @@ export default async function PromoPage({
         ) : null}
       </div>
       {query.ok === "saved" ? <p className="rounded-2xl bg-[#fffaf3] px-4 py-3 leading-relaxed">홍보 페이지를 저장했습니다.</p> : null}
-      <PromoSns
-        headingLevel="h2"
-        instagramAccount={page.content.instagram}
-        instagram={instagramFeed}
-        youtube={youtubeFeed}
-      />
+      <PromoSnsLazy kind={kind} id={id} instagramAccount={page.content.instagram} />
       <section className="grid gap-2 rounded-3xl bg-[#fffaf3] p-4">
         <h2 className="font-semibold">게시판</h2>
         <PromoBoard tabs={page.content.tabs} />

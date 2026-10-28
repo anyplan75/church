@@ -25,7 +25,7 @@ function clean(message: string, secret: string): string {
 }
 
 async function readText(fetchImpl: typeof fetch, url: string): Promise<string | null> {
-  const response = await fetchImpl(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+  const response = await fetchImpl(url, { next: { revalidate: 300 }, signal: AbortSignal.timeout(8000) } as RequestInit);
   if (!response.ok) return null;
   return response.text();
 }
@@ -75,7 +75,7 @@ async function videosFromApi(fetchImpl: typeof fetch, apiKey: string, query: str
   const [name, value] = query.split("=");
   if (!name || !value) return null;
   channelUrl.searchParams.set(name, value);
-  const channelResponse = await fetchImpl(channelUrl, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+  const channelResponse = await fetchImpl(channelUrl, { next: { revalidate: 300 }, signal: AbortSignal.timeout(8000) } as RequestInit);
   const channelPayload: unknown = await channelResponse.json();
   if (!channelPayload || typeof channelPayload !== "object") return null;
   if ("error" in channelPayload) return null;
@@ -91,7 +91,7 @@ async function videosFromApi(fetchImpl: typeof fetch, apiKey: string, query: str
   listUrl.searchParams.set("maxResults", "3");
   listUrl.searchParams.set("playlistId", uploads);
   listUrl.searchParams.set("key", apiKey);
-  const listResponse = await fetchImpl(listUrl, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+  const listResponse = await fetchImpl(listUrl, { next: { revalidate: 300 }, signal: AbortSignal.timeout(8000) } as RequestInit);
   const listPayload: unknown = await listResponse.json();
   if (!listPayload || typeof listPayload !== "object" || !("items" in listPayload) || !Array.isArray(listPayload.items)) return null;
   const videos: YoutubeVideo[] = [];
@@ -125,7 +125,7 @@ async function videosFromSaved(
       const endpoint = new URL("https://www.youtube.com/oembed");
       endpoint.searchParams.set("url", item.url);
       endpoint.searchParams.set("format", "json");
-      const response = await fetchImpl(endpoint, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+      const response = await fetchImpl(endpoint, { next: { revalidate: 300 }, signal: AbortSignal.timeout(8000) } as RequestInit);
       if (response.ok) {
         const payload: unknown = await response.json();
         if (payload && typeof payload === "object" && "title" in payload && typeof payload.title === "string" && payload.title.trim()) {
