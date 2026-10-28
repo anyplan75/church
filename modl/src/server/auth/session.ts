@@ -56,12 +56,17 @@ export async function rememberCommunity(communityId: string): Promise<void> {
   });
 }
 
-export async function loadActor(): Promise<Actor> {
-  await ensureDatabase();
+/** 로그인 쿠키만 먼저 봅니다. 손님이면 데이터베이스를 열지 않습니다. */
+export async function peekSessionToken(): Promise<string | null> {
   const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
+  return jar.get(SESSION_COOKIE)?.value ?? null;
+}
+
+export async function loadActor(): Promise<Actor> {
+  const token = await peekSessionToken();
   if (!token) return { kind: "guest" };
 
+  await ensureDatabase();
   const db = getDb();
   const found = await db
     .select({ userId: sessions.userId })

@@ -9,7 +9,14 @@ import type { Actor, MemberRole } from "@/server/auth/actor";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { assertCan, assertSameCommunity } from "@/server/auth/rbac";
 import { assertApprovedMember, formalMembership, PermissionError } from "@/server/auth/membership";
-import { activeCommunityId, currentUserName, loadActor, openSession, rememberCommunity } from "@/server/auth/session";
+import {
+  activeCommunityId,
+  currentUserName,
+  loadActor,
+  openSession,
+  peekSessionToken,
+  rememberCommunity,
+} from "@/server/auth/session";
 import {
   approvalRequests,
   communities,
@@ -497,6 +504,12 @@ function shellBase(formal: boolean, officer: boolean): Pick<ShellState, "menuHre
 
 export async function loadShellState(): Promise<ShellState> {
   try {
+    // 손님(로그인 쿠키 없음)은 껍데기만 바로 돌려 주고, Cloud SQL을 열지 않습니다.
+    // 예전에는 모든 화면이 레이아웃에서 DB 접속을 기다려 콜드스타트 때 약 6초가 걸렸습니다.
+    const token = await peekSessionToken();
+    if (!token) {
+      return { accountName: null, languageMode: null, overridesJson: "{}", placeMenus: [], ...shellBase(false, false) };
+    }
     await ensureDatabase();
     const actor = await loadActor();
     if (actor.kind !== "user") {
