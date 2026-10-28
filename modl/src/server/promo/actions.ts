@@ -2,9 +2,10 @@
 
 import { redirect } from "next/navigation";
 import type { BoardTab } from "@/promo/rules";
-import { loadInstagramFeed, type InstagramFeed } from "@/server/promo/instagram-feed";
+import { cachedInstagramFeed, cachedYoutubeFeed } from "@/server/promo/feed-cache";
+import type { InstagramFeed } from "@/server/promo/instagram-feed";
 import { readablePromoError, saveChurchIntro, savePromo, loadPromo, type PromoKind } from "@/server/promo/service";
-import { loadYoutubeFeed, type YoutubeFeed } from "@/server/promo/youtube-feed";
+import type { YoutubeFeed } from "@/server/promo/youtube-feed";
 
 function kindOf(value: string): PromoKind {
   if (value === "church" || value === "gathering") return value;
@@ -60,7 +61,10 @@ export async function loadMapPromoAction(
   try {
     const page = await loadPromo(placeKind, id);
     if (!page) return { ok: false, message: placeKind === "church" ? "교회를 찾지 못했습니다." : "모들을 찾지 못했습니다." };
-    const [instagram, youtube] = await Promise.all([loadInstagramFeed(page.content.instagram), loadYoutubeFeed(page.content.youtube)]);
+    const [instagram, youtube] = await Promise.all([
+      cachedInstagramFeed(page.content.instagram),
+      cachedYoutubeFeed(page.content.youtube),
+    ]);
     return {
       ok: true,
       page: {

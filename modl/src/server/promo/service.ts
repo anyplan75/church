@@ -80,6 +80,21 @@ export async function loadPromo(kind: PromoKind, id: string): Promise<PromoPage 
   };
 }
 
+/** 로그인 여부와 상관없이 공개 SNS 주소만 읽습니다. 바깥 글 캐시에 쓰기 좋습니다. */
+export async function loadPromoPublicContent(
+  kind: PromoKind,
+  id: string,
+): Promise<{ name: string; content: PromoContent } | null> {
+  await ensureDatabase();
+  const place = await placeOf(kind, id);
+  if (!place) return null;
+  const row = await pageRow(kind, id);
+  return {
+    name: place.name,
+    content: readPromoContent(row?.youtubeJson, row?.tabsJson, row?.instagram ?? ""),
+  };
+}
+
 async function requireManager(kind: PromoKind, id: string): Promise<PlaceRow> {
   const actor = await loadActor();
   if (actor.kind !== "user") throw new PromoFlowError("먼저 들어가 주세요.");
