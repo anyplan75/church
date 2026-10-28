@@ -1,7 +1,4 @@
 {
   "regions": ["icn1"],
-  "crons": [
-    { "path": "/api/cron/guide-mail", "schedule": "0 23 * * *" },
-    { "path": "/api/cron/keep-warm", "schedule": "*/5 * * * *" }
-  ]
+  "crons": [{ "path": "/api/cron/guide-mail", "schedule": "0 23 * * *" }]
 }
