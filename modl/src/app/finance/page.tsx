@@ -3,6 +3,7 @@ import { AccessScreen } from "@/components/access-screen";
 import { choiceButtonClass, choiceButtonStyle, choiceRowClass, choiceToneColor } from "@/components/choice-buttons";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { TermHeading } from "@/components/term-heading";
+import { financeEntriesForPlace } from "@/finance/rules";
 import { createCategoryAction } from "@/server/finance/actions";
 import { loadFinanceHome } from "@/server/finance/service";
 import { viewerIsGuest } from "@/server/login/access";
@@ -18,7 +19,12 @@ export default async function FinancePage({
   const page = await loadFinanceHome();
   if (!page.ok && (await viewerIsGuest())) return <AccessScreen />;
   const selected = page.ok ? page.places.find((place) => `${place.kind}:${place.id}` === query.place) ?? page.places[0] ?? null : null;
-  const transactions = page.ok && selected ? page.transactions.filter((row) => row.placeKind === selected.kind && row.placeId === selected.id) : [];
+  const sheetRows =
+    page.ok && selected ? financeEntriesForPlace(page.sheetEntries, selected.name) : [];
+  const transactions =
+    page.ok && selected && sheetRows.length === 0
+      ? page.transactions.filter((row) => row.placeKind === selected.kind && row.placeId === selected.id)
+      : [];
 
   return (
     <section className="grid min-w-0 gap-6">
@@ -29,7 +35,7 @@ export default async function FinancePage({
         <p className="leading-relaxed">{page.message}</p>
       ) : (
         <>
-          <p className="leading-relaxed text-[#5c5148]">속한 교회와 모들의 재정만 보입니다. 관리자나 수정 권한이 있는 사람만 고칩니다.</p>
+          <p className="leading-relaxed text-[#5c5148]">속한 교회와 모들의 재정만 보입니다. 시트1 금액을 교회·모들 이름으로 나눕니다.</p>
           {page.places.length === 0 ? (
             <p className="leading-relaxed">속한 교회와 모들이 없습니다.</p>
           ) : (
@@ -52,7 +58,28 @@ export default async function FinancePage({
               })}
             </div>
           )}
-          {transactions.length === 0 ? <p className="leading-relaxed">보이는 재정 기록이 없습니다.</p> : null}
+          {page.sheet.state === "missing" ? <p className="leading-relaxed">연결된 시트를 읽지 못했습니다.</p> : null}
+          {page.sheet.state === "failed" ? <p className="leading-relaxed">시트를 읽지 못했습니다. 금액은 보여 주지 않습니다.</p> : null}
+          {page.sheet.state === "empty" ? <p className="leading-relaxed">시트에 금액이 없습니다.</p> : null}
+          {selected && page.sheet.state === "ready" && sheetRows.length === 0 ? (
+            <p className="leading-relaxed">이 교회·모들에 맞는 시트 금액이 없습니다.</p>
+          ) : null}
+          {sheetRows.length > 0 ? (
+            <ul className="grid gap-2" data-testid="finance-sheet-rows">
+              {sheetRows.map((row, index) => (
+                <li key={`${row.date}-${row.amount}-${index}`} className="rounded-2xl bg-[#fffaf3] px-4 py-3 leading-snug" data-testid="finance-amount">
+                  <span className="font-semibold text-[#111827]">{row.amount}</span>
+                  <span className="text-[#5c5148]">
+                    {" "}
+                    · {row.date || "날짜 없음"}
+                    {row.category ? ` · ${row.category}` : ""}
+                    {row.type ? ` · ${row.type}` : ""}
+                    {row.description ? ` · ${row.description}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {transactions.length > 0 ? (
             <ul className="grid gap-2" data-testid="finance-rows">
               {transactions.map((row) => (
@@ -61,6 +88,9 @@ export default async function FinancePage({
                 </li>
               ))}
             </ul>
+          ) : null}
+          {selected && sheetRows.length === 0 && transactions.length === 0 && page.sheet.state !== "ready" && page.sheet.state !== "empty" ? (
+            <p className="leading-relaxed">보이는 재정 기록이 없습니다.</p>
           ) : null}
           {selected?.canEdit ? (
             <form action={createCategoryAction} className="grid gap-3 rounded-3xl bg-[#fffaf3] p-4">

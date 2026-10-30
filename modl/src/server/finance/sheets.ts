@@ -4,7 +4,13 @@
  */
 
 import { createSign } from "node:crypto";
-import { amountsFromSheet, googleSheetsConfigFromEnv, sheetsAppendRequest } from "@/finance/rules";
+import {
+  amountsFromSheet,
+  financeEntriesFromSheet,
+  googleSheetsConfigFromEnv,
+  sheetsAppendRequest,
+  type FinanceSheetEntry,
+} from "@/finance/rules";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -107,7 +113,7 @@ function serviceAccountJwt(account: ServiceAccount, nowSeconds: number): string 
 }
 
 export type FinanceSheetView =
-  | { state: "ready"; headers: string[]; rows: string[][] }
+  | { state: "ready"; headers: string[]; rows: string[][]; entries: FinanceSheetEntry[] }
   | { state: "empty" }
   | { state: "missing" }
   | { state: "failed" };
@@ -140,7 +146,12 @@ export async function readFinanceSheet(fetchImpl: FetchLike = fetch): Promise<Fi
     const sheetJson = (await sheetResponse.json()) as { values?: unknown };
     const parsed = amountsFromSheet(sheetJson.values);
     if (!parsed) return { state: "empty" };
-    return { state: "ready", headers: parsed.headers, rows: parsed.rows };
+    return {
+      state: "ready",
+      headers: parsed.headers,
+      rows: parsed.rows,
+      entries: financeEntriesFromSheet(sheetJson.values),
+    };
   } catch {
     return { state: "failed" };
   }

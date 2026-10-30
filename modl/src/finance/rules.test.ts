@@ -6,6 +6,9 @@ import {
   canManageFinance,
   canManageFinanceRole,
   amountsFromSheet,
+  financeEntriesForPlace,
+  financeEntriesFromSheet,
+  formatSheetAmount,
   googleSheetsConfigFromEnv,
   receiptsInRange,
   sheetsAppendRequest,
@@ -90,6 +93,36 @@ describe("시트 금액", () => {
       rows: [["후원", "1,200원", ""]],
     });
     assert.equal(amountsFromSheet([["항목", "금액"], ["헌금", ""]]), null);
+  });
+
+  it("교회모들 칸으로 금액을 나누고 원 글자로 보여 줍니다", () => {
+    const entries = financeEntriesFromSheet([
+      ["교회모들", "날짜", "분류", "종류", "금액", "설명"],
+      ["서귀포제일교회", "2026-10-05", "주일헌금", "수입", "1,250,000원", "주일 예배 헌금"],
+      ["위미교회", "2026-10-05", "주일헌금", "수입", "", "빈 금액"],
+      ["서귀포청년연합", "2026-10-11", "모임비", "수입", "95000", "청년 모임 회비"],
+    ]);
+    assert.deepEqual(entries, [
+      {
+        placeName: "서귀포제일교회",
+        date: "2026-10-05",
+        category: "주일헌금",
+        type: "수입",
+        amount: "1,250,000원",
+        description: "주일 예배 헌금",
+      },
+      {
+        placeName: "서귀포청년연합",
+        date: "2026-10-11",
+        category: "모임비",
+        type: "수입",
+        amount: "95,000원",
+        description: "청년 모임 회비",
+      },
+    ]);
+    assert.equal(financeEntriesForPlace(entries, "서귀포제일교회").length, 1);
+    assert.equal(financeEntriesForPlace(entries, "위미교회").length, 0);
+    assert.equal(formatSheetAmount("₩480,000"), "480,000원");
   });
 });
 
