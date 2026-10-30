@@ -73,9 +73,13 @@ export async function loadFinanceHome() {
     if (left.kind !== right.kind) return left.kind === "church" ? -1 : 1;
     return left.name.localeCompare(right.name, "ko");
   });
+  const sheet = await readFinanceSheet();
+  const sheetEntries = sheet.state === "ready" ? sheet.entries : [];
   return {
     ok: true as const,
     places,
+    sheet,
+    sheetEntries,
     categories: visibleCategories.map((row) => ({
       id: row.id,
       name: row.name,

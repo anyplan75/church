@@ -100,10 +100,38 @@ export function googleSheetsConfigFromEnv(env: {
 }
 
 /** 칸에 적힌 금액인지 봅니다. 비어 있으면 금액이 아닙니다. */
+function amountDigits(value: string): string {
+  return value.replace(/,/g, "").replace(/원/g, "").replace(/₩/g, "").replace(/￦/g, "").replace(/\s/g, "").trim();
+}
+
 export function cellHasAmount(value: string): boolean {
-  const cleaned = value.replace(/,/g, "").replace(/원/g, "").replace(/\s/g, "").trim();
+  const cleaned = amountDigits(value);
   if (!cleaned) return false;
   return /^-?\d+(\.\d+)?$/.test(cleaned);
+}
+
+/** 화면에 보여줄 금액 글입니다. 빈 칸은 0으로 만들지 않습니다. */
+export function formatSheetAmount(value: string): string {
+  const raw = value.trim();
+  if (!raw || !cellHasAmount(raw)) return "";
+  const number = Number(amountDigits(raw));
+  if (!Number.isFinite(number)) return raw;
+  const signed = number < 0 ? "-" : "";
+  const body = Math.abs(Math.trunc(number)).toLocaleString("ko-KR");
+  return `${signed}${body}원`;
+}
+
+export type FinanceSheetEntry = {
+  placeName: string;
+  date: string;
+  category: string;
+  type: string;
+  amount: string;
+  description: string;
+};
+
+function headerIndex(headers: readonly string[], names: readonly string[]): number {
+  return headers.findIndex((header) => names.includes(header.trim()));
 }
 
 /**
@@ -120,6 +148,47 @@ export function amountsFromSheet(values: unknown): { headers: string[]; rows: st
   const rows = body.filter((row) => row.some((cell) => cellHasAmount(cell)));
   if (rows.length === 0) return null;
   return { headers, rows };
+}
+
+/**
+ * 시트1 제목 줄(교회모들,날짜,분류,종류,금액,설명)을 읽어 금액 줄만 만듭니다.
+ * 제목이 없어도 금액이 있는 줄은 칸 순서로 맞춥니다.
+ */
+export function financeEntriesFromSheet(values: unknown): FinanceSheetEntry[] {
+  const parsed = amountsFromSheet(values);
+  if (!parsed) return [];
+  const headers = parsed.headers.map((header) => header.trim());
+  const placeIndex = headerIndex(headers, ["교회모들", "교회", "모들", "장소"]);
+  const dateIndex = headerIndex(headers, ["날짜", "일자", "거래일"]);
+  const categoryIndex = headerIndex(headers, ["분류", "항목", "이름"]);
+  const typeIndex = headerIndex(headers, ["종류", "수입지출", "구분"]);
+  const amountIndex = headerIndex(headers, ["금액", "액수"]);
+  const descriptionIndex = headerIndex(headers, ["설명", "메모", "비고"]);
+  const entries: FinanceSheetEntry[] = [];
+  for (const row of parsed.rows) {
+    const amountCell =
+      amountIndex >= 0
+        ? (row[amountIndex] ?? "")
+        : (row.find((cell) => cellHasAmount(cell)) ?? "");
+    const amount = formatSheetAmount(amountCell);
+    if (!amount) continue;
+    entries.push({
+      placeName: (placeIndex >= 0 ? row[placeIndex] : row[0] ?? "").trim(),
+      date: (dateIndex >= 0 ? row[dateIndex] : row[1] ?? "").trim(),
+      category: (categoryIndex >= 0 ? row[categoryIndex] : row[2] ?? "").trim(),
+      type: (typeIndex >= 0 ? row[typeIndex] : row[3] ?? "").trim(),
+      amount,
+      description: (descriptionIndex >= 0 ? row[descriptionIndex] : row[5] ?? "").trim(),
+    });
+  }
+  return entries;
+}
+
+/** 고른 교회·모들 이름과 같은 시트 줄만 남깁니다. */
+export function financeEntriesForPlace(entries: readonly FinanceSheetEntry[], placeName: string): FinanceSheetEntry[] {
+  const target = placeName.trim();
+  if (!target) return [];
+  return entries.filter((entry) => entry.placeName === target || entry.placeName.includes(target) || target.includes(entry.placeName));
 }
 
 export function sheetsAppendRequest(input: {
