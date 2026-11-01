@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import type { BoardTab } from "@/promo/rules";
+import { loadPlaceBoard } from "@/server/board/service";
+import type { BoardListItem } from "@/server/board/service";
 import { loadInstagramFeed, type InstagramFeed } from "@/server/promo/instagram-feed";
 import { readablePromoError, saveChurchIntro, savePromo, loadPromo, type PromoKind } from "@/server/promo/service";
 import { loadYoutubeFeed, type YoutubeFeed } from "@/server/promo/youtube-feed";
@@ -25,13 +27,16 @@ export async function savePromoAction(formData: FormData) {
   const postBodies = rows(formData, "postBody");
   const postTabs = rows(formData, "postTab");
   const youtube = titles.map((title, index) => ({ title, url: urls[index] ?? "" }));
-  const tabs = tabTitles.map((title, index) => ({
-    title,
-    posts: postTitles.flatMap((postTitle, postIndex) => {
-      if (postTabs[postIndex] !== String(index)) return [];
-      return [{ title: postTitle, body: postBodies[postIndex] ?? "" }];
-    }),
-  }));
+  const existing = tabTitles.length === 0 && postTitles.length === 0 ? await loadPromo(kind, id) : null;
+  const tabs = existing
+    ? existing.content.tabs
+    : tabTitles.map((title, index) => ({
+        title,
+        posts: postTitles.flatMap((postTitle, postIndex) => {
+          if (postTabs[postIndex] !== String(index)) return [];
+          return [{ title: postTitle, body: postBodies[postIndex] ?? "" }];
+        }),
+      }));
   try {
     await savePromo(kind, id, { instagram: String(formData.get("instagram") ?? ""), youtube, tabs });
   } catch (error) {
@@ -48,6 +53,8 @@ export type MapPromoPayload = {
   instagram: InstagramFeed;
   youtube: YoutubeFeed;
   tabs: BoardTab[];
+  canWrite: boolean;
+  posts: BoardListItem[];
 };
 
 /** 지도 옆 창에 넣을 홍보 페이지입니다. 소개, 인스타그램, 유튜브, 게시판을 함께 돌려줍니다. */
@@ -60,7 +67,11 @@ export async function loadMapPromoAction(
   try {
     const page = await loadPromo(placeKind, id);
     if (!page) return { ok: false, message: placeKind === "church" ? "교회를 찾지 못했습니다." : "모들을 찾지 못했습니다." };
-    const [instagram, youtube] = await Promise.all([loadInstagramFeed(page.content.instagram), loadYoutubeFeed(page.content.youtube)]);
+    const [instagram, youtube, board] = await Promise.all([
+      loadInstagramFeed(page.content.instagram),
+      loadYoutubeFeed(page.content.youtube),
+      loadPlaceBoard(placeKind, id),
+    ]);
     return {
       ok: true,
       page: {
@@ -71,6 +82,8 @@ export async function loadMapPromoAction(
         instagram,
         youtube,
         tabs: page.content.tabs,
+        canWrite: board?.canWrite ?? false,
+        posts: board?.posts ?? [],
       },
     };
   } catch (error) {

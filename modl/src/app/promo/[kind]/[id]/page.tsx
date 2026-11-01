@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PromoBoard } from "@/components/promo-board";
+import { PlaceBoard } from "@/components/place-board";
 import { PromoSns } from "@/components/promo-sns";
+import { loadPlaceBoard } from "@/server/board/service";
 import { loadInstagramFeed } from "@/server/promo/instagram-feed";
 import { loadPromo, type PromoKind } from "@/server/promo/service";
 import { loadYoutubeFeed } from "@/server/promo/youtube-feed";
@@ -28,6 +29,8 @@ export default async function PromoPage({
   const query = await searchParams;
   const instagramFeed = await loadInstagramFeed(page.content.instagram);
   const youtubeFeed = await loadYoutubeFeed(page.content.youtube);
+  const board = await loadPlaceBoard(kind, id);
+  if (!board) notFound();
 
   return (
     <section className="grid gap-4" data-testid="promo-page">
@@ -42,6 +45,7 @@ export default async function PromoPage({
         ) : null}
       </div>
       {query.ok === "saved" ? <p className="rounded-2xl bg-[#fffaf3] px-4 py-3 leading-relaxed">홍보 페이지를 저장했습니다.</p> : null}
+      {query.ok === "board-deleted" ? <p className="rounded-2xl bg-[#fffaf3] px-4 py-3 leading-relaxed">글을 지웠습니다.</p> : null}
       <PromoSns
         headingLevel="h2"
         instagramAccount={page.content.instagram}
@@ -50,7 +54,7 @@ export default async function PromoPage({
       />
       <section className="grid gap-2 rounded-3xl bg-[#fffaf3] p-4">
         <h2 className="font-semibold">게시판</h2>
-        <PromoBoard tabs={page.content.tabs} />
+        <PlaceBoard kind={kind} id={id} canWrite={board.canWrite} posts={board.posts} />
       </section>
     </section>
   );

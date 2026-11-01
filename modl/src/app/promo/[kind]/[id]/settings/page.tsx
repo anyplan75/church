@@ -43,7 +43,7 @@ export default async function PromoSettingsPage({
       {page.manager ? (
         <>
           {query.error ? <p className="rounded-2xl bg-[#fde8e2] px-4 py-3 leading-relaxed">{query.error}</p> : null}
-          <p className="leading-relaxed text-[#5c5148]">인스타그램 계정, 유튜브 글, 게시판만 만듭니다.</p>
+          <p className="leading-relaxed text-[#5c5148]">여기서는 인스타그램 계정과 유튜브 글만 고칩니다. 게시판 글은 그 교회·모들 구성원이 홍보 페이지에서 씁니다.</p>
           <PromoSettingsForm kind={kind} id={id} content={page.content} />
         </>
       ) : guide ? null : (
