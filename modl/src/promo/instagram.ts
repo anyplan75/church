@@ -12,6 +12,47 @@ export type InstagramPost = {
   caption: string;
 };
 
+/** 브라우저에서 CDN 이 막힐 수 있어, 같은 서버 그림 주소로 바꿉니다. */
+export function proxiedInstagramImageUrl(imageUrl: string): string {
+  try {
+    const url = new URL(imageUrl);
+    if (url.protocol !== "https:") return imageUrl;
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    const ok =
+      host === "instagram.com" ||
+      host.endsWith(".cdninstagram.com") ||
+      host === "cdninstagram.com" ||
+      host.endsWith(".fbcdn.net");
+    if (!ok) return imageUrl;
+    return `/api/promo/instagram-media?u=${encodeURIComponent(url.toString())}`;
+  } catch {
+    return imageUrl;
+  }
+}
+
+/** 공개 주소를 폰 틀 안 iframe(/embed) 주소로 바꿉니다. */
+export function instagramFrameSrc(href: string): string | null {
+  try {
+    const url = new URL(href.trim());
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (host !== "instagram.com") return null;
+    const parts = url.pathname.split("/").filter((part) => part.length > 0);
+    if (parts.length === 0) return null;
+    if (parts[0] === "embed" || parts.includes("embed")) {
+      return `https://www.instagram.com${url.pathname}${url.search}`;
+    }
+    if ((parts[0] === "p" || parts[0] === "reel" || parts[0] === "tv") && parts[1]) {
+      // captioned 는 프로필 보기 글자가 커서, 짧은 embed 를 씁니다.
+      return `https://www.instagram.com/${parts[0]}/${parts[1]}/embed/`;
+    }
+    const username = parts[0] ?? "";
+    if (!/^[A-Za-z0-9._]{1,30}$/.test(username)) return null;
+    return `https://www.instagram.com/${username}/embed/`;
+  } catch {
+    return null;
+  }
+}
+
 /** 홍보 페이지에 적은 계정에서 사용자 이름만 뽑습니다. */
 export function instagramUsername(account: string): string | null {
   const href = instagramHref(account);
@@ -49,7 +90,7 @@ export function readInstagramMedia(payload: unknown): InstagramPost[] {
   if (!media || typeof media !== "object" || !("data" in media) || !Array.isArray(media.data)) return [];
   const posts: InstagramPost[] = [];
   for (const row of media.data) {
-    if (posts.length >= 12) break;
+    if (posts.length >= 18) break;
     if (!row || typeof row !== "object") continue;
     const id = "id" in row && typeof row.id === "string" ? row.id : "";
     const permalink = httpsUrl("permalink" in row ? row.permalink : "");

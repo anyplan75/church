@@ -40,8 +40,9 @@ export function classifyYoutubeUrl(raw: string): Exclude<YoutubeTarget, { kind: 
   const parts = url.pathname.split("/").filter((part) => part.length > 0);
   const head = parts[0] ?? "";
   if (head.startsWith("@")) {
-    const handle = head.slice(1);
-    return /^[A-Za-z0-9._-]{1,80}$/.test(handle) ? { kind: "handle", handle } : null;
+    const handle = decodeURIComponent(head.slice(1));
+    // 한글 핸들(예: @서귀포제일교회)도 허용합니다.
+    return /^[\p{L}\p{N}._-]{1,80}$/u.test(handle) ? { kind: "handle", handle } : null;
   }
   if (head === "channel" && parts[1]?.startsWith("UC") && VIDEO_ID.test(parts[1])) return { kind: "channel", id: parts[1] };
   if (head === "user" && parts[1] && /^[A-Za-z0-9._-]{1,80}$/.test(parts[1])) return { kind: "user", user: parts[1] };
@@ -99,7 +100,22 @@ export function channelIdFromHtml(html: string): string | null {
   const match =
     html.match(/"externalId":"(UC[A-Za-z0-9_-]{6,})"/) ??
     html.match(/"channelId":"(UC[A-Za-z0-9_-]{6,})"/) ??
+    html.match(/"browseId":"(UC[A-Za-z0-9_-]{6,})"/) ??
     html.match(/channel_id=(UC[A-Za-z0-9_-]{6,})/);
   const id = match?.[1] ?? "";
   return VIDEO_ID.test(id) ? id : null;
+}
+
+/** 채널·재생목록 HTML 에서 나온 순서대로 영상 번호만 모읍니다. 3개를 넘기지 않습니다. */
+export function videoIdsFromHtml(html: string): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const match of html.matchAll(/"videoId":"([A-Za-z0-9_-]{11})"/g)) {
+    const id = match[1] ?? "";
+    if (!VIDEO_ID.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+    if (ids.length >= 3) break;
+  }
+  return ids;
 }

@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { InstagramFeed } from "@/components/instagram-feed";
 import { PromoBoard } from "@/components/promo-board";
-import { YoutubeMagazine } from "@/components/youtube-magazine";
-import { instagramHref } from "@/promo/rules";
+import { PromoSns } from "@/components/promo-sns";
 import { loadMapPromoAction, saveChurchIntroAction, type MapPromoPayload } from "@/server/promo/actions";
 
 type LoadState =
@@ -62,7 +60,6 @@ export function MapPlacePage({
   const page = state.status === "ready" ? state.page : null;
   const intro = localIntro ?? (page ? page.intro : fallbackIntro);
   const instagramAccount = page?.instagramAccount ?? "";
-  const instagramLink = instagramHref(instagramAccount);
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-promo-status={state.status}>
@@ -116,45 +113,13 @@ export function MapPlacePage({
             {intro ? <p className="whitespace-pre-wrap leading-relaxed">{intro}</p> : <p className="leading-relaxed text-[#5c5148]">소개가 아직 없습니다.</p>}
             {canEditIntro && kind === "church" ? <IntroEditor churchId={id} initial={intro} onSaved={setLocalIntro} /> : null}
           </section>
-          <section
-            className="grid gap-2 rounded-3xl bg-[#fffaf3] p-4"
-            data-testid="instagram-section"
-            data-instagram-feed={page?.instagram.status}
-            data-instagram-reason={page?.instagram.status === "unavailable" ? page.instagram.reason : undefined}
-          >
-            <h3 className="font-semibold">인스타그램</h3>
-            {state.status === "loading" ? (
-              <p className="leading-relaxed text-[#5c5148]">인스타그램을 읽고 있습니다.</p>
-            ) : instagramAccount ? (
-              instagramLink ? (
-                <a href={instagramLink} className="w-fit font-semibold underline" rel="noreferrer" target="_blank">
-                  {instagramAccount}
-                </a>
-              ) : (
-                <p className="leading-relaxed">{instagramAccount}</p>
-              )
-            ) : (
-              <p className="leading-relaxed text-[#5c5148]">인스타그램 계정이 없습니다.</p>
-            )}
-            {page?.instagram.status === "ready" ? <InstagramFeed posts={page.instagram.posts} /> : null}
-          </section>
-          <section
-            className="grid gap-2 rounded-3xl bg-[#fffaf3] p-4"
-            data-testid="youtube-section"
-            data-youtube-feed={page?.youtube.status}
-            data-youtube-reason={page?.youtube.status === "unavailable" ? page.youtube.reason : undefined}
-          >
-            <h3 className="font-semibold">유튜브</h3>
-            {state.status === "loading" ? (
-              <p className="leading-relaxed text-[#5c5148]">유튜브를 읽고 있습니다.</p>
-            ) : page?.youtube.status === "ready" ? (
-              <YoutubeMagazine videos={page.youtube.videos} />
-            ) : page?.youtube.status === "unavailable" ? (
-              <p className="leading-relaxed text-[#5c5148]">{page.youtube.reason}</p>
-            ) : page ? (
-              <p className="leading-relaxed text-[#5c5148]">유튜브 글이 없습니다.</p>
-            ) : null}
-          </section>
+          <PromoSns
+            headingLevel="h3"
+            loading={state.status === "loading"}
+            instagramAccount={instagramAccount}
+            instagram={page?.instagram ?? null}
+            youtube={page?.youtube ?? null}
+          />
           <section className="grid gap-2 rounded-3xl bg-[#fffaf3] p-4" data-testid="map-promo-board">
             <h3 className="font-semibold">게시판</h3>
             {state.status === "loading" ? <p className="leading-relaxed text-[#5c5148]">게시판을 읽고 있습니다.</p> : <PromoBoard tabs={page?.tabs ?? []} />}
