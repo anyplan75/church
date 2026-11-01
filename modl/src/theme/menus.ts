@@ -11,7 +11,7 @@ export const MENU_ITEMS = [
   { key: "prayer_letter", shortcut: "l" },
   { key: "calendar", shortcut: "c" },
   { key: "archive", shortcut: "r" },
-  { key: "quiz", shortcut: "k" },
+  { key: "discussion", shortcut: "k" },
   { key: "newcomer", shortcut: "n" },
   { key: "finance", shortcut: "f" },
   { key: "website", shortcut: "w" },

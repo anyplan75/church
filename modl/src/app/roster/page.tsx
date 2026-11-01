@@ -1,26 +1,8 @@
-import { BlockedScreen } from "@/components/blocked-screen";
-import { ErrorNote, OkNote } from "@/components/form-note";
-import { RosterWork } from "@/components/account-work";
-import { TermHeading } from "@/components/term-heading";
-import { loadRosterPage } from "@/server/community/service";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function RosterPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string; ok?: string }>;
-}) {
-  const query = await searchParams;
-  const page = await loadRosterPage();
-  if (!page.ok) return <BlockedScreen />;
-
-  return (
-    <section className="grid gap-4">
-      <TermHeading termKey="roster" level={1} />
-      <ErrorNote message={query.error} />
-      <OkNote code={query.ok} />
-      <RosterWork />
-    </section>
-  );
+/** 교인 목록은 교회 관리자 탭 한곳에 둡니다. */
+export default function RosterPage() {
+  redirect("/account?tab=church");
 }

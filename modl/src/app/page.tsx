@@ -32,7 +32,7 @@ export default async function HomePage({
           </ul>
         </section>
       ) : null}
-      <QuestionComposer canAsk={home.canAsk} pastors={home.pastors} />
+      <QuestionComposer signedIn={home.signedIn} pastors={home.pastors} />
       <QuestionList questions={home.questions} />
     </section>
   );

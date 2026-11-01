@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { TermHeading } from "@/components/term-heading";
 import { loadShellState } from "@/server/community/service";
 import { isMenuKey } from "@/theme/menus";
@@ -14,13 +14,13 @@ export default async function MenuPlaceholderPage({
   if (!isMenuKey(menu)) notFound();
   const shell = await loadShellState();
   if (menu === "approval") {
-    if (!shell.officer) return <BlockedScreen />;
-    redirect("/approvals");
+    if (!shell.officer) return <AccessScreen />;
+    redirect("/account?tab=church");
   }
   if (menu === "newcomer") {
-    if (!shell.officer) return <BlockedScreen />;
+    if (!shell.officer) return <AccessScreen />;
   } else if (!shell.menuHrefs.includes(`/${menu}`)) {
-    return <BlockedScreen />;
+    return <AccessScreen />;
   }
 
   return (

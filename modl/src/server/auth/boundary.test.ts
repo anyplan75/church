@@ -29,4 +29,18 @@ describe("화면과 서버 경계", () => {
       assert.doesNotMatch(text, /drizzle-orm/);
     }
   });
+
+  it("로그인 화면에는 공동체 만들기와 등급 고르기가 없습니다", () => {
+    const account = readFileSync(path.join(path.resolve("src"), "app/account/page.tsx"), "utf8");
+    assert.doesNotMatch(account, /community\/new|create_community|planTier|field_role|사용 등급/);
+    const church = readFileSync(path.join(path.resolve("src"), "app/signup/church/page.tsx"), "utf8");
+    const form = readFileSync(path.join(path.resolve("src"), "components/signup-church-form.tsx"), "utf8");
+    const together = `${church}\n${form}`;
+    assert.match(together, /교회 등록/);
+    assert.match(together, /ChurchTagFilters/);
+    assert.doesNotMatch(together, /이 교회 선택|교회 목록|signup-church-search|signup-church-list/);
+    assert.doesNotMatch(together, /planTier|field_role|사용 등급|name="region"|제주시|서귀포시/);
+    assert.match(account, /showsSignupList/);
+    assert.doesNotMatch(account, /등급/);
+  });
 });

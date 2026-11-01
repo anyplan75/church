@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  archiveScopeLabel,
+  archiveTargets,
+  canSeeArchive,
   linkLines,
   parseQuizLines,
   monthKey,
@@ -84,6 +87,26 @@ describe("퀴즈 점수", () => {
   it("달은 서울 달력으로 고릅니다", () => {
     assert.equal(monthKey(new Date("2026-10-31T15:30:00.000Z")), "2026-11");
     assert.equal(monthKey(new Date("2026-10-31T14:30:00.000Z")), "2026-10");
+  });
+
+  it("체크한 교회와 모들마다 자료를 올리고 빈 선택은 거절합니다", () => {
+    const allowedChurchIds = new Set(["c1", "c2"]);
+    const allowedGatheringIds = new Set(["g1", "g2"]);
+    assert.equal(archiveTargets({ churchIds: [], gatheringIds: [], allowedChurchIds, allowedGatheringIds }).ok, false);
+    assert.equal(archiveTargets({ churchIds: ["c9"], gatheringIds: [], allowedChurchIds, allowedGatheringIds }).ok, false);
+    assert.deepEqual(archiveTargets({ churchIds: ["c1", "c1"], gatheringIds: ["g2"], allowedChurchIds, allowedGatheringIds }), {
+      ok: true,
+      places: [
+        { churchId: "c1", groupId: null },
+        { churchId: null, groupId: "g2" },
+      ],
+    });
+    assert.equal(canSeeArchive({ churchId: "c2", groupId: null }, new Set(["c1"]), new Set(["g1"])), false);
+    assert.equal(canSeeArchive({ churchId: "c1", groupId: "g9" }, new Set(["c1"]), new Set(["g1"])), true);
+    assert.equal(canSeeArchive({ churchId: "c9", groupId: "g1" }, new Set(), new Set(["g1"])), true);
+    assert.equal(canSeeArchive({ churchId: null, groupId: null }, allowedChurchIds, allowedGatheringIds), false);
+    assert.equal(archiveScopeLabel({ churchName: "남원교회", gatheringName: "청년모들" }), "교회 · 남원교회 · 모들 · 청년모들");
+    assert.equal(archiveScopeLabel({ churchName: null, gatheringName: null }), "");
   });
 
   it("주소는 빈 줄을 버립니다", () => {

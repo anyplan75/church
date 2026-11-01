@@ -98,6 +98,7 @@ export const BLOCK_TYPES = ["order", "sermon", "officers", "praise", "announceme
 
 /** 악보 주소는 http 또는 https 만 그림으로 보여 줍니다. */
 export function safeScoreUrl(value: string): string | null {
+  if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
   try {

@@ -35,7 +35,6 @@ export async function RosterWork() {
   if (!page.ok) return blocked();
   return (
     <>
-      <p className="leading-relaxed text-[#5c5148]">{page.community.name}</p>
       <Link href="/roster/new" className="inline-flex w-fit max-w-full rounded-2xl bg-[#1d6b45] px-4 py-3 font-semibold leading-snug text-white">
         <TermText termKey="add_roster" />
       </Link>
@@ -84,18 +83,17 @@ export function seasonYear(raw: string | undefined): number {
 }
 
 /** 계정 탭과 모임 화면이 같은 편성을 보여 줍니다. */
-export async function GroupWork({ year, scope }: { year: number; scope: "account" | "page" }) {
+export async function GroupWork({ year }: { year: number }) {
   const page = await loadGroupPage();
   if (!page.ok) return blocked();
   const years = [...new Set(page.data.groups.map((group) => group.seasonYear))].sort((left, right) => right - left);
   const current = page.data.groups.filter((group) => group.seasonYear === year && !group.isArchived);
   const past = page.data.groups.filter((group) => group.isArchived || group.seasonYear !== year);
   const nameOf = (memberId: string | null) => page.data.roster.find((member) => member.id === memberId)?.name ?? "";
-  const hrefFor = (item: number) => (scope === "account" ? `/account?tab=group&year=${item}` : `/group?year=${item}`);
+  const hrefFor = (item: number) => `/account?tab=gathering&year=${item}`;
 
   return (
     <>
-      <p className="leading-relaxed text-[#5c5148]">{page.community.name}</p>
       <nav aria-label="시즌 연도" className="flex flex-wrap gap-2">
         {years.map((item) => (
           <Link
@@ -184,7 +182,6 @@ export async function InviteWork() {
   if (!page.ok) return blocked();
   return (
     <>
-      <p className="leading-relaxed text-[#5c5148]">{page.community.name}</p>
       <form action={issueInviteAction} id="invite-form" className="grid gap-3">
         <TermField termKey="issue_invite" name="maxUses" type="number" />
         <SubmitButton termKey="issue_invite" />
@@ -256,7 +253,7 @@ export async function ApprovalWork() {
               <span className="whitespace-pre-wrap break-words">{reply.body}</span>
               <form action={approveQuestionReplyAction}>
                 <input type="hidden" name="replyId" value={reply.id} />
-                <input type="hidden" name="returnTo" value="/approvals" />
+                <input type="hidden" name="returnTo" value="/account?tab=church" />
                 <button type="submit" className="rounded-xl bg-[#111827] px-4 py-3 font-semibold text-white">
                   답글 승인
                 </button>

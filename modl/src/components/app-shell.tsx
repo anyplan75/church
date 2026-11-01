@@ -7,16 +7,19 @@ import { CategoryMenu, PhoneCategoryTabs } from "@/components/category-menu";
 import { NavIcon } from "@/components/nav-icons";
 import { TermText } from "@/components/term-text";
 import { useMenuShortcuts } from "@/components/use-menu-shortcuts";
+import type { PlaceMenuItem } from "@/promo/rules";
 
 /** 폰은 위쪽 두 줄 탭이고, 패드와 넓은 화면은 왼쪽 세로 목록입니다. */
 export function AppShell({
   children,
   accountName,
   menuHrefs,
+  placeMenus = [],
 }: {
   children: React.ReactNode;
   accountName: string | null;
   menuHrefs: string[];
+  placeMenus?: PlaceMenuItem[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,7 +42,7 @@ export function AppShell({
           </Link>
         </div>
         <nav aria-label="분류" className="flex min-h-0 flex-1 flex-col px-2 pb-2">
-          <CategoryMenu menuHrefs={menuHrefs} className="min-h-0 flex-1 overflow-y-auto" />
+          <CategoryMenu menuHrefs={menuHrefs} placeMenus={placeMenus} className="min-h-0 flex-1 overflow-y-auto" />
           <div className="mt-2 border-t border-[#e2e8f0] pt-2">
             <AccountLink accountName={accountName} />
             <FontCredit />
@@ -48,13 +51,13 @@ export function AppShell({
       </aside>
       <div className={`flex min-w-0 flex-1 flex-col ${pathname === "/map" ? "min-h-0" : ""}`}>
         <header className="border-b border-[#e2e8f0] bg-white md:hidden">
-          <div className="flex h-14 items-center justify-between gap-2 px-3">
-            <Link href="/" className="min-w-0" aria-current={home ? "page" : undefined}>
-              <img src="/modl-logo.png" alt="모들" className="h-12 w-auto max-w-full" />
+          <PhoneCategoryTabs menuHrefs={menuHrefs} placeMenus={placeMenus} />
+          <div className="flex items-center justify-between gap-2 border-t border-[#e2e8f0] px-2">
+            <Link href="/" className="px-3 py-2 text-sm font-medium text-[#475569]" aria-current={home ? "page" : undefined}>
+              첫 화면
             </Link>
-            <AccountLink accountName={accountName} className="w-auto max-w-[46%] px-2" />
+            <AccountLink accountName={accountName} className="w-auto" />
           </div>
-          <PhoneCategoryTabs menuHrefs={menuHrefs} />
         </header>
         <main
           id="modl-main"

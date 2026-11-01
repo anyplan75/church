@@ -14,10 +14,17 @@ function text(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function placeBack(kind: string, id: string): string {
+  if ((kind === "church" || kind === "gathering") && id) return `/promo/${kind}/${id}/settings`;
+  return "/bulletin/new";
+}
+
 export async function saveBulletinAction(formData: FormData) {
   const bulletinId = text(formData, "bulletinId");
   const intent = text(formData, "intent") === "publish" ? "publish" : "save";
-  const back = bulletinId ? `/bulletin/${bulletinId}` : "/bulletin/new";
+  const placeKind = text(formData, "placeKind");
+  const placeId = text(formData, "placeId");
+  const back = bulletinId ? `/bulletin/${bulletinId}` : placeBack(placeKind, placeId);
   let blocksJson: unknown = [];
   try {
     blocksJson = JSON.parse(text(formData, "blocksJson") || "[]");
@@ -53,6 +60,8 @@ export async function saveBulletinAction(formData: FormData) {
       preacher: parsed.data.preacher,
       blocks: blocks.blocks,
       intent,
+      placeKind,
+      placeId,
     });
   } catch (error) {
     fail(back, error);
@@ -65,10 +74,12 @@ export async function saveBulletinWeekAction(formData: FormData) {
   try {
     raw = JSON.parse(text(formData, "weekJson") || "[]");
   } catch {
-    fail("/bulletin/new", new Error("이번 주 예배를 읽지 못했습니다. 다시 읽어 주세요."));
+    fail(placeBack(text(formData, "placeKind"), text(formData, "placeId")), new Error("이번 주 예배를 읽지 못했습니다. 다시 읽어 주세요."));
   }
+  const placeKind = text(formData, "placeKind");
+  const placeId = text(formData, "placeId");
   if (!Array.isArray(raw) || raw.length === 0) {
-    fail("/bulletin/new", new Error("저장할 예배가 없습니다."));
+    fail(placeBack(placeKind, placeId), new Error("저장할 예배가 없습니다."));
   }
   const services: Array<{
     label: string;
@@ -80,7 +91,7 @@ export async function saveBulletinWeekAction(formData: FormData) {
     blocks: BulletinBlock[];
   }> = [];
   for (const item of raw) {
-    if (!item || typeof item !== "object") fail("/bulletin/new", new Error("이번 주 예배를 확인해 주세요."));
+    if (!item || typeof item !== "object") fail(placeBack(placeKind, placeId), new Error("이번 주 예배를 확인해 주세요."));
     const row = item as Record<string, unknown>;
     const parsed = z
       .object({
@@ -99,15 +110,15 @@ export async function saveBulletinWeekAction(formData: FormData) {
         scriptureText: typeof row.scriptureText === "string" ? row.scriptureText : "",
         preacher: typeof row.preacher === "string" ? row.preacher : "",
       });
-    if (!parsed.success) fail("/bulletin/new", new Error(parsed.error.issues[0]?.message ?? "이번 주 예배를 확인해 주세요."));
+    if (!parsed.success) fail(placeBack(placeKind, placeId), new Error(parsed.error.issues[0]?.message ?? "이번 주 예배를 확인해 주세요."));
     const blocks = parseBlocks(row.blocks);
-    if (!blocks.ok) fail("/bulletin/new", new Error(blocks.message));
+    if (!blocks.ok) fail(placeBack(placeKind, placeId), new Error(blocks.message));
     services.push({ ...parsed.data, blocks: blocks.blocks });
   }
   try {
-    await saveBulletinWeek(services);
+    await saveBulletinWeek(services, { kind: placeKind, id: placeId });
   } catch (error) {
-    fail("/bulletin/new", error);
+    fail(placeBack(placeKind, placeId), error);
   }
   redirect("/bulletin?ok=week");
 }

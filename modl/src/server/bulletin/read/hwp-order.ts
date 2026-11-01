@@ -299,23 +299,40 @@ function formatItem(label: string, value: string): string | null {
   const name = label.replace(/^\*\s*/, "").replace(/\s+/g, "");
   const detail = normalizeRoles(stripPage(value)).replace(/\s+/g, " ").trim();
   if (!name) return null;
+  if (/십일조|헌금|봉헌/.test(name)) return null;
   if (/^인도/.test(label.replace(/^\*\s*/, "").trim())) {
     const rest = detail || label.replace(/^\*\s*/, "").replace(/^인도(?:\s*및\s*말씀)?\s*[:：]?\s*/, "").trim();
     return rest ? `인도 ${normalizeRoles(rest)}` : null;
   }
-  if (/신앙고백|사도신경/.test(name)) return "사도신경";
-  if (/찬송/.test(name) || /^\d+\s*장/.test(detail)) return `찬송 ${detail || name}`.trim();
-  if (/찬양|경배/.test(name)) return detail ? `찬양 ${detail}` : "찬양";
-  if (/대표기도/.test(name)) return detail ? `대표기도 ${detail}` : "대표기도";
-  if (/^기도/.test(name)) return detail ? `기도 ${detail}` : "기도";
-  if (/성경|봉독|부름/.test(name)) return detail ? `성경봉독 ${detail}` : null;
-  if (/설교|말씀/.test(name)) return detail ? `설교 ${detail}` : "설교";
-  if (/봉헌/.test(name)) return detail && /^\d+\s*장/.test(detail) ? `봉헌\n찬송 ${detail}` : detail ? `봉헌 ${detail}` : "봉헌";
-  if (/축도/.test(name)) return detail ? `축도 ${detail}` : "축도";
-  if (/^(광고|교회소식)/.test(name)) {
+  const step = stepLabel(name);
+  if (!step) return null;
+  if (step === "사도신경") return "사도신경";
+  if (step === "광고") {
     if (/\d{2,4}[-\s.]?\d{3,4}[-\s.]?\d{4}/.test(detail)) return null;
     return detail ? `광고 ${detail}` : "광고";
   }
+  if (!detail) return step;
+  return `${step} ${detail}`;
+}
+
+/** 인쇄된 순서 이름을 유지합니다. 예배의 부름을 성경봉독으로 바꾸지 않습니다. */
+function stepLabel(compact: string): string | null {
+  if (/결단/.test(compact) && /찬양/.test(compact)) return "결단의 찬양";
+  if (/경배/.test(compact)) return "경배와 찬양";
+  if (/예배의?\s*부름|부름|기원/.test(compact) && !/성경/.test(compact)) return "예배의 부름";
+  if (/영광/.test(compact) && /찬송/.test(compact)) return "영광의 찬송";
+  if (/성도/.test(compact) && /교제/.test(compact)) return "성도의 교제";
+  if (/신앙고백|사도신경/.test(compact)) return "사도신경";
+  if (/대표기도/.test(compact)) return "대표기도";
+  if (/^기도/.test(compact)) return "기도";
+  if (/성경|봉독/.test(compact)) return "성경봉독";
+  if (/찬송/.test(compact)) return "찬송";
+  if (/찬양/.test(compact)) return "찬양";
+  if (/설교/.test(compact)) return "설교";
+  if (/말씀/.test(compact)) return "말씀";
+  if (/축도/.test(compact)) return "축도";
+  if (/광고|교회소식/.test(compact)) return "광고";
+  if (/묵도/.test(compact)) return "묵도";
   return null;
 }
 

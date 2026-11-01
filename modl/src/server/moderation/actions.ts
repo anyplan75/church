@@ -17,7 +17,7 @@ export async function saveBannedWordsAction(formData: FormData) {
   try {
     await saveBannedWordList(text(formData, "words"));
   } catch (error) {
-    redirect(`/account?tab=banned&error=${encodeURIComponent(messageOf(error))}`);
+    redirect(`/account?tab=site&error=${encodeURIComponent(messageOf(error))}`);
   }
-  redirect("/account?tab=banned&ok=banned");
+  redirect("/account?tab=site&ok=banned");
 }

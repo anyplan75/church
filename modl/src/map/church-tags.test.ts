@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { churchMatchesTags, normalizeChurchTags } from "@/map/church-tags";
+import { CHURCH_TAG_GROUPS, churchMatchesTags, normalizeChurchTags } from "@/map/church-tags";
 
 describe("교회 태그 필터", () => {
   const churches = [
@@ -31,6 +31,18 @@ describe("교회 태그 필터", () => {
 
   it("태그가 없는 교회는 필터를 켜면 빠집니다", () => {
     assert.deepEqual(shown(["엘리베이터"]), ["다"]);
+  });
+
+  it("가입 등록에 쓰는 네 묶음만 있고 지역 필터는 없습니다", () => {
+    assert.deepEqual(
+      CHURCH_TAG_GROUPS.map((group) => ({ label: group.label, tags: [...group.tags] })),
+      [
+        { label: "소속 / 성격", tags: ["초교파", "독립교회", "예장통합", "예장합동", "기독교대한감리회", "기독교한국침례회", "한국기독교장로회", "순복음", "성결교"] },
+        { label: "예배 / 세대", tags: ["밴드찬양", "전통예배", "청년부", "청소년부", "어린이주일학교", "영유아부", "평일모임"] },
+        { label: "통역 / 언어", tags: ["영어통역", "중국어통역", "다국어자막", "수어통역", "통역수신기"] },
+        { label: "시설 / 접근성", tags: ["휠체어이동", "엘리베이터", "장애인화장실", "자모실", "전용주차장", "셔틀운행", "버스정류장인접"] },
+      ],
+    );
   });
 
   it("모르는 태그와 중복은 저장하지 않습니다", () => {

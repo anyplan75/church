@@ -60,6 +60,15 @@ export function schedulesFromBulletin(source: BulletinScheduleSource): BulletinS
   return drafts;
 }
 
+/** 주보에서 읽은 일정은 그 교회에만 붙입니다. 교회가 없으면 어디에도 넣지 않습니다. */
+export function attachBulletinEvents<T extends { sourceKey: string }>(
+  churchId: string | null,
+  drafts: readonly T[],
+): Array<T & { churchId: string; groupId: null }> {
+  if (!churchId) return [];
+  return drafts.map((draft) => ({ ...draft, churchId, groupId: null }));
+}
+
 function placeAnnouncement(
   line: string,
   worshipDate: string,
@@ -68,7 +77,8 @@ function placeAnnouncement(
   const dated = readLineDate(line, worshipDate);
   const clock = readClock(line);
   const afterWorship = /예배\s*후/.test(line);
-  if (!dated && !clock && !afterWorship) return null;
+  const eventWord = /행사|모임|집회|수련회|세미나|대회|친교|제직회/.test(line);
+  if (!dated && !clock && !afterWorship && !eventWord) return null;
   const date = dated || worshipDate;
   if (!date) return null;
   if (afterWorship && worshipDate) {

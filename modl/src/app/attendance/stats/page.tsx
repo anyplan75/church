@@ -40,7 +40,7 @@ export default async function AttendanceStatsPage() {
       ) : (
         <>
           <p className="leading-relaxed text-[#5c5148]">
-            {page.scope === "community" ? "공동체 전체 출석입니다." : "맡은 모들 식구의 출석입니다."} 사유 결석은 비율에서 뺍니다.
+            {page.scope === "community" ? "교회 전체 출석입니다." : "맡은 모들 식구의 출석입니다."} 사유 결석은 비율에서 뺍니다.
           </p>
           <Bars termKey="stats_week" bars={page.week} />
           <Bars termKey="stats_month" bars={page.month} />

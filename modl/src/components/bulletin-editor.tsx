@@ -31,6 +31,8 @@ export function BulletinEditor({
   scriptureText,
   preacher,
   blocks,
+  placeKind,
+  placeId,
 }: {
   action: (formData: FormData) => Promise<void>;
   bulletinId?: string;
@@ -39,6 +41,8 @@ export function BulletinEditor({
   scriptureText: string;
   preacher: string;
   blocks: BulletinBlock[];
+  placeKind?: "church" | "gathering";
+  placeId?: string;
 }) {
   const [items, setItems] = useState(blocks);
   const [date, setDate] = useState(worshipDate);
@@ -71,28 +75,15 @@ export function BulletinEditor({
 
   return (
     <div className="grid gap-4">
-      <BulletinIntake onApply={applyIntake} />
+      <BulletinIntake onApply={applyIntake} placeKind={placeKind} placeId={placeId} />
       {week ? (
         <form action={saveBulletinWeekAction} className="grid gap-4" data-testid="bulletin-week">
           <input type="hidden" name="weekJson" value={JSON.stringify(week)} />
+          {placeKind && placeId ? <input type="hidden" name="placeKind" value={placeKind} /> : null}
+          {placeKind && placeId ? <input type="hidden" name="placeId" value={placeId} /> : null}
           <h2 className="font-semibold leading-snug">이번 주 예배</h2>
           <p className="leading-relaxed text-[#5c5148]">한 번 읽은 예배 {week.length}개입니다. 글에 없는 순서는 넣지 않았습니다.</p>
-          <ol className="grid gap-3">
-            {week.map((service) => {
-              const order = service.blocks.find((block) => block.type === "order");
-              const labels = order?.type === "order" ? order.items.map((item) => item.label) : [];
-              return (
-                <li key={`${service.label}-${service.worshipDate}-${service.time}`} className="grid gap-1 rounded-3xl bg-[#fffaf3] px-4 py-4">
-                  <p className="font-semibold leading-snug">
-                    {service.label} {service.time}
-                  </p>
-                  <p className="leading-relaxed text-[#5c5148]">{service.worshipDate || "날짜를 읽지 못했습니다."}</p>
-                  {service.sermonTitle ? <p className="leading-relaxed">{service.sermonTitle}</p> : null}
-                  {labels.length > 0 ? <p className="leading-relaxed">{labels.join(" · ")}</p> : null}
-                </li>
-              );
-            })}
-          </ol>
+          <WeekServices week={week} />
           <button type="submit" className="w-fit rounded-2xl bg-[#1d6b45] px-4 py-3 font-semibold leading-snug text-white">
             이번 주 저장
           </button>
@@ -101,6 +92,8 @@ export function BulletinEditor({
       {week ? null : (
       <form action={action} id="bulletin-form" className="grid gap-4">
       {bulletinId ? <input type="hidden" name="bulletinId" value={bulletinId} /> : null}
+      {placeKind && placeId ? <input type="hidden" name="placeKind" value={placeKind} /> : null}
+      {placeKind && placeId ? <input type="hidden" name="placeId" value={placeId} /> : null}
       <input type="hidden" name="blocksJson" value={JSON.stringify(items)} />
       <p className="leading-relaxed text-[#5c5148]">
         설교 제목, 본문 말씀, 설교자는 목록과 공유 카드에 나갑니다. 아래 블록은 교회마다 순서를 바꿔도 됩니다.
@@ -135,11 +128,14 @@ export function BulletinEditor({
         ))}
       </div>
       <ol className="grid gap-3">
-        {items.map((block, index) => (
+        {(Array.isArray(items) ? items : []).map((block, index) => {
+          const termKey = BLOCK_TERM[block.type];
+          if (!termKey) return null;
+          return (
           <li key={block.id} data-testid="editor-block" data-block-type={block.type} className="grid gap-3 rounded-3xl bg-[#fffaf3] px-4 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="break-words text-[clamp(1.1rem,1rem+0.3vw,1.35rem)] font-semibold leading-snug">
-                <TermText termKey={BLOCK_TERM[block.type]} />
+                <TermText termKey={termKey} />
               </h2>
               <div className="flex flex-wrap gap-2">
                 <SmallButton termKey="move_up" testId="move-up" onClick={() => setItems((current) => moveBlock(current, index, -1))} />
@@ -153,7 +149,8 @@ export function BulletinEditor({
             </div>
             <BlockFields block={block} onChange={(next) => update(index, next)} />
           </li>
-        ))}
+          );
+        })}
       </ol>
       <div className="flex flex-wrap gap-2">
         <IntentButton termKey="bulletin_save" intent="save" primary={false} />
@@ -163,6 +160,65 @@ export function BulletinEditor({
       )}
     </div>
   );
+}
+
+function WeekServices({ week }: { week: BulletinServiceDraft[] }) {
+  const news = weekNews(week);
+  return (
+    <>
+      <ol className="grid gap-3">
+        {week.map((service) => {
+          const blocks = Array.isArray(service.blocks) ? service.blocks : [];
+          const order = blocks.find((block) => block.type === "order");
+          const labels = order?.type === "order" ? order.items.map((item) => [item.label, item.detail].filter(Boolean).join(" ")) : [];
+          return (
+            <li
+              key={`${service.label}-${service.worshipDate}-${service.time}`}
+              data-testid="bulletin-service"
+              data-label={service.label}
+              className="grid gap-1 rounded-3xl bg-[#fffaf3] px-4 py-4"
+            >
+              <p className="font-semibold leading-snug">
+                {service.label} {service.time}
+              </p>
+              <p className="leading-relaxed text-[#5c5148]">{service.worshipDate || "날짜를 읽지 못했습니다."}</p>
+              {service.sermonTitle ? <p className="leading-relaxed">설교 {service.sermonTitle}</p> : null}
+              {service.scriptureText ? <p className="leading-relaxed">본문 {service.scriptureText}</p> : null}
+              {service.preacher ? <p className="leading-relaxed">설교자 {service.preacher}</p> : null}
+              {labels.length > 0 ? (
+                <ol className="grid gap-0.5 leading-relaxed">
+                  {labels.map((line, index) => (
+                    <li key={`${line}-${index}`}>{line}</li>
+                  ))}
+                </ol>
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+      {news ? (
+        <p className="whitespace-pre-wrap leading-relaxed" data-testid="bulletin-news">
+          {news}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function weekNews(week: readonly BulletinServiceDraft[]): string {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const service of week) {
+    const block = service.blocks.find((item) => item.type === "announcement");
+    if (block?.type !== "announcement") continue;
+    for (const line of block.body.split("\n")) {
+      const text = line.trim();
+      if (!text || seen.has(text)) continue;
+      seen.add(text);
+      lines.push(text);
+    }
+  }
+  return lines.join("\n");
 }
 
 function AddBlockButton({ type, onAdd }: { type: BlockType; onAdd: () => void }) {

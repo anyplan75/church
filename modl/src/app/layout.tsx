@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "모들",
-  description: "목사에게 질문하고, 교인과 출석과 주보를 다루는 공동체",
+  description: "목사에게 질문하고, 교회와 모들의 일정과 재정을 나눕니다.",
   icons: {
     icon: [{ url: "/modl-icon.png", type: "image/png" }],
     apple: [{ url: "/modl-icon.png", type: "image/png" }],
@@ -29,7 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           languageModeFromCommunity={shell.languageMode}
           overridesJson={shell.overridesJson}
         >
-          <AppShell accountName={shell.accountName} menuHrefs={shell.menuHrefs}>{children}</AppShell>
+          <AppShell accountName={shell.accountName} menuHrefs={shell.menuHrefs} placeMenus={shell.placeMenus}>{children}</AppShell>
         </CommunityTermProvider>
       </body>
     </html>

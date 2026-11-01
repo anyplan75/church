@@ -1,3 +1,4 @@
 {
-  "regions": ["hkg1"]
+  "regions": ["icn1"],
+  "crons": [{ "path": "/api/cron/guide-mail", "schedule": "0 23 * * *" }]
 }

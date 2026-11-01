@@ -1,4 +1,4 @@
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { ErrorNote } from "@/components/form-note";
 import { RosterForm } from "@/components/roster-form";
 import { TermHeading } from "@/components/term-heading";
@@ -14,7 +14,7 @@ export default async function NewRosterPage({
 }) {
   const query = await searchParams;
   const page = await loadRosterPage();
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) return <AccessScreen />;
 
   return (
     <section className="grid gap-4">

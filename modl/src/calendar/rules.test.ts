@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { generateKeyPairSync } from "node:crypto";
 import {
@@ -14,8 +15,14 @@ import {
   googleEventCoversDate,
   googleEventRequest,
   churchSeasonMarks,
+  seasonGuide,
+  seasonIconKey,
   monthCells,
+  eventSummary,
   monthDayMarks,
+  schedulePlaceColor,
+  shiftDateKey,
+  weekDateKeys,
   westernAdventStart,
   westernEaster,
   parseLocalDateTime,
@@ -240,6 +247,16 @@ describe("교회 절기", () => {
     assert.deepEqual(titles(2026, 12, 24), ["대림절"]);
     assert.deepEqual(titles(2026, 12, 25), ["성탄절"]);
     assert.deepEqual(titles(2026, 12, 26), []);
+    assert.equal(seasonIconKey("대림절"), "advent");
+    assert.equal(seasonIconKey("성탄절"), "christmas");
+    assert.equal(seasonIconKey("사순절"), "lent");
+    assert.equal(seasonIconKey("성금요일"), "cross");
+    assert.equal(seasonIconKey("부활절"), "easter");
+    assert.equal(seasonIconKey("성령강림절"), "pentecost");
+    assert.equal(seasonIconKey("없는 절기"), null);
+    assert.equal(seasonGuide("성탄절"), "성탄절은 예수님이 사람으로 태어나신 날입니다.");
+    assert.equal(seasonGuide("부활절")?.includes("다시 살아나신"), true);
+    assert.equal(seasonGuide("없는 절기"), null);
   });
 
   it("절기는 칸에만 보이고 저장된 일정을 지우지 않습니다", () => {
@@ -271,6 +288,97 @@ describe("교회 절기", () => {
     assert.deepEqual(christmas?.marks.map((mark) => mark.title), ["전체 모임", "성탄절"]);
     assert.equal(christmas?.marks[1]?.kind, "season");
     assert.equal(christmas?.marks[1]?.href, null);
+  });
+
+  it("한 주는 일요일부터 일곱 날이고 일정에는 교회·모들 색이 붙습니다", () => {
+    assert.deepEqual(weekDateKeys("2026-10-23"), [
+      "2026-10-18",
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-21",
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-24",
+    ]);
+    assert.equal(weekDateKeys("2026-02-31").length, 0);
+    assert.equal(shiftDateKey("2026-10-18", 7), "2026-10-25");
+    const church = schedulePlaceColor("church", "church-a");
+    const again = schedulePlaceColor("church", "church-a");
+    const gathering = schedulePlaceColor("gathering", "church-a");
+    assert.equal(church, again);
+    assert.notEqual(church, gathering);
+    const hue = (hex: string) => {
+      const value = Number.parseInt(hex.slice(1), 16);
+      const red = (value >> 16) & 255;
+      const green = (value >> 8) & 255;
+      const blue = value & 255;
+      const max = Math.max(red, green, blue);
+      const min = Math.min(red, green, blue);
+      const span = max - min;
+      if (span === 0) return 0;
+      const raw = max === red ? ((green - blue) / span) % 6 : max === green ? (blue - red) / span + 2 : (red - green) / span + 4;
+      const turn = raw * 60;
+      return turn < 0 ? turn + 360 : turn;
+    };
+    assert.ok(hue(church) > 200 && hue(church) < 245);
+    assert.ok(hue(gathering) > 250 && hue(gathering) < 300);
+    const days = monthDayMarks(
+      2026,
+      10,
+      [
+        {
+          id: "modl-1",
+          title: "전체 모임",
+          startAt: "2026-10-19T10:00",
+          endAt: "2026-10-19T11:00",
+          isLeaderOnly: false,
+          placeName: "가시리교회",
+          placeKind: "church",
+          placeId: "church-a",
+        },
+      ],
+      [],
+      [],
+    );
+    const mark = days.find((cell) => cell.date === "2026-10-19")?.marks[0];
+    assert.equal(mark?.placeName, "가시리교회");
+    assert.equal(mark?.placeColor, church);
+    assert.equal(mark?.title, "전체 모임");
+    const page = readFileSync(new URL("../app/calendar/page.tsx", import.meta.url), "utf8");
+    assert.doesNotMatch(page, /수정 권한이 없으면 일정은 보기만 합니다/);
+    const note = page.indexOf("내가 속한 교회 일정과 내가 속한 모들 일정만 보입니다");
+    const monthGrid = page.indexOf('data-testid="month-grid"');
+    const weekBoard = page.indexOf('data-testid="week-board"');
+    assert.ok(note > monthGrid && note > weekBoard);
+    const tabs = page.slice(page.indexOf('data-testid="calendar-view-tabs"'), page.indexOf("</nav>"));
+    assert.match(tabs, /월별일정/);
+    assert.match(tabs, /주간일정/);
+    assert.doesNotMatch(tabs, /달력/);
+  });
+
+  it("같은 날 같은 곳 같은 제목은 한 번만 두고 요약은 짧게 남깁니다", () => {
+    const event = {
+      id: "modl-1",
+      title: "정기제직회",
+      startAt: "2026-10-11T12:00",
+      endAt: "2026-10-11T13:00",
+      isLeaderOnly: false,
+      placeName: "서귀포제일교회",
+      placeKind: "church" as const,
+      placeId: "church-a",
+    };
+    const days = monthDayMarks(2026, 10, [event, { ...event, id: "modl-2" }], [], []);
+    const marks = days.find((cell) => cell.date === "2026-10-11")?.marks ?? [];
+    assert.equal(marks.length, 1);
+    assert.equal(marks[0]?.title, "정기제직회");
+    assert.match(marks[0]?.summary ?? "", /서귀포제일교회/);
+    assert.equal(eventSummary({ ...event, placeName: "서귀포제일교회".repeat(8) })?.endsWith("..."), true);
+    const page = readFileSync(new URL("../app/calendar/page.tsx", import.meta.url), "utf8");
+    assert.match(page, /h-96/);
+    assert.match(page, /overflow-y-auto/);
+    assert.match(page, /mode="month"/);
+    assert.match(page, /h-16/);
+    assert.match(page, /overflow-hidden/);
   });
 });
 

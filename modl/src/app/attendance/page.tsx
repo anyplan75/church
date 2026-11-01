@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BlockedScreen } from "@/components/blocked-screen";
+import { AccessScreen } from "@/components/access-screen";
 import { DepartmentField } from "@/components/choice-fields";
 import { ErrorNote, OkNote } from "@/components/form-note";
 import { SubmitButton, TermField } from "@/components/term-field";
@@ -17,7 +17,7 @@ export default async function AttendancePage({
 }) {
   const query = await searchParams;
   const page = await loadAttendanceHome({ churchId: query.church, groupId: query.group });
-  if (!page.ok) return <BlockedScreen />;
+  if (!page.ok) return <AccessScreen />;
   const churchQuery = page.selectedChurchId ? `&church=${page.selectedChurchId}` : "";
   const groupQuery = page.selectedGroupId ? `&group=${page.selectedGroupId}` : "";
 

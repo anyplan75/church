@@ -1,0 +1,66 @@
+/**
+ * 인스타그램 계정에서 최신 글을 고릅니다.
+ * 여기에는 비밀 열쇠를 두지 않습니다.
+ */
+
+import { instagramHref } from "@/promo/rules";
+
+export type InstagramPost = {
+  id: string;
+  permalink: string;
+  imageUrl: string;
+  caption: string;
+};
+
+/** 홍보 페이지에 적은 계정에서 사용자 이름만 뽑습니다. */
+export function instagramUsername(account: string): string | null {
+  const href = instagramHref(account);
+  if (!href) return null;
+  try {
+    const handle = new URL(href).pathname.split("/").filter((part) => part.length > 0)[0] ?? "";
+    return /^[A-Za-z0-9._]{1,30}$/.test(handle) ? handle : null;
+  } catch {
+    return null;
+  }
+}
+
+function httpsUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function imageHost(value: string): boolean {
+  const host = new URL(value).hostname.replace(/^www\./, "");
+  return host === "instagram.com" || host.endsWith(".cdninstagram.com") || host === "cdninstagram.com" || host.endsWith(".fbcdn.net");
+}
+
+/** 그래프 응답에서 그림이 있는 글만 남깁니다. 없는 글은 만들지 않습니다. */
+export function readInstagramMedia(payload: unknown): InstagramPost[] {
+  if (!payload || typeof payload !== "object" || !("business_discovery" in payload)) return [];
+  const discovery = payload.business_discovery;
+  if (!discovery || typeof discovery !== "object" || !("media" in discovery)) return [];
+  const media = discovery.media;
+  if (!media || typeof media !== "object" || !("data" in media) || !Array.isArray(media.data)) return [];
+  const posts: InstagramPost[] = [];
+  for (const row of media.data) {
+    if (posts.length >= 12) break;
+    if (!row || typeof row !== "object") continue;
+    const id = "id" in row && typeof row.id === "string" ? row.id : "";
+    const permalink = httpsUrl("permalink" in row ? row.permalink : "");
+    const mediaType = "media_type" in row && typeof row.media_type === "string" ? row.media_type : "";
+    const imageUrl = httpsUrl(mediaType === "VIDEO" ? ("thumbnail_url" in row ? row.thumbnail_url : "") : "media_url" in row ? row.media_url : "");
+    const caption = "caption" in row && typeof row.caption === "string" ? row.caption.trim().slice(0, 80) : "";
+    if (!id || !permalink || !imageUrl) continue;
+    if (!imageHost(imageUrl)) continue;
+    const linkHost = new URL(permalink).hostname.replace(/^www\./, "");
+    if (linkHost !== "instagram.com") continue;
+    posts.push({ id, permalink, imageUrl, caption });
+  }
+  return posts;
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { schedulesFromBulletin } from "@/calendar/bulletin-schedule";
+import { attachBulletinEvents, schedulesFromBulletin } from "@/calendar/bulletin-schedule";
 
 describe("주보 일정", () => {
   it("예배와 시각이 있는 광고만 넣고 십일조와 헌금은 빼니다", () => {
@@ -33,5 +33,22 @@ describe("주보 일정", () => {
     });
     assert.equal(drafts[1]?.startAt.toISOString(), "2026-10-25T14:00:00.000Z");
     assert.equal(drafts[2]?.startAt.toISOString(), "2026-10-21T21:00:00.000Z");
+  });
+
+  it("행사 광고는 그 교회 일정에만 붙고 교회가 없으면 넣지 않습니다", () => {
+    const drafts = schedulesFromBulletin({
+      label: "주일예배",
+      time: "11:00",
+      worshipDate: "2026-10-25",
+      sermonTitle: "",
+      announcements: "가을 행사\n십일조 행사",
+    });
+    assert.deepEqual(
+      drafts.map((item) => item.title),
+      ["주일예배", "가을 행사"],
+    );
+    const attached = attachBulletinEvents("church-1", drafts);
+    assert.equal(attached.every((item) => item.churchId === "church-1" && item.groupId === null), true);
+    assert.deepEqual(attachBulletinEvents(null, drafts), []);
   });
 });
