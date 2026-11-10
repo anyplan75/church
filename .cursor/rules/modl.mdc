@@ -1,0 +1,7 @@
+---
+description: 모들(modl) 하위 앱 규칙. modl/ 파일을 다룰 때 적용.
+globs: modl/**
+alwaysApply: false
+---
+
+`modl/`은 은혜로운 예배와 다른 앱입니다. `modl/AGENTS.md`와 `modl/전체구조안내서.md`를 따르고, 명령은 `modl/` 안에서 실행합니다.
